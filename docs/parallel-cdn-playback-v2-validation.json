@@ -1,0 +1,117 @@
+{
+  "engine_source_sha256": "af19103237253c2cfba63e5562098875e518ef8224717f40c19034dd59349423",
+  "policy_sha256": "7ab54658b0fd9b5298e08cfb8d4782939059da29bd02db0235ba9705ca5ff295",
+  "native_library_sha256": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c",
+  "framework_source": "build/macos/Build/Products/Release/PiliPlus.app/Contents/Frameworks",
+  "external_dart_proxy": true,
+  "concurrency": 8,
+  "chunk_bytes": 1048576,
+  "byte_checks": [
+    {
+      "event": "byte_check",
+      "track": "video",
+      "bytes": 3145728,
+      "identical": true,
+      "direct_status": 206,
+      "proxy_status": 206,
+      "direct_ms": 1089,
+      "proxy_ms": 19282
+    },
+    {
+      "event": "byte_check",
+      "track": "audio",
+      "bytes": 1265842,
+      "identical": true,
+      "direct_status": 206,
+      "proxy_status": 206,
+      "direct_ms": 937,
+      "proxy_ms": 6945
+    }
+  ],
+  "native_8s_network_timeout": {
+    "passed": false,
+    "reason": "Initial playback timed out after35s;time-pos null"
+  },
+  "native_60s_network_timeout": {
+    "passed": true,
+    "events": [
+      {
+        "stage": "initial_playback",
+        "time_pos": 2.0,
+        "elapsed_ms": 9135,
+        "track_count": 2,
+        "video_width": 512,
+        "audio_samplerate": 44100
+      },
+      {
+        "stage": "seek_playback",
+        "target": 120,
+        "time_pos": 122.0,
+        "elapsed_ms": 6593,
+        "pass_check": true
+      },
+      {
+        "event": "native_done",
+        "exit_code": 0
+      }
+    ]
+  },
+  "successful_payload_hosts": [
+    "upos-sz-mirror08c.bilivideo.com",
+    "upos-sz-mirror14b.bilivideo.com",
+    "upos-sz-mirrorali.bilivideo.com",
+    "upos-sz-mirrorbd.bilivideo.com",
+    "upos-sz-mirrorbos.bilivideo.com",
+    "upos-sz-mirrorhw.bilivideo.com"
+  ],
+  "native_app_loadfile_options": {
+    "passed": true,
+    "description": "Global mpv timeout5; per-file network-timeout60 matches media_kit loadfile extras. Reverts to5 afterstop andnextdirectlocalWAV.",
+    "events": [
+      {
+        "stage": "timeout_while_playing",
+        "global_initial_timeout": 5.0,
+        "loadfile_timeout": 60.0,
+        "mpv_api_version": 131073
+      },
+      {
+        "stage": "initial_playback",
+        "time_pos": 2.0,
+        "elapsed_ms": 6713,
+        "track_count": 2,
+        "video_width": 512,
+        "audio_samplerate": 44100
+      },
+      {
+        "stage": "seek_playback",
+        "target": 120,
+        "time_pos": 122.0,
+        "elapsed_ms": 3733,
+        "pass_check": true
+      },
+      {
+        "stage": "timeout_restored",
+        "after_stop": 5.0,
+        "next_direct_file": 5.0,
+        "direct_time_pos": 0.63,
+        "pass_check": true
+      },
+      {
+        "event": "native_done",
+        "exit_code": 0
+      }
+    ],
+    "successful_payload_hosts": [
+      "upos-sz-mirror08c.bilivideo.com",
+      "upos-sz-mirror14b.bilivideo.com",
+      "upos-sz-mirrorali.bilivideo.com",
+      "upos-sz-mirrorbd.bilivideo.com",
+      "upos-sz-mirrorbos.bilivideo.com",
+      "upos-sz-mirrorhw.bilivideo.com"
+    ],
+    "controller_sha256": "adcf077fc247627285d82510d65ce53e66073c223ae5946cabf090c806ee47fb"
+  },
+  "source_commit": "50acf946fe59a3d6bb81cc2046675d6917e86630",
+  "verified_on": "2026-09-23",
+  "test_scope": "External Dart transport from recorded source hashes with the built app native frameworks; headless decoding, no application GUI or audible output."
+}
