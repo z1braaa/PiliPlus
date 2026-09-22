@@ -133,6 +133,8 @@ class VideoDetailController extends GetxController
   late VideoItem firstVideo;
   String? videoUrl;
   String? audioUrl;
+  List<String> _originalVideoUrls = const [];
+  List<String> _originalAudioUrls = const [];
   Duration? defaultST;
   Duration? playedTime;
   String playedTimePos(bool hasParams) {
@@ -691,7 +693,7 @@ class VideoDetailController extends GetxController
       ..buffered.value = 0;
 
     firstVideo = findVideoByQa(currentVideoQa.code, setCodecs: true);
-    videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
+    _setVideoPlaybackSource();
 
     /// 根据currentAudioQa 重新设置audioUrl
     if (currentAudioQa != null) {
@@ -699,10 +701,20 @@ class VideoDetailController extends GetxController
         (i) => i.id == currentAudioQa!.code,
         orElse: () => data.dash!.audio!.first,
       );
-      audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
+      setAudioPlaybackSource(firstAudio);
     }
 
     playerInit();
+  }
+
+  void _setVideoPlaybackSource() {
+    _originalVideoUrls = List.unmodifiable(firstVideo.playUrls);
+    videoUrl = VideoUtils.getPlaybackCdnUrl(_originalVideoUrls);
+  }
+
+  void setAudioPlaybackSource(AudioItem audio) {
+    _originalAudioUrls = List.unmodifiable(audio.playUrls);
+    audioUrl = VideoUtils.getPlaybackCdnUrl(_originalAudioUrls, isAudio: true);
   }
 
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
@@ -734,8 +746,17 @@ class VideoDetailController extends GetxController
               hasDashAudio: entry.hasDashAudio,
             )
           : NetworkSource(
-              videoSource: videoUrl!,
-              audioSource: audioUrl,
+              videoSource: _originalVideoUrls.isEmpty
+                  ? videoUrl!
+                  : VideoUtils.getPlaybackCdnUrl(_originalVideoUrls),
+              audioSource: _originalAudioUrls.isEmpty
+                  ? audioUrl
+                  : VideoUtils.getPlaybackCdnUrl(
+                      _originalAudioUrls,
+                      isAudio: true,
+                    ),
+              originalVideoUrls: _originalVideoUrls,
+              originalAudioUrls: _originalAudioUrls,
             ),
       seekTo: seek,
       duration: data.timeLength == null
@@ -859,6 +880,8 @@ class VideoDetailController extends GetxController
 
     if (result case Success(:final response)) {
       data = response;
+      _originalVideoUrls = const [];
+      _originalAudioUrls = const [];
       if (data.dash != null) await _supplementVideoQualities();
 
       languages.value = data.language?.items;
@@ -895,12 +918,12 @@ class VideoDetailController extends GetxController
             // TODO: refa
             final sb = StringBuffer('edl://!no_chapters;');
             for (var i in durl) {
-              final video = VideoUtils.getCdnUrl(i.playUrls);
+              final video = VideoUtils.getPlaybackCdnUrl(i.playUrls);
               sb.write('%${video.length}%$video,length=${i.length! / 1000};');
             }
             videoUrl = sb.toString();
           } else {
-            videoUrl = VideoUtils.getCdnUrl(durl.single.playUrls);
+            videoUrl = VideoUtils.getPlaybackCdnUrl(durl.single.playUrls);
           }
 
           audioUrl = '';
@@ -960,7 +983,7 @@ class VideoDetailController extends GetxController
       );
       _setVideoHeight();
 
-      videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
+      _setVideoPlaybackSource();
 
       /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
       AudioItem? firstAudio;
@@ -979,10 +1002,11 @@ class VideoDetailController extends GetxController
           (e) => e.id == closestNumber,
           orElse: () => audioList.first,
         );
-        audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
+        setAudioPlaybackSource(firstAudio);
         currentAudioQa = AudioQuality.fromCode(firstAudio.id);
       } else {
         audioUrl = '';
+        currentAudioQa = null;
       }
       await _initPlayerIfNeeded(autoFullScreenFlag);
     } else {
@@ -1271,6 +1295,8 @@ class VideoDetailController extends GetxController
     defaultST = null;
     videoUrl = null;
     audioUrl = null;
+    _originalVideoUrls = const [];
+    _originalAudioUrls = const [];
 
     // danmaku
     savedDanmaku = null;
@@ -1427,7 +1453,9 @@ class VideoDetailController extends GetxController
       from: from,
       heroTag: _autoPlay.value ? heroTag : null,
       start: playedTime,
-      audioUrl: audioUrl,
+      audioUrl: _originalAudioUrls.isEmpty
+          ? audioUrl
+          : VideoUtils.getPlaybackCdnUrl(_originalAudioUrls, isAudio: true),
       extraId: extraId,
     );
   }
@@ -1559,6 +1587,10 @@ class VideoDetailController extends GetxController
           TextButton(
             onPressed: () {
               Get.back();
+              // An edited stream replaces its API representation. Keep the
+              // other stream's alternatives when its URL did not change.
+              if (this.videoUrl != videoUrl) _originalVideoUrls = const [];
+              if (this.audioUrl != audioUrl) _originalAudioUrls = const [];
               this.videoUrl = videoUrl;
               this.audioUrl = audioUrl;
               playerInit();
