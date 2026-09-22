@@ -62,6 +62,13 @@ List<SettingsModel> get videoSettings => [
         '当前使用：${VideoUtils.cdnService.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
     onTap: _showCDNDialog,
   ),
+  const SwitchModel(
+    title: '并发 CDN 加载（实验性）',
+    leading: Icon(Icons.cloud_download_outlined),
+    subtitle: '下一个视频生效；仅限 DASH 点播，可能增加流量与内存占用；启用代理时不生效',
+    setKey: SettingBoxKey.cdnParallelLoading,
+    defaultVal: false,
+  ),
   NormalModel(
     title: '直播 CDN 设置',
     leading: const Icon(MdiIcons.cloudPlusOutline),

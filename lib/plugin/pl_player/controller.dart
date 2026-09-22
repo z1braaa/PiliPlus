@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
+import 'package:PiliPlus/http/cdn_playback_proxy.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -61,6 +62,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
+import 'package:synchronized/synchronized.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -69,6 +71,10 @@ typedef PlayCallback = Future<void>? Function();
 class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Player? _videoPlayerController;
   VideoController? _videoController;
+  final _mediaSourceLock = Lock();
+  int _mediaSourceGeneration = 0;
+  CdnPlaybackProxy? _cdnPlaybackProxy;
+  CdnPlaybackProxy? _pendingCdnPlaybackProxy;
 
   static PlPlayerController? _instance;
 
@@ -605,6 +611,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Volume? volume,
     bool autoFullScreenFlag = false,
   }) async {
+    final sourceGeneration = ++_mediaSourceGeneration;
     try {
       _processing = true;
       this.isLive = isLive;
@@ -633,17 +640,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await pause(notify: false);
       }
 
-      if (_playerCount == 0) {
+      if (!_isCurrentMediaSource(sourceGeneration)) {
         return;
       }
       // 配置Player 音轨、字幕等等
-      await _createVideoController(dataSource, seekTo, volume);
+      if (!await _createVideoController(
+        dataSource,
+        seekTo,
+        volume,
+        sourceGeneration,
+      )) {
+        return;
+      }
 
-      if (_playerCount == 0) {
-        _removeListeners();
-        _videoPlayerController?.dispose();
-        _videoPlayerController = null;
-        _videoController = null;
+      if (!_isCurrentMediaSource(sourceGeneration)) {
         return;
       }
 
@@ -656,16 +666,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         triggerFullScreen(status: true);
       }
 
-      await _initializePlayer();
-      onInit?.call();
+      await _initializePlayer(sourceGeneration);
+      if (_isCurrentMediaSource(sourceGeneration)) onInit?.call();
     } catch (err, stackTrace) {
-      dataStatus.value = DataStatus.error;
+      if (_isCurrentMediaSource(sourceGeneration)) {
+        dataStatus.value = DataStatus.error;
+      }
       if (kDebugMode) {
         debugPrint(stackTrace.toString());
         debugPrint('plPlayer err:  $err');
       }
     } finally {
-      _processing = false;
+      if (sourceGeneration == _mediaSourceGeneration) {
+        _processing = false;
+      }
     }
   }
 
@@ -763,12 +777,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final buffer = Pref.initBuffer(_playbackSpeed.value);
   late final liveBuffer = Pref.initLiveBuffer();
 
-  // 配置播放器
-  Future<void> _createVideoController(
+  bool _isCurrentMediaSource(int generation) =>
+      _playerCount != 0 && generation == _mediaSourceGeneration;
+
+  Future<void> _closeCdnPlaybackProxy(CdnPlaybackProxy? proxy) async {
+    if (proxy == null) return;
+    try {
+      await proxy.close();
+    } catch (_) {
+      // Cleanup must not turn a successful source replacement into an error.
+      if (kDebugMode) debugPrint('CDN playback proxy cleanup failed');
+    }
+  }
+
+  // Serialize preparation so a superseded source cannot replace a newer one.
+  Future<bool> _createVideoController(
     DataSource dataSource,
     Duration? seekTo,
     Volume? volume,
-  ) async {
+    int sourceGeneration,
+  ) => _mediaSourceLock.synchronized(() async {
+    if (!_isCurrentMediaSource(sourceGeneration)) return false;
+    final sourceIsLive = isLive;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();
@@ -782,67 +812,128 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         player.dispose();
         player = null;
         _videoController = null;
-        return;
+        return false;
       }
       _videoPlayerController = player;
       if (isAnim && superResolutionType.value != .disable) {
         await setShader();
       }
     }
+    if (!_isCurrentMediaSource(sourceGeneration)) return false;
 
     final Map<String, String> extras = {
       if (dataSource is FileSource)
         'cache': 'no'
-      else if (isLive)
+      else if (sourceIsLive)
         ...liveBuffer
       else
         ...buffer,
     };
 
     String video = dataSource.videoSource;
-    if (dataSource.audioSource case final audio? when (audio.isNotEmpty)) {
-      if (onlyPlayAudio.value) {
-        video = audio;
-      } else {
-        // dely_open need provide length
-        video =
-            ('edl://'
-            '!no_chapters;'
-            // '!delay_open,media_type=video;'
-            '%${isFileSource ? utf8.encode(video).length : video.length}%$video;'
-            '!new_stream;!no_chapters;'
-            // '!delay_open,media_type=audio;'
-            '%${isFileSource ? utf8.encode(audio).length : audio.length}%$audio');
+    String? audio = dataSource.audioSource;
+    CdnPlaybackProxy? nextProxy;
+    if (Pref.cdnParallelLoading &&
+        !Pref.enableSystemProxy &&
+        dataSource is NetworkSource &&
+        !sourceIsLive &&
+        audio != null &&
+        audio.isNotEmpty) {
+      try {
+        nextProxy = await CdnPlaybackProxy.start();
+        _pendingCdnPlaybackProxy = nextProxy;
+        if (!_isCurrentMediaSource(sourceGeneration)) {
+          await _closeCdnPlaybackProxy(nextProxy);
+          _pendingCdnPlaybackProxy = null;
+          return false;
+        }
+        const headers = {
+          'User-Agent': BrowserUa.pc,
+          'Referer': HttpString.baseUrl,
+        };
+        video = nextProxy.register(video, headers: headers);
+        audio = nextProxy.register(audio, headers: headers);
+        if (video == dataSource.videoSource &&
+            audio == dataSource.audioSource) {
+          await _closeCdnPlaybackProxy(nextProxy);
+          _pendingCdnPlaybackProxy = null;
+          nextProxy = null;
+        }
+      } catch (_) {
+        await _closeCdnPlaybackProxy(nextProxy);
+        _pendingCdnPlaybackProxy = null;
+        nextProxy = null;
+        video = dataSource.videoSource;
+        audio = dataSource.audioSource;
+        if (kDebugMode) {
+          debugPrint('CDN playback proxy unavailable; using original URLs');
+        }
       }
-      audioFilterExtras(volume, map: extras);
     }
+    if (!_isCurrentMediaSource(sourceGeneration)) {
+      await _closeCdnPlaybackProxy(nextProxy);
+      _pendingCdnPlaybackProxy = null;
+      return false;
+    }
+    try {
+      if (audio != null && audio.isNotEmpty) {
+        if (onlyPlayAudio.value) {
+          video = audio;
+        } else {
+          // dely_open need provide length
+          video =
+              ('edl://'
+              '!no_chapters;'
+              // '!delay_open,media_type=video;'
+              '%${dataSource is FileSource ? utf8.encode(video).length : video.length}%$video;'
+              '!new_stream;!no_chapters;'
+              // '!delay_open,media_type=audio;'
+              '%${dataSource is FileSource ? utf8.encode(audio).length : audio.length}%$audio');
+        }
+        audioFilterExtras(volume, map: extras);
+      }
 
-    assert(!isLive || seekTo == null);
-    await player.open(
-      Media(
-        video,
-        start: seekTo,
-        extras: extras.isEmpty ? null : extras,
-      ),
-      play: false,
-    );
-  }
+      assert(!sourceIsLive || seekTo == null);
+      await player.open(
+        Media(video, start: seekTo, extras: extras.isEmpty ? null : extras),
+        play: false,
+      );
+    } catch (_) {
+      await _closeCdnPlaybackProxy(nextProxy);
+      _pendingCdnPlaybackProxy = null;
+      rethrow;
+    }
+    _pendingCdnPlaybackProxy = null;
+    if (_playerCount == 0 || !identical(_videoPlayerController, player)) {
+      await _closeCdnPlaybackProxy(nextProxy);
+      return false;
+    }
+    // Keep the old server alive until mpv has replaced its media source.
+    final previousProxy = _cdnPlaybackProxy;
+    _cdnPlaybackProxy = nextProxy;
+    await _closeCdnPlaybackProxy(previousProxy);
+    return _isCurrentMediaSource(sourceGeneration);
+  });
 
   Future<void>? refreshPlayer() {
     if (dataSource is FileSource) {
       return null;
     }
-    if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
-      var media = ctr.current.last;
-      if (!isLive) media = media.copyWith(start: ctr.state.position);
-      return ctr.open(media, play: true);
-    }
-    return null;
+    final sourceGeneration = _mediaSourceGeneration;
+    return _mediaSourceLock.synchronized(() async {
+      if (!_isCurrentMediaSource(sourceGeneration)) return;
+      if (_videoPlayerController case final ctr?
+          when (ctr.current.isNotEmpty)) {
+        var media = ctr.current.last;
+        if (!isLive) media = media.copyWith(start: ctr.state.position);
+        await ctr.open(media, play: true);
+      }
+    });
   }
 
   // 开始播放
-  Future<void> _initializePlayer() async {
-    if (_instance == null) return;
+  Future<void> _initializePlayer(int sourceGeneration) async {
+    if (!_isCurrentMediaSource(sourceGeneration)) return;
     // 设置倍速
     if (_videoPlayerController != null) {
       final speed = isLive ? 1.0 : playbackSpeed;
@@ -850,6 +941,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await setPlaybackSpeed(speed);
       }
     }
+    if (!_isCurrentMediaSource(sourceGeneration)) return;
     _initVideoFit();
 
     // 自动播放
@@ -996,16 +1088,25 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           }
           return;
         }
+        final isCdnProxyOpenError =
+            (_cdnPlaybackProxy != null || _pendingCdnPlaybackProxy != null) &&
+            (event.startsWith('Failed to open http://127.0.0.1:') ||
+                event.startsWith(
+                  'Can not open external file http://127.0.0.1:',
+                ));
         if (event.startsWith("Failed to open https://") ||
             event.startsWith("Can not open external file https://") ||
+            isCdnProxyOpenError ||
             //tcp: ffurl_read returned 0xdfb9b0bb
             //tcp: ffurl_read returned 0xffffff99
             event.startsWith('tcp: ffurl_read returned ')) {
+          final sourceGeneration = _mediaSourceGeneration;
           EasyThrottle.throttle(
             'controllerStream.error.listen',
             const Duration(milliseconds: 10000),
             () {
               Timer(const Duration(milliseconds: 3000), () {
+                if (!_isCurrentMediaSource(sourceGeneration)) return;
                 // if (kDebugMode) {
                 //   debugPrint("isBuffering.value: ${isBuffering.value}");
                 // }
@@ -1547,6 +1648,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
+    _mediaSourceGeneration += 1;
+    _processing = false;
+    _closeCdnPlaybackProxy(_cdnPlaybackProxy);
+    _closeCdnPlaybackProxy(_pendingCdnPlaybackProxy);
+    _cdnPlaybackProxy = null;
+    _pendingCdnPlaybackProxy = null;
     if (removeSafeArea) {
       showSystemBar();
     }
