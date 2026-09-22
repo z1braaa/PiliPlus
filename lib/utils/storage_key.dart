@@ -90,6 +90,8 @@ abstract final class SettingBoxKey {
       continuePlayingPart = 'continuePlayingPart',
       cdnSpeedTest = 'cdnSpeedTest',
       cdnParallelLoading = 'cdnParallelLoading',
+      cdnParallelConnections = 'cdnParallelConnections',
+      cdnParallelChunkSizeKiB = 'cdnParallelChunkSizeKiB',
       horizontalPreview = 'horizontalPreview',
       banWordForReply = 'banWordForReply',
       banWordForZone = 'banWordForZone',

@@ -830,17 +830,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         ...buffer,
     };
 
-    String video = dataSource.videoSource;
-    String? audio = dataSource.audioSource;
+    final parallelPlayback =
+        Pref.cdnParallelLoading && dataSource is NetworkSource && !sourceIsLive;
+    // Always bypass manual CDN rewriting while this feature is enabled,
+    // including direct playback when a system proxy prevents local proxying.
+    final directVideo = parallelPlayback
+        ? dataSource.originalVideoSource
+        : dataSource.videoSource;
+    final directAudio = parallelPlayback
+        ? dataSource.originalAudioSource
+        : dataSource.audioSource;
+    String video = directVideo;
+    String? audio = directAudio;
     CdnPlaybackProxy? nextProxy;
-    if (Pref.cdnParallelLoading &&
+    if (parallelPlayback &&
         !Pref.enableSystemProxy &&
-        dataSource is NetworkSource &&
-        !sourceIsLive &&
-        audio != null &&
-        audio.isNotEmpty) {
+        (dataSource.originalVideoUrls.isNotEmpty ||
+            (audio != null && audio.isNotEmpty))) {
       try {
-        nextProxy = await CdnPlaybackProxy.start();
+        nextProxy = await CdnPlaybackProxy.start(
+          concurrency: Pref.cdnParallelConnections,
+          chunkSize: Pref.cdnParallelChunkSizeKiB * 1024,
+        );
         _pendingCdnPlaybackProxy = nextProxy;
         if (!_isCurrentMediaSource(sourceGeneration)) {
           await _closeCdnPlaybackProxy(nextProxy);
@@ -851,10 +862,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           'User-Agent': BrowserUa.pc,
           'Referer': HttpString.baseUrl,
         };
-        video = nextProxy.register(video, headers: headers);
-        audio = nextProxy.register(audio, headers: headers);
-        if (video == dataSource.videoSource &&
-            audio == dataSource.audioSource) {
+        video = nextProxy.register(
+          video,
+          alternatives: dataSource.originalVideoUrls.skip(1),
+          headers: headers,
+        );
+        if (audio != null && audio.isNotEmpty) {
+          audio = nextProxy.register(
+            audio,
+            alternatives: dataSource.originalAudioUrls.skip(1),
+            headers: headers,
+          );
+        }
+        if (video == directVideo && audio == directAudio) {
           await _closeCdnPlaybackProxy(nextProxy);
           _pendingCdnPlaybackProxy = null;
           nextProxy = null;
@@ -863,8 +883,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await _closeCdnPlaybackProxy(nextProxy);
         _pendingCdnPlaybackProxy = null;
         nextProxy = null;
-        video = dataSource.videoSource;
-        audio = dataSource.audioSource;
+        video = directVideo;
+        audio = directAudio;
         if (kDebugMode) {
           debugPrint('CDN playback proxy unavailable; using original URLs');
         }

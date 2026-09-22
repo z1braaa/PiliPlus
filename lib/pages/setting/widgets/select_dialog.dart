@@ -7,6 +7,8 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:dio/dio.dart';
@@ -87,10 +89,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   late final List<ValueNotifier<String?>> _cdnResList;
   late final List<CancelToken?> _tokens;
   late final bool _cdnSpeedTest;
+  StreamSubscription<dynamic>? _parallelLoadingSubscription;
 
   @override
   void initState() {
-    _cdnSpeedTest = Pref.cdnSpeedTest;
+    _cdnSpeedTest = !Pref.cdnParallelLoading && Pref.cdnSpeedTest;
     if (_cdnSpeedTest) {
       _dio =
           Dio(
@@ -111,11 +114,22 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       _tokens = List.generate(length, (_) => CancelToken());
       _startSpeedTest();
     }
+    _parallelLoadingSubscription = GStorage.setting
+        .watch(key: SettingBoxKey.cdnParallelLoading)
+        .listen((_) {
+          if (Pref.cdnParallelLoading && _cdnSpeedTest) {
+            for (final token in _tokens) {
+              token?.cancel();
+            }
+          }
+          if (mounted) setState(() {});
+        });
     super.initState();
   }
 
   @override
   void dispose() {
+    _parallelLoadingSubscription?.cancel();
     if (_cdnSpeedTest) {
       for (final e in _tokens) {
         e?.cancel();
@@ -142,6 +156,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   }
 
   Future<void> _startSpeedTest() async {
+    if (Pref.cdnParallelLoading) return;
     try {
       final videoItem = widget.sample ?? await _getSampleUrl();
       await _testAllCdnServices(videoItem);
@@ -152,12 +167,13 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   Future<void> _testAllCdnServices(BaseItem videoItem) async {
     for (final item in CDNService.values) {
-      if (!mounted) break;
+      if (!mounted || Pref.cdnParallelLoading) break;
       await _testSingleCdn(item, videoItem);
     }
   }
 
   Future<void> _testSingleCdn(CDNService item, BaseItem videoItem) async {
+    if (!mounted || Pref.cdnParallelLoading) return;
     try {
       final cdnUrl = VideoUtils.getCdnUrl(
         videoItem.playUrls,
@@ -187,7 +203,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       url,
       cancelToken: cancelToken,
       onReceiveProgress: (count, total) {
-        if (!mounted) {
+        if (!mounted || Pref.cdnParallelLoading) {
+          onClose();
           return;
         }
 
@@ -213,11 +230,13 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   }
 
   void _updateSpeedResult(int index, int downloaded, int duration) {
+    if (!mounted || Pref.cdnParallelLoading) return;
     final speed = (downloaded / duration).toStringAsPrecision(3);
     _cdnResList[index].value = '${speed}MB/s';
   }
 
   void _handleSpeedTestError(dynamic error, int index) {
+    if (!mounted || Pref.cdnParallelLoading) return;
     _tokens
       ..[index]?.cancel()
       ..[index] = null;
@@ -245,6 +264,20 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (Pref.cdnParallelLoading) {
+      return AlertDialog(
+        title: const Text('CDN 设置已停用'),
+        content: const Text(
+          '并发 CDN 已接管视频与音频，不使用手动 CDN 或测速排名。关闭并发加载后恢复原设置。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      );
+    }
     return SelectDialog<CDNService>(
       title: 'CDN 设置',
       values: CDNService.values.map((i) => (i, i.desc)).toList(),

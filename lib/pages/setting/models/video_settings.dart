@@ -55,7 +55,7 @@ List<SettingsModel> get videoSettings => [
       ),
     ),
   ),
-  NormalModel(
+  _ManualCdnModel(
     title: 'CDN 设置',
     leading: const Icon(MdiIcons.cloudPlusOutline),
     getSubtitle: () =>
@@ -65,9 +65,48 @@ List<SettingsModel> get videoSettings => [
   const SwitchModel(
     title: '并发 CDN 加载（实验性）',
     leading: Icon(Icons.cloud_download_outlined),
-    subtitle: '下一个视频生效；仅限 DASH 点播，可能增加流量与内存占用；启用代理时不生效',
+    subtitle: '下次播放或切换片源生效；启用后由多 CDN 调度接管视频与音频，停用手动 CDN 选项；仅限 DASH 点播，启用代理时不生效',
     setKey: SettingBoxKey.cdnParallelLoading,
     defaultVal: false,
+  ),
+  NormalModel(
+    title: '并发路数',
+    leading: const Icon(Icons.call_split_outlined),
+    getSubtitle: () =>
+        '当前：${Pref.cdnParallelConnections} 路（1–32）；下次播放或切换片源生效；更多连接可能增加流量与内存占用',
+    onTap: (context, setState) => _showParallelValueDialog(
+      context,
+      setState,
+      title: '并发路数',
+      key: SettingBoxKey.cdnParallelConnections,
+      current: Pref.cdnParallelConnections,
+      choices: const [1, 2, 4, 8, 12, 16, 24, 32],
+      min: 1,
+      max: 32,
+      suffix: '路',
+    ),
+  ),
+  NormalModel(
+    title: '分块大小',
+    leading: const Icon(Icons.view_module_outlined),
+    getSubtitle: () =>
+        '当前：${Pref.cdnParallelChunkSizeKiB} KiB（64–4096）；下次播放或切换片源生效；1 MiB = 1024 KiB',
+    onTap: (context, setState) => _showParallelValueDialog(
+      context,
+      setState,
+      title: '分块大小',
+      key: SettingBoxKey.cdnParallelChunkSizeKiB,
+      current: Pref.cdnParallelChunkSizeKiB,
+      choices: const [64, 128, 256, 512, 1024, 2048, 4096],
+      min: 64,
+      max: 4096,
+      suffix: 'KiB',
+    ),
+  ),
+  const NormalModel(
+    title: '多 CDN 选择策略',
+    leading: Icon(Icons.public_outlined),
+    subtitle: '按已知域名优先选择中国大陆候选组，组内轮转分块；不按速度或时延排名；大陆候选失败后才尝试未知及海外候选。域名归类不代表已核实实际节点位置或缓存命中',
   ),
   NormalModel(
     title: '直播 CDN 设置',
@@ -75,14 +114,14 @@ List<SettingsModel> get videoSettings => [
     getSubtitle: () => '当前使用：${Pref.liveCdnUrl ?? "默认"}',
     onTap: _showLiveCDNDialog,
   ),
-  const SwitchModel(
+  const _ManualCdnSwitchModel(
     title: 'CDN 测速',
     leading: Icon(Icons.speed),
     subtitle: '测速通过模拟加载视频实现，注意流量消耗，结果仅供参考',
     setKey: SettingBoxKey.cdnSpeedTest,
     defaultVal: true,
   ),
-  SwitchModel(
+  _ManualCdnSwitchModel(
     title: '音频不跟随 CDN 设置',
     subtitle: '直接采用备用 URL，可解决部分视频无声',
     leading: const Icon(MdiIcons.musicNotePlus),
@@ -186,12 +225,139 @@ List<SettingsModel> get videoSettings => [
   ),
 ];
 
+const _manualCdnDisabledSubtitle = '并发 CDN 已接管视频与音频；此项已停用，关闭并发加载后恢复原设置';
+
+/// Rebuild only the affected rows when the parallel switch changes, including
+/// in settings search, where the rows do not share a page-level state.
+class _ManualCdnModel extends NormalModel {
+  const _ManualCdnModel({
+    required super.title,
+    super.leading,
+    super.getSubtitle,
+    super.onTap,
+  });
+
+  @override
+  Widget get widget => StreamBuilder(
+    stream: GStorage.setting.watch(key: SettingBoxKey.cdnParallelLoading),
+    builder: (context, snapshot) => Pref.cdnParallelLoading
+        ? NormalModel(
+            title: title,
+            leading: leading,
+            subtitle: _manualCdnDisabledSubtitle,
+            getTrailing: (_) => const Icon(Icons.lock_outline_rounded),
+          ).widget
+        : super.widget,
+  );
+}
+
+class _ManualCdnSwitchModel extends SwitchModel {
+  const _ManualCdnSwitchModel({
+    required super.title,
+    required super.setKey,
+    super.defaultVal,
+    super.subtitle,
+    super.leading,
+    super.onChanged,
+  });
+
+  @override
+  Widget get widget => StreamBuilder(
+    stream: GStorage.setting.watch(key: SettingBoxKey.cdnParallelLoading),
+    builder: (context, snapshot) => Pref.cdnParallelLoading
+        ? NormalModel(
+            title: title,
+            leading: leading,
+            subtitle: _manualCdnDisabledSubtitle,
+            getTrailing: (_) => Transform.scale(
+              scale: 0.8,
+              alignment: Alignment.centerRight,
+              child: const Switch(value: false, onChanged: null),
+            ),
+          ).widget
+        : super.widget,
+  );
+}
+
+Future<void> _showParallelValueDialog(
+  BuildContext context,
+  VoidCallback setState, {
+  required String title,
+  required String key,
+  required int current,
+  required List<int> choices,
+  required int min,
+  required int max,
+  required String suffix,
+}) async {
+  final values = {...choices, current}.toList()..sort();
+  var result = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: title,
+      value: current,
+      values: [
+        for (final value in values) (value, '$value $suffix'),
+        (-1, '自定义（$min–$max $suffix）'),
+      ],
+    ),
+  );
+  if (result == -1 && context.mounted) {
+    var input = current.toString();
+    final formKey = GlobalKey<FormState>();
+    result = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('自定义$title'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            initialValue: input,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              suffixText: suffix,
+              helperText: '请输入 $min–$max 之间的整数（包含边界）',
+            ),
+            onChanged: (value) => input = value,
+            validator: (value) {
+              final parsed = int.tryParse(value?.trim() ?? '');
+              return parsed == null || parsed < min || parsed > max
+                  ? '请输入 $min–$max 之间的整数'
+                  : null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(context).pop(int.parse(input.trim()));
+              }
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+  if (result != null && result >= min && result <= max) {
+    await GStorage.setting.put(key, result);
+    setState();
+  }
+}
+
 Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
+  if (Pref.cdnParallelLoading) return;
   final res = await showDialog<CDNService>(
     context: context,
     builder: (context) => const CdnSelectDialog(),
   );
-  if (res != null) {
+  if (res != null && !Pref.cdnParallelLoading) {
     VideoUtils.cdnService = res;
     await GStorage.setting.put(SettingBoxKey.CDNService, res.name);
     setState();

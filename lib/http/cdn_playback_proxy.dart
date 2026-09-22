@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+
+// This transport is also exercised without Flutter package resolution.
+// ignore: always_use_package_imports
+import 'cdn_origin_policy.dart';
 
 /// A bounded, session-local Range transport for DASH media. This is independent
 /// of Flutter so the HTTP contract can be tested against a deterministic origin.
@@ -14,18 +19,20 @@ final class CdnPlaybackProxy {
     this.chunkSize,
     this.timeout,
     this._allowOrigin,
+    this._originResolver,
   );
 
   static Future<CdnPlaybackProxy> start({
-    int concurrency = 4,
-    int chunkSize = 256 * 1024,
+    int concurrency = 8,
+    int chunkSize = 1024 * 1024,
     Duration timeout = const Duration(seconds: 10),
     bool Function(Uri)? allowOrigin,
+    CdnOriginResolver? originResolver,
   }) async {
     if (concurrency < 1 ||
-        concurrency > 8 ||
-        chunkSize < 1024 ||
-        chunkSize > 1024 * 1024 ||
+        concurrency > 32 ||
+        chunkSize < 64 * 1024 ||
+        chunkSize > 4 * 1024 * 1024 ||
         timeout <= Duration.zero) {
       throw ArgumentError('Invalid CDN transport limits');
     }
@@ -35,7 +42,8 @@ final class CdnPlaybackProxy {
       concurrency,
       chunkSize,
       timeout,
-      allowOrigin ?? _isMedia,
+      allowOrigin ?? CdnOriginPolicy.isMedia,
+      originResolver ?? CdnOriginPolicy.resolve,
     );
     server.listen((request) {
       unawaited(
@@ -54,33 +62,50 @@ final class CdnPlaybackProxy {
   final int chunkSize;
   final Duration timeout;
   final bool Function(Uri) _allowOrigin;
+  final CdnOriginResolver _originResolver;
+  static const _maxBufferedBytes = 64 * 1024 * 1024;
+  int _bufferedBytes = 0;
   final Map<String, _Media> _media = {};
   final Set<_Transfer> _transfers = {};
   final List<Completer<void>> _waiters = [];
   int _inFlight = 0;
   bool _closed = false;
 
-  static bool _isMedia(Uri uri) {
-    final host = uri.host.toLowerCase();
-    return (uri.scheme == 'https' || uri.scheme == 'http') &&
-        uri.userInfo.isEmpty &&
-        (!uri.hasPort || uri.port == 80 || uri.port == 443) &&
-        const [
-          'bilivideo.com',
-          'bilivideo.cn',
-          'bilivideo.net',
-          'akamaized.net',
-        ].any((domain) => host == domain || host.endsWith('.$domain')) &&
-        uri.path.startsWith('/upgcxcode/') &&
-        (uri.path.endsWith('.m4s') || uri.path.endsWith('.mp4'));
-  }
-
   /// Retains the exact signed origin URL in memory; it is never exposed through
   /// the loopback URL. Unrecognized media stays on the existing native path.
-  String register(String url, {Map<String, String> headers = const {}}) {
+  String register(
+    String url, {
+    Iterable<String> alternatives = const [],
+    Map<String, String> headers = const {},
+  }) {
     if (_closed) return url;
-    final uri = Uri.tryParse(url);
-    if (uri == null || !_allowOrigin(uri) || _media.length >= 8) return url;
+    final originals = <Uri>[];
+    for (final value in [url, ...alternatives]) {
+      final uri = Uri.tryParse(value);
+      if (uri != null &&
+          _allowOrigin(uri) &&
+          (originals.isEmpty || uri.path == originals.first.path) &&
+          !originals.contains(uri)) {
+        originals.add(uri);
+      }
+      if (originals.length == 4) break;
+    }
+    if (originals.isEmpty || _media.length >= 8) return url;
+    final seen = <Uri>{};
+    final origins = _originResolver(List.unmodifiable(originals))
+        .where(
+          (origin) =>
+              _allowOrigin(origin.uri) &&
+              origin.uri.path == originals.first.path &&
+              seen.add(origin.uri),
+        )
+        .take(40)
+        .toList();
+    if (origins.isEmpty) return url;
+    final orderedOrigins = [
+      ...origins.where((origin) => origin.mainland),
+      ...origins.where((origin) => !origin.mainland),
+    ];
     final random = Random.secure();
     final token = base64Url.encode(
       List.generate(24, (_) => random.nextInt(256)),
@@ -92,7 +117,7 @@ final class CdnPlaybackProxy {
         safeHeaders[name] = entry.value;
       }
     }
-    _media['/$token'] = _Media(uri, safeHeaders);
+    _media['/$token'] = _Media(originals.first, safeHeaders, orderedOrigins);
     return 'http://127.0.0.1:${_server.port}/$token';
   }
 
@@ -176,9 +201,9 @@ final class CdnPlaybackProxy {
       reply = _MediaResponse(socket, timeout);
       transfer.check();
       final media = _media[request.uri.path]!;
-      _Chunk probe;
+      _Plan plan;
       try {
-        probe = await _chunk(transfer, media, 0, 0);
+        plan = await _prepare(transfer, media);
       } catch (_) {
         transfer.check();
         // No response body has been sent: reissue the player's original request
@@ -186,6 +211,7 @@ final class CdnPlaybackProxy {
         await _passthrough(transfer, media, request, reply);
         return;
       }
+      final probe = plan.reference;
       final total = probe.total;
       final range = _range(rawRange, total);
       if (range == null) {
@@ -195,15 +221,19 @@ final class CdnPlaybackProxy {
         return;
       }
       final (start, end) = range;
-      _Chunk? first;
+      _BufferedChunk? first;
       if (request.method == 'GET') {
         try {
-          first = await _chunk(
-            transfer,
-            media,
-            start,
-            min(end, start + chunkSize - 1),
-            probe,
+          // Startup bytes cannot wait behind speculative data from another
+          // track: mpv may need both initial headers before draining either.
+          first = _BufferedChunk(
+            await _chunk(
+              transfer,
+              plan,
+              start,
+              min(end, start + chunkSize - 1),
+            ),
+            _BufferedChunk._noop,
           );
         } catch (_) {
           transfer.check();
@@ -222,9 +252,8 @@ final class CdnPlaybackProxy {
         probe.contentType ?? 'application/octet-stream',
       );
       reply.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-      if (probe.etag != null) {
-        reply.headers.set(HttpHeaders.etagHeader, probe.etag!);
-      }
+      // ETags are CDN-specific. Do not expose one origin's validator as if it
+      // identified bytes subsequently served by other origins.
       if (rawRange != null) {
         reply.headers.set(
           HttpHeaders.contentRangeHeader,
@@ -232,24 +261,48 @@ final class CdnPlaybackProxy {
         );
       }
       if (first != null) {
-        reply.add(first.bytes);
-        await reply.flush().timeout(timeout);
-        var next = first.end + 1;
-        while (next <= end) {
-          transfer.check();
-          final jobs = <Future<_Chunk>>[];
-          for (var i = 0; i < concurrency && next <= end; i++) {
-            final chunkEnd = min(end, next + chunkSize - 1);
-            jobs.add(_chunk(transfer, media, next, chunkEnd, probe));
-            next = chunkEnd + 1;
-          }
-          // At most concurrency chunks per response are retained. A failed
-          // batch is discarded, preserving an exact prefix on the wire.
-          final chunks = await Future.wait(jobs, eagerError: true);
-          for (final chunk in chunks) {
+        try {
+          reply.add(first.chunk!.bytes);
+          await reply.flush();
+        } finally {
+          first.release();
+        }
+        var next = first.chunk!.end + 1;
+        final pending = Queue<Future<_BufferedChunk>>();
+        void enqueue() {
+          if (next > end) return;
+          final chunkEnd = min(end, next + chunkSize - 1);
+          pending.add(_buffered(transfer, plan, next, chunkEnd));
+          next = chunkEnd + 1;
+        }
+
+        // Leave room for the other DASH track even at the largest settings.
+        final window = min(
+          concurrency,
+          max(1, _maxBufferedBytes ~/ 2 ~/ chunkSize),
+        );
+        for (var i = 0; i < window; i++) {
+          enqueue();
+        }
+        try {
+          while (pending.isNotEmpty) {
             transfer.check();
-            reply.add(chunk.bytes);
-            await reply.flush().timeout(timeout);
+            final item = await pending.removeFirst();
+            try {
+              item.check();
+              transfer.check();
+              reply.add(item.chunk!.bytes);
+              await reply.flush();
+            } finally {
+              item.release();
+            }
+            // A sliding window keeps other connections busy as soon as the
+            // next ordered piece is consumed; no whole-batch barrier.
+            enqueue();
+          }
+        } finally {
+          for (final future in pending) {
+            unawaited(future.then((item) => item.release()));
           }
         }
       }
@@ -295,9 +348,11 @@ final class CdnPlaybackProxy {
     _Transfer transfer,
     _Media media,
     String method,
-    String? range,
-  ) async {
-    var uri = media.uri;
+    String? range, {
+    Uri? origin,
+    bool mainland = false,
+  }) async {
+    var uri = origin ?? media.uri;
     for (var redirects = 0; redirects <= 3; redirects++) {
       transfer.check();
       final request = await transfer.client
@@ -323,21 +378,36 @@ final class CdnPlaybackProxy {
         throw const HttpException('Invalid CDN redirect');
       }
       uri = uri.resolve(location);
-      if (!_allowOrigin(uri)) {
+      if (!_allowOrigin(uri) ||
+          (mainland &&
+              !media.origins.any(
+                (candidate) =>
+                    candidate.mainland &&
+                    candidate.uri.host == uri.host &&
+                    candidate.uri.port == uri.port,
+              ))) {
         throw const HttpException('Unsupported CDN redirect');
       }
     }
     throw const HttpException('Too many CDN redirects');
   }
 
-  Future<_Chunk> _chunk(
+  Future<_Chunk> _readChunk(
     _Transfer transfer,
     _Media media,
+    CdnOrigin origin,
     int start,
     int end, [
     _Chunk? expected,
   ]) => _slot(transfer, () async {
-    final response = await _open(transfer, media, 'GET', 'bytes=$start-$end');
+    final response = await _open(
+      transfer,
+      media,
+      'GET',
+      'bytes=$start-$end',
+      origin: origin.uri,
+      mainland: origin.mainland,
+    );
     final contentRange =
         response.headers.value(HttpHeaders.contentRangeHeader) ?? '';
     final match = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$').firstMatch(contentRange);
@@ -390,6 +460,191 @@ final class CdnPlaybackProxy {
     );
   });
 
+  Future<_Plan> _prepare(_Transfer transfer, _Media media) async {
+    final failed = <Uri>{};
+    for (final mainland in [true, false]) {
+      final tier = media.origins
+          .where((origin) => origin.mainland == mainland)
+          .toList();
+      // Keep only one window of metadata checks ahead. Queuing the whole pool
+      // can starve a healthy anchor's samples behind unused failing mirrors.
+      // Consume in configured order; response time never determines priority.
+      final probes = Queue<Future<_Chunk?>>();
+      var nextProbe = 0;
+      Future<_Chunk?> probe(CdnOrigin origin) async {
+        try {
+          return await _readChunk(transfer, media, origin, 0, 0);
+        } catch (_) {
+          failed.add(origin.uri);
+          return null;
+        }
+      }
+
+      void enqueue() {
+        if (nextProbe < tier.length) {
+          probes.add(probe(tier[nextProbe++]));
+        }
+      }
+
+      for (var index = 0; index < min(concurrency, tier.length); index++) {
+        enqueue();
+      }
+      for (var index = 0; index < tier.length; index++) {
+        transfer.check();
+        final reference = await probes.removeFirst();
+        transfer.check();
+        if (reference == null) {
+          enqueue();
+          continue;
+        }
+        final plan = _Plan(media, tier[index], reference, failed);
+        try {
+          // Capture identity while the anchor is known-good, before emitting
+          // bytes. If this anchor fails, try another; do not poison every peer.
+          if (media.origins.length > 1) await _samples(transfer, plan);
+          return plan;
+        } catch (_) {
+          transfer.check();
+          failed.add(tier[index].uri);
+          enqueue();
+        }
+      }
+    }
+    throw const HttpException('No usable CDN range origin');
+  }
+
+  Future<List<_Chunk>> _samples(_Transfer transfer, _Plan plan) =>
+      plan.samples ??= (() async {
+        final total = plan.reference.total;
+        final prefix = await _readChunk(
+          transfer,
+          plan.media,
+          plan.anchor,
+          0,
+          min(4095, total - 1),
+          plan.reference,
+        );
+        final middleStart = total ~/ 2;
+        final middle = await _readChunk(
+          transfer,
+          plan.media,
+          plan.anchor,
+          middleStart,
+          min(middleStart + 4095, total - 1),
+          plan.reference,
+        );
+        return [prefix, middle];
+      })();
+
+  Future<_Chunk> _admit(_Transfer transfer, _Plan plan, CdnOrigin origin) {
+    return plan.admitted.putIfAbsent(origin.uri, () async {
+      final samples = await _samples(transfer, plan);
+      final prefix = await _readChunk(
+        transfer,
+        plan.media,
+        origin,
+        0,
+        samples[0].end,
+      );
+      if (prefix.total != plan.reference.total ||
+          !_sameBytes(prefix.bytes, samples[0].bytes)) {
+        throw const HttpException('CDN resource identity mismatch');
+      }
+      final middle = await _readChunk(
+        transfer,
+        plan.media,
+        origin,
+        plan.reference.total ~/ 2,
+        samples[1].end,
+        prefix,
+      );
+      if (!_sameBytes(middle.bytes, samples[1].bytes)) {
+        throw const HttpException('CDN resource identity mismatch');
+      }
+      return prefix;
+    });
+  }
+
+  static bool _sameBytes(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  Future<_Chunk> _chunk(
+    _Transfer transfer,
+    _Plan plan,
+    int start,
+    int end,
+  ) async {
+    final offset = plan.cursor++;
+    // Geography is a strict tier, not a speed score. Only availability and
+    // content validation can remove an origin from the current request.
+    for (final mainland in [true, false]) {
+      final tier = plan.media.origins
+          .where((o) => o.mainland == mainland)
+          .toList();
+      for (var index = 0; index < tier.length; index++) {
+        final origin = tier[(offset + index) % tier.length];
+        if (plan.failed.contains(origin.uri)) continue;
+        transfer.check();
+        try {
+          final ownValidator = await _admit(transfer, plan, origin);
+          transfer.check();
+          return await _readChunk(
+            transfer,
+            plan.media,
+            origin,
+            start,
+            end,
+            ownValidator,
+          );
+        } catch (_) {
+          transfer.check();
+          plan.failed.add(origin.uri);
+        }
+      }
+    }
+    throw const HttpException('All CDN origins failed for this range');
+  }
+
+  Future<_BufferedChunk> _buffered(
+    _Transfer transfer,
+    _Plan plan,
+    int start,
+    int end,
+  ) async {
+    final size = end - start + 1;
+    void Function()? release;
+    try {
+      while (_bufferedBytes + size > _maxBufferedBytes) {
+        transfer.check();
+        final waiter = Completer<void>();
+        _waiters.add(waiter);
+        await waiter.future;
+      }
+      transfer.check();
+      _bufferedBytes += size;
+      var released = false;
+      void free() {
+        if (released) return;
+        released = true;
+        _bufferedBytes -= size;
+        transfer.buffers.remove(free);
+        _wakeWaiters();
+      }
+
+      release = free;
+      transfer.buffers.add(free);
+      return _BufferedChunk(await _chunk(transfer, plan, start, end), free);
+    } catch (error, stack) {
+      release?.call();
+      return _BufferedChunk.error(error, stack);
+    }
+  }
+
   Future<void> _passthrough(
     _Transfer transfer,
     _Media media,
@@ -430,9 +685,36 @@ final class CdnPlaybackProxy {
 }
 
 final class _Media {
-  const _Media(this.uri, this.headers);
+  const _Media(this.uri, this.headers, this.origins);
   final Uri uri;
   final Map<String, String> headers;
+  final List<CdnOrigin> origins;
+}
+
+final class _Plan {
+  _Plan(this.media, this.anchor, this.reference, this.failed) {
+    admitted[anchor.uri] = Future.value(reference);
+  }
+  final _Media media;
+  final CdnOrigin anchor;
+  final _Chunk reference;
+  final Set<Uri> failed;
+  final Map<Uri, Future<_Chunk>> admitted = {};
+  Future<List<_Chunk>>? samples;
+  int cursor = 0;
+}
+
+final class _BufferedChunk {
+  _BufferedChunk(this.chunk, this.release) : error = null, stack = null;
+  _BufferedChunk.error(this.error, this.stack) : chunk = null, release = _noop;
+  final _Chunk? chunk;
+  final Object? error;
+  final StackTrace? stack;
+  final void Function() release;
+  static void _noop() {}
+  void check() {
+    if (error != null) Error.throwWithStackTrace(error!, stack!);
+  }
 }
 
 final class _Chunk {
@@ -462,6 +744,7 @@ final class _Transfer {
   final HttpClient client;
   final void Function() _onCancel;
   bool _cancelled = false;
+  final Set<void Function()> buffers = {};
   Socket? _socket;
   StreamSubscription<Uint8List>? _subscription;
   void attach(Socket socket) {
@@ -486,6 +769,9 @@ final class _Transfer {
     if (_cancelled) return;
     _cancelled = true;
     client.close(force: true);
+    for (final release in buffers.toList()) {
+      release();
+    }
     _socket?.destroy();
     unawaited(_subscription?.cancel());
     _onCancel();

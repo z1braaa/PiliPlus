@@ -447,6 +447,19 @@ abstract final class Pref {
   static bool get cdnParallelLoading =>
       _setting.get(SettingBoxKey.cdnParallelLoading, defaultValue: false);
 
+  /// Imported settings may have an invalid type or exceed supported limits.
+  static int get cdnParallelConnections =>
+      switch (_setting.get(SettingBoxKey.cdnParallelConnections)) {
+        final int value => value.clamp(1, 32),
+        _ => 8,
+      };
+
+  static int get cdnParallelChunkSizeKiB =>
+      switch (_setting.get(SettingBoxKey.cdnParallelChunkSizeKiB)) {
+        final int value => value.clamp(64, 4096),
+        _ => 1024,
+      };
+
   static bool get autoUpdate =>
       _setting.get(SettingBoxKey.autoUpdate, defaultValue: true);
 
