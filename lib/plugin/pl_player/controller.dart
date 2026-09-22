@@ -895,6 +895,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       _pendingCdnPlaybackProxy = null;
       return false;
     }
+    if (nextProxy != null) {
+      // This loadfile-local option lets geographic failover and identity checks
+      // finish before mpv's usual 5-second network timeout. It does not change
+      // direct playback's timeout on the next media source.
+      extras['network-timeout'] = '60';
+    }
     try {
       if (audio != null && audio.isNotEmpty) {
         if (onlyPlayAudio.value) {
