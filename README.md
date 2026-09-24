@@ -217,6 +217,12 @@
 
 <br/>
 
+## 后续需求与验证
+
+本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化与直播观看端增强的规划；[开发与验收指引](docs/harness/README.md) 记录需求、证据和验证状态。已实现的并发 CDN V2 另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。规划中的功能尚未计入上面的已完成功能列表。
+
+<br/>
+
 ## 声明
 
 此项目（PiliPlus）是个人为了兴趣而开发，仅用于学习和测试，请于下载后24小时内删除。
