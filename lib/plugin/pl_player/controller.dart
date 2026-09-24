@@ -34,6 +34,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/asset_utils.dart';
+import 'package:PiliPlus/utils/cdn_startup_trace.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/box_ext.dart';
@@ -610,8 +611,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     VoidCallback? onInit,
     Volume? volume,
     bool autoFullScreenFlag = false,
+    CdnStartupTrace? startupTrace,
   }) async {
     final sourceGeneration = ++_mediaSourceGeneration;
+    startupTrace?.mark(CdnStartupStage.playerSourceQueued);
     try {
       _processing = true;
       this.isLive = isLive;
@@ -641,6 +644,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       }
 
       if (!_isCurrentMediaSource(sourceGeneration)) {
+        startupTrace?.mark(CdnStartupStage.cancelled);
         return;
       }
       // 配置Player 音轨、字幕等等
@@ -649,11 +653,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         seekTo,
         volume,
         sourceGeneration,
+        startupTrace,
       )) {
+        startupTrace?.mark(CdnStartupStage.cancelled);
         return;
       }
 
       if (!_isCurrentMediaSource(sourceGeneration)) {
+        startupTrace?.mark(CdnStartupStage.cancelled);
         return;
       }
 
@@ -666,9 +673,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         triggerFullScreen(status: true);
       }
 
-      await _initializePlayer(sourceGeneration);
+      await _initializePlayer(sourceGeneration, startupTrace);
       if (_isCurrentMediaSource(sourceGeneration)) onInit?.call();
     } catch (err, stackTrace) {
+      startupTrace?.mark(CdnStartupStage.sourceError);
       if (_isCurrentMediaSource(sourceGeneration)) {
         dataStatus.value = DataStatus.error;
       }
@@ -796,8 +804,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Duration? seekTo,
     Volume? volume,
     int sourceGeneration,
+    CdnStartupTrace? startupTrace,
   ) => _mediaSourceLock.synchronized(() async {
     if (!_isCurrentMediaSource(sourceGeneration)) return false;
+    startupTrace?.mark(CdnStartupStage.playerSourceStart);
     final sourceIsLive = isLive;
     isBuffering.value = false;
     _heartDuration = 0;
@@ -807,6 +817,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     if (player == null) {
       player = await _initPlayer();
+      startupTrace?.mark(CdnStartupStage.playerCreated);
       if (_playerCount == 0) {
         _removeListeners();
         player.dispose();
@@ -818,6 +829,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       if (isAnim && superResolutionType.value != .disable) {
         await setShader();
       }
+    } else {
+      startupTrace?.mark(CdnStartupStage.playerReused);
     }
     if (!_isCurrentMediaSource(sourceGeneration)) return false;
 
@@ -851,7 +864,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         nextProxy = await CdnPlaybackProxy.start(
           concurrency: Pref.cdnParallelConnections,
           chunkSize: Pref.cdnParallelChunkSizeKiB * 1024,
+          trace: startupTrace,
         );
+        startupTrace?.mark(CdnStartupStage.proxyStarted);
         _pendingCdnPlaybackProxy = nextProxy;
         if (!_isCurrentMediaSource(sourceGeneration)) {
           await _closeCdnPlaybackProxy(nextProxy);
@@ -866,18 +881,33 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           video,
           alternatives: dataSource.originalVideoUrls.skip(1),
           headers: headers,
+          track: CdnStartupTrack.video,
         );
+        if (video != directVideo) {
+          startupTrace?.mark(
+            CdnStartupStage.proxyRegistered,
+            track: CdnStartupTrack.video,
+          );
+        }
         if (audio != null && audio.isNotEmpty) {
           audio = nextProxy.register(
             audio,
             alternatives: dataSource.originalAudioUrls.skip(1),
             headers: headers,
+            track: CdnStartupTrack.audio,
           );
+          if (audio != directAudio) {
+            startupTrace?.mark(
+              CdnStartupStage.proxyRegistered,
+              track: CdnStartupTrack.audio,
+            );
+          }
         }
         if (video == directVideo && audio == directAudio) {
           await _closeCdnPlaybackProxy(nextProxy);
           _pendingCdnPlaybackProxy = null;
           nextProxy = null;
+          startupTrace?.mark(CdnStartupStage.proxyBypassed);
         }
       } catch (_) {
         await _closeCdnPlaybackProxy(nextProxy);
@@ -885,10 +915,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         nextProxy = null;
         video = directVideo;
         audio = directAudio;
+        startupTrace?.mark(CdnStartupStage.fallback);
         if (kDebugMode) {
           debugPrint('CDN playback proxy unavailable; using original URLs');
         }
       }
+    } else if (parallelPlayback) {
+      startupTrace?.mark(CdnStartupStage.proxyBypassed);
     }
     if (!_isCurrentMediaSource(sourceGeneration)) {
       await _closeCdnPlaybackProxy(nextProxy);
@@ -920,10 +953,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       }
 
       assert(!sourceIsLive || seekTo == null);
+      startupTrace?.mark(CdnStartupStage.openStart);
       await player.open(
         Media(video, start: seekTo, extras: extras.isEmpty ? null : extras),
         play: false,
       );
+      startupTrace?.mark(CdnStartupStage.openReturned);
     } catch (_) {
       await _closeCdnPlaybackProxy(nextProxy);
       _pendingCdnPlaybackProxy = null;
@@ -958,7 +993,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   // 开始播放
-  Future<void> _initializePlayer(int sourceGeneration) async {
+  Future<void> _initializePlayer(
+    int sourceGeneration,
+    CdnStartupTrace? startupTrace,
+  ) async {
     if (!_isCurrentMediaSource(sourceGeneration)) return;
     // 设置倍速
     if (_videoPlayerController != null) {
@@ -972,6 +1010,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     // 自动播放
     if (_autoPlay) {
+      startupTrace?.mark(CdnStartupStage.playRequested);
+      // The current media_kit callbacks do not provide per-source first video
+      // frame or first audible sample. In particular, stream.playing reports a
+      // command state and cannot be used as either playback milestone.
+      startupTrace?.mark(CdnStartupStage.firstFrameUnavailable);
+      startupTrace?.mark(CdnStartupStage.firstAudioUnavailable);
       playIfExists();
     }
   }
