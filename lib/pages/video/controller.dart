@@ -54,6 +54,7 @@ import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
+import 'package:PiliPlus/utils/cdn_startup_trace.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/nested_scroll_ext.dart';
@@ -717,7 +718,10 @@ class VideoDetailController extends GetxController
     audioUrl = VideoUtils.getPlaybackCdnUrl(_originalAudioUrls, isAudio: true);
   }
 
-  Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
+  Future<void>? _initPlayerIfNeeded(
+    bool autoFullScreenFlag, {
+    CdnStartupTrace? startupTrace,
+  }) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
             (isFileSource
@@ -725,15 +729,24 @@ class VideoDetailController extends GetxController
                 : videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
+        startupTrace: startupTrace,
       );
     }
+    startupTrace?.mark(CdnStartupStage.sourceDeferred);
     return null;
   }
 
   Future<void> playerInit({
     bool? autoplay,
     bool autoFullScreenFlag = false,
+    CdnStartupTrace? startupTrace,
   }) async {
+    final trace =
+        startupTrace ??
+        (isFileSource
+            ? null
+            : CdnStartupTrace.begin(parallelEnabled: Pref.cdnParallelLoading));
+    if (startupTrace == null) trace?.mark(CdnStartupStage.sourceSelected);
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
@@ -779,6 +792,7 @@ class VideoDetailController extends GetxController
       height: firstVideo.height,
       volume: volume,
       autoFullScreenFlag: autoFullScreenFlag,
+      startupTrace: trace,
     );
 
     if (isClosed) return;
@@ -851,16 +865,27 @@ class VideoDetailController extends GetxController
     if (isQuerying) {
       return;
     }
+    final trace = CdnStartupTrace.begin(
+      parallelEnabled: Pref.cdnParallelLoading,
+    );
+    trace?.mark(CdnStartupStage.urlRequestStart);
     isQuerying = true;
     try {
-      await _queryVideoUrl(fromReset, autoFullScreenFlag);
+      await _queryVideoUrl(fromReset, autoFullScreenFlag, trace);
+    } catch (_) {
+      trace?.mark(CdnStartupStage.urlFailed);
+      rethrow;
     } finally {
       isQuerying = false;
     }
   }
 
   @pragma('vm:prefer-inline')
-  Future<void> _queryVideoUrl(bool fromReset, bool autoFullScreenFlag) async {
+  Future<void> _queryVideoUrl(
+    bool fromReset,
+    bool autoFullScreenFlag,
+    CdnStartupTrace? trace,
+  ) async {
     if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
       querySponsorBlock(bvid: bvid, cid: cid.value);
     }
@@ -879,10 +904,14 @@ class VideoDetailController extends GetxController
     final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
 
     if (result case Success(:final response)) {
+      trace?.mark(CdnStartupStage.mainUrlReady);
       data = response;
       _originalVideoUrls = const [];
       _originalAudioUrls = const [];
       if (data.dash != null) await _supplementVideoQualities();
+      if (data.dash != null) {
+        trace?.mark(CdnStartupStage.qualitySupplementReady);
+      }
 
       languages.value = data.language?.items;
       currLang.value = data.curLanguage;
@@ -939,9 +968,14 @@ class VideoDetailController extends GetxController
           _setVideoHeight();
           currentDecodeFormats = VideoDecodeFormatType.AVC;
           currentVideoQa.value = videoQuality;
-          await _initPlayerIfNeeded(autoFullScreenFlag);
+          trace?.mark(CdnStartupStage.sourceSelected);
+          await _initPlayerIfNeeded(
+            autoFullScreenFlag,
+            startupTrace: trace,
+          );
           return;
         } else {
+          trace?.mark(CdnStartupStage.urlFailed);
           SmartDialog.showToast('视频资源不存在');
           _autoPlay.value = false;
           videoState.value = false;
@@ -1008,8 +1042,10 @@ class VideoDetailController extends GetxController
         audioUrl = '';
         currentAudioQa = null;
       }
-      await _initPlayerIfNeeded(autoFullScreenFlag);
+      trace?.mark(CdnStartupStage.sourceSelected);
+      await _initPlayerIfNeeded(autoFullScreenFlag, startupTrace: trace);
     } else {
+      trace?.mark(CdnStartupStage.urlFailed);
       _autoPlay.value = false;
       videoState.value = false;
       if (plPlayerController.isFullScreen.value) {

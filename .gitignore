@@ -150,3 +150,8 @@ pili_release.json
 dist
 
 test*
+
+# Versioned Python playback harness checks.
+!tool/tests/
+!tool/tests/test_*.py
+tool/tests/__pycache__/

@@ -217,6 +217,14 @@
 
 <br/>
 
+## 后续需求与验证
+
+本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化与直播观看端增强的规划；[开发与验收指引](docs/harness/README.md) 记录需求、证据和验证状态。已实现的并发 CDN V2 另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。规划中的功能尚未计入上面的已完成功能列表。
+
+[Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
+
+<br/>
+
 ## 声明
 
 此项目（PiliPlus）是个人为了兴趣而开发，仅用于学习和测试，请于下载后24小时内删除。

@@ -37,7 +37,7 @@ Future<void> main() async {
         _bufferBudget,
     'unavailable mainland probes overlap instead of delaying startup serially':
         _parallelProbeFailures,
-    'failed anchor identity sample can be replaced by a healthy mainland peer':
+    'failed reference sample keeps unverified peers out of playback':
         _anchorSampleFailure,
     'speculative metadata cannot starve a healthy first anchor at low concurrency':
         _metadataDoesNotStarveAnchor,
@@ -236,7 +236,7 @@ Future<void> _multiOrigin() => _withFixture((fixture) async {
   fixture.origins[0].delay = const Duration(milliseconds: 18);
   fixture.origins[1].delay = const Duration(milliseconds: 4);
   fixture.origins[2].delay = const Duration(milliseconds: 11);
-  final response = await _fetch(fixture.localUrl);
+  final response = await _fetchAfterPeerAdmission(fixture);
   _expect(response.error == null, 'Multi-origin response failed');
   _expectBytes(response.bytes, fixture.bytes, 'multi-origin order');
   for (final origin in fixture.mainland) {
@@ -257,7 +257,7 @@ Future<void> _multiOrigin() => _withFixture((fixture) async {
 });
 
 Future<void> _originValidators() => _withFixture((fixture) async {
-  final response = await _fetch(fixture.localUrl);
+  final response = await _fetchAfterPeerAdmission(fixture);
   _expectBytes(response.bytes, fixture.bytes, 'different origin validators');
   for (final origin in fixture.mainland) {
     _expect(
@@ -270,6 +270,23 @@ Future<void> _originValidators() => _withFixture((fixture) async {
     );
   }
 });
+
+Future<_Response> _fetchAfterPeerAdmission(_Fixture fixture) async {
+  // A short 800 KiB fixture can finish before deliberately deferred peer
+  // validation. Hold its first steady block so this test actually exercises
+  // multiple admitted mainland origins instead of relying on local CPU timing.
+  final release = Completer<void>();
+  fixture.origins.first.blockers[_chunkSize] = release;
+  final download = _fetch(fixture.localUrl);
+  try {
+    await Future.wait(
+      fixture.mainland.skip(1).map((origin) => origin.middleSampleDone.future),
+    ).timeout(const Duration(seconds: 2));
+  } finally {
+    release.complete();
+  }
+  return download;
+}
 
 Future<void> _sharedConcurrency() => _withFixture((fixture) async {
   final responses = await Future.wait([
@@ -437,9 +454,15 @@ Future<void> _anchorSampleFailure() => _withFixture((fixture) async {
     ),
     'The first anchor did not reach the failing middle sample',
   );
-  _expect(rejected.pieces.isEmpty, 'Failed anchor emitted a data piece');
+  _expect(
+    rejected.pieces.isNotEmpty,
+    'The anchor did not serve its independently validated media ranges',
+  );
   for (final healthy in fixture.mainland.skip(1)) {
-    _expect(healthy.pieces.isNotEmpty, 'Failed anchor poisoned a healthy peer');
+    _expect(
+      healthy.pieces.isEmpty,
+      'A peer was used without a complete reference identity sample',
+    );
   }
   _expect(
     fixture.fallback.requests.isEmpty,
@@ -504,11 +527,11 @@ Future<void> _bufferBudget() async {
         )!;
         final start = int.parse(range[1]!);
         final end = int.parse(range[2]!);
-        if (start >= chunkSize && end - start + 1 == chunkSize) {
+        if (start >= _chunkSize && end - start + 1 == chunkSize) {
           queuedPieces++;
           if (queuedPieces >= 8 && !exercised.isCompleted) exercised.complete();
         }
-        if (start == chunkSize) await releaseHead.future;
+        if (start == _chunkSize) await releaseHead.future;
         final response = request.response
           ..statusCode = HttpStatus.partialContent
           ..contentLength = end - start + 1;
@@ -653,6 +676,7 @@ final class _Origin {
   bool rejectMiddleSample = false;
   (int, int)? failedPiece;
   int foreignValidators = 0;
+  final Completer<void> middleSampleDone = Completer<void>();
 
   Uri get uri => Uri.parse(
     'http://127.0.0.1:${server.port}/upgcxcode/test/media.m4s',
@@ -746,6 +770,11 @@ final class _Origin {
       }
       if (request.method != 'HEAD') response.add(body);
       await response.close();
+      if (start == fixture.bytes.length ~/ 2 &&
+          end - start + 1 == 4096 &&
+          !middleSampleDone.isCompleted) {
+        middleSampleDone.complete();
+      }
     } on Object {
       // Closing a failed/cancelled transfer may abort a deterministic origin.
       request.response.deadline = Duration.zero;

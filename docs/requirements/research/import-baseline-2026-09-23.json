@@ -1,0 +1,32 @@
+{
+  "verified_date": "2026-09-23",
+  "timezone": "Asia/Singapore",
+  "scope": "Read-only research and requirements; no project changes or runtime benchmarks",
+  "piliplus_commit": "15656d2182ef6c976a534c02f20820abc9e14ce7",
+  "btr_release": "0.9.4.2",
+  "btr_release_commit": "847848a412ae8c648a95367972bb338d8196efcb",
+  "btr_head_commit": "b0e4cbbc91f48fa9efbd5d0b48cea0f9319616a1",
+  "desktop_version": "0.9.4.2-d1",
+  "desktop_commit": "80ff27254c354eaf8e87d1ff19124122691a9259",
+  "desktop_github_release_count": 0,
+  "official_pc_client_runtime_verified": false,
+  "documents": {
+    "01-btr-updates-features.md": "292027a8da6fe27d4acc9e7e8484fed6ff2ecba91a8a7cbb94e22e25011a8abd",
+    "02-startup-optimization-plan.md": "168d4d8deab86a970d4e69772b33eaa0222867fff7c4815f5b501a06e6a286c0",
+    "03-live-ui-roadmap.md": "ca0211a58b5b10f2a3a4c188041969427d278036026ecbaf07c5d282ba5b73aa",
+    "04-official-live-module-inventory.md": "4ab7c50616b4406682e06b0851da719a2f2f53318c68dd2c35cdfd38c98270bb",
+    "README.md": "bdf1b8d22fdce67ae6acbc2b2e7ff47d01b5e069cd5b7a4e63c0768781e4cc71",
+    "official-live-module-manifest.json": "975d7bb390710c1e7b7003b46adef60f425a90c6e1dd3078022961886f443e34"
+  },
+  "planning_revision": 2,
+  "official_live_module_capture": {
+    "date": "2026-09-23",
+    "sources": 13,
+    "observations": 42,
+    "api_contracts_verified": false,
+    "business_api_requests_executed": false,
+    "manifest": "official-live-module-manifest.json"
+  },
+  "live_ui_enhancement_default_enabled": false,
+  "live_ui_enhancement_implemented": false
+}
