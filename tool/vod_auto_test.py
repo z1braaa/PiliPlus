@@ -30,6 +30,10 @@ from urllib.error import HTTPError, URLError
 
 
 REPO = Path(__file__).resolve().parents[1]
+# Launchers can run outside the checkout. Companion modules always come from
+# this reviewed repository, not the caller's working directory.
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 MODES = ("base-direct", "hw-direct", "parallel")
 DEFAULT_ORDER = ("base-direct", "hw-direct", "parallel", "parallel", "hw-direct", "base-direct")
 MEDIA_DOMAINS = ("bilivideo.com", "bilivideo.cn", "bilivideo.net", "akamaized.net")
@@ -57,6 +61,19 @@ def utc_now():
 def safe_error(error):
     if isinstance(error, HarnessError):
         return {"classification": error.classification, **error.details}
+    # Public-source failures already carry only bounded classifications.
+    try:
+        from tool.vod_sources import SourceError, public_error
+        if isinstance(error, SourceError):
+            return public_error(error)
+    except ImportError:
+        pass
+    try:
+        from tool.vod_catalog import CatalogError
+        if isinstance(error, CatalogError):
+            return {"classification": error.classification}
+    except ImportError:
+        pass
     if isinstance(error, subprocess.TimeoutExpired):
         kind = "timeout"
     elif isinstance(error, HTTPError):
@@ -176,6 +193,9 @@ def write_report(directory, report, rows):
         writer = csv.DictWriter(handle, fieldnames=names)
         writer.writeheader()
         writer.writerows(rows)
+    if report.get("kind") == "stratified_vod_campaign":
+        from tool.vod_campaign import write_campaign_html
+        write_campaign_html(directory, report)
     return directory / "report.json"
 
 
@@ -313,7 +333,47 @@ def normalize_manifest(data):
     streams["quality_label"] = QUALITY_NAMES.get(metadata["quality"], "unknown")
     streams["manifest_fingerprint"] = hashlib.sha256(json.dumps(
         {**metadata, **{key: streams[key] for key in ("video_urls", "audio_urls")}}, sort_keys=True).encode()).hexdigest()
+    view = data.get("view")
+    if isinstance(view, dict):
+        safe_view = {}
+        bvid = view.get("bvid")
+        if isinstance(bvid, str) and re.fullmatch(r"BV[A-Za-z0-9]{10}", bvid):
+            safe_view["bvid"] = bvid
+        for key in ("pubdate", "view", "duration", "page_duration"):
+            value = (view.get("view", view.get("stat", {}).get("view"))
+                     if key == "view" and isinstance(view.get("stat", {}), dict) else view.get(key))
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value < 1e12:
+                safe_view[key] = value
+        title = view.get("title")
+        fingerprint = view.get("title_fingerprint")
+        if isinstance(fingerprint, str) and re.fullmatch(r"[a-f0-9]{64}", fingerprint):
+            safe_view["title_fingerprint"] = fingerprint
+        elif isinstance(title, str):
+            safe_view["title_fingerprint"] = hashlib.sha256(title.encode()).hexdigest()
+        streams["view"] = safe_view
+    route = data.get("source_route")
+    if isinstance(route, str) and re.fullmatch(r"[a-z0-9_/-]{1,80}", route):
+        streams["source_route"] = route
+    attempts = data.get("acquisition_attempts")
+    if isinstance(attempts, list):
+        streams["acquisition_attempts"] = [public_source_attempt(item) for item in attempts[:16] if isinstance(item, dict)]
     return streams
+
+
+def public_source_attempt(data):
+    result = {}
+    for key in ("classification", "stage", "operation", "source", "status", "route"):
+        value = data.get(key)
+        if isinstance(value, str) and re.fullmatch(r"[a-z0-9_/-]{1,80}", value):
+            result[key] = value
+    for key in ("http_status", "api_code"):
+        value = data.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and abs(value) < 1_000_000:
+            result[key] = value
+    count = data.get("candidates")
+    if type(count) is int and 0 <= count <= 200:
+        result["candidates"] = count
+    return result
 
 
 def get_json(url, timeout=18):
@@ -357,26 +417,8 @@ def manifest_from_playurl(response, requested_quality, preferred_codec="avc"):
 
 
 def anonymous_manifest(bvid, page, quality, preferred_codec):
-    view = require_api_success(get_json("https://api.bilibili.com/x/web-interface/view?" + urlencode({"bvid": bvid})), "view")
-    pages = view.get("pages") or []
-    selected = next((item for item in pages if item.get("page") == page), None)
-    if selected is None:
-        raise HarnessError("video_page_unavailable", page=page)
-    nav = get_json("https://api.bilibili.com/x/web-interface/nav")
-    # Anonymous nav may use code=-101 while still supplying public WBI images.
-    images = nav.get("data", {}).get("wbi_img", {})
-    source = "".join(urlparse(images[field]).path.rsplit("/", 1)[-1].split(".")[0] for field in ("img_url", "sub_url"))
-    if len(source) < 64:
-        raise HarnessError("anonymous_wbi_unavailable")
-    key = "".join(source[index] for index in WBI_MIX)
-    params = {"bvid": bvid, "cid": selected["cid"], "qn": quality, "fnval": 16,
-              "fnver": 0, "fourk": 1, "wts": int(time.time())}
-    cleaned = {name: "".join(char for char in str(value) if char not in "!'()*") for name, value in params.items()}
-    query = urlencode(sorted(cleaned.items()), quote_via=quote)
-    signed = "https://api.bilibili.com/x/player/wbi/playurl?" + query + "&w_rid=" + hashlib.md5((query + key).encode()).hexdigest()
-    manifest = manifest_from_playurl(get_json(signed), quality, preferred_codec)
-    manifest.update(bvid=bvid, page=page)
-    return manifest
+    from tool.vod_sources import anonymous_manifest as acquire
+    return acquire(bvid, page=page, quality=quality, preferred_codec=preferred_codec)
 
 
 def acquire_anonymous_manifest(args, timeout):
@@ -410,6 +452,12 @@ def acquire_anonymous_manifest(args, timeout):
             public["api_code"] = error["api_code"]
         if error.get("operation") in ("view", "playurl"):
             public["operation"] = error["operation"]
+        for field in ("stage", "route"):
+            value = error.get(field)
+            if isinstance(value, str) and re.fullmatch(r"[a-z0-9_/-]{1,80}", value):
+                public[field] = value
+        if isinstance(error.get("attempts"), list):
+            public["attempts"] = [public_source_attempt(item) for item in error["attempts"][:16] if isinstance(item, dict)]
         raise HarnessError(category, **public)
     return normalize_manifest(data["manifest"])
 
@@ -596,8 +644,9 @@ def summarize_samples(samples):
     return summary
 
 
-def playback(args):
-    report = base_report("native_playback_comparison")
+def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
+    report = dict(baseline) if baseline else base_report("native_playback_comparison")
+    report["kind"] = "native_playback_comparison"
     rows = []
     report["measurement_boundary"] = (
         "Headless native libmpv events and position progress; not PiliPlus GUI first moving frame, "
@@ -611,7 +660,9 @@ def playback(args):
     started = time.monotonic()
     manifest = None
     try:
-        if args.manifest:
+        if acquired_manifest is not None:
+            manifest = normalize_manifest(acquired_manifest)
+        elif args.manifest:
             manifest_path = Path(args.manifest)
             if manifest_path.stat().st_size > 1_048_576:
                 raise HarnessError("manifest_too_large")
@@ -619,9 +670,12 @@ def playback(args):
         else:
             manifest = acquire_anonymous_manifest(args, min(60, args.total_budget_seconds))
         report["source"] = {key: manifest[key] for key in ("quality", "quality_label", "codec", "width", "height", "manifest_fingerprint")}
-        report["source"].update(origin="provided_manifest" if args.manifest else "anonymous_official_api",
+        report["source"].update(origin="provided_manifest" if args.manifest else "anonymous_official_web",
                                 bvid=args.bvid, page=args.page, video_url_count=len(manifest["video_urls"]),
                                 audio_url_count=len(manifest["audio_urls"]))
+        for field in ("view", "source_route", "acquisition_attempts"):
+            if field in manifest:
+                report["source"][field] = manifest[field]
         report["quality_check"] = quality_policy(manifest, args.quality_code, args.allow_lower_quality)
         if not report["quality_check"]["benchmark_allowed"]:
             raise HarnessError("requested_quality_not_reproduced", requested_quality=args.quality_code,
@@ -640,6 +694,10 @@ def playback(args):
                             ("origin_policy", "lib/http/cdn_origin_policy.dart"),
                             ("startup_trace", "lib/utils/cdn_startup_trace.dart")):
             report["runtime_artifacts"][label + "_sha256"] = sha256_file(REPO / path)
+        for label, relative in (("sources", "tool/vod_sources.py"), ("catalog", "tool/vod_catalog.py")):
+            path = REPO / relative
+            if path.is_file():
+                report["runtime_artifacts"][label + "_sha256"] = sha256_file(path)
         args.runtime_artifacts = report["runtime_artifacts"]
         dart = resolve_executable(args.dart, "dart") if "parallel" in args.order else None
         group = comparison_key(manifest, args)
@@ -647,11 +705,15 @@ def playback(args):
             row = {"trial": index, "mode": mode, "comparison_key": group, "quality": manifest["quality"],
                    "requested_quality": args.quality_code, "requested_quality_reproduced": report["quality_check"]["requested_quality_reproduced"],
                    "codec": manifest["codec"], "width": manifest["width"], "height": manifest["height"],
-                   "start_seconds": args.start_seconds, "status": "not_run", "timed_out": False}
+                   "start_seconds": args.start_seconds, "duration_seconds": args.duration_seconds,
+                   "seek_seconds": args.seek_seconds, "concurrency": args.concurrency, "chunk_kib": args.chunk_kib,
+                   "status": "not_run", "timed_out": False}
             remaining = args.total_budget_seconds - (time.monotonic() - started)
             if remaining <= 0:
                 row["classification"] = "total_budget_exhausted"
                 rows.append(row)
+                if on_sample:
+                    on_sample(report, row)
                 continue
             trial_timeout = min(args.deadline_seconds, remaining)
             trial_started = time.monotonic()
@@ -695,6 +757,8 @@ def playback(args):
                 if bridge:
                     bridge.close()
             rows.append(row)
+            if on_sample:
+                on_sample(report, row)
         report["summary"] = summarize_samples(rows)
         report["status"] = "completed" if rows and all(row["status"] == "measured" for row in rows) else "incomplete"
     except Exception as error:
@@ -743,13 +807,42 @@ def parser():
     test.add_argument("--deadline-seconds", type=bounded_number(float, 5, 180), default=90)
     test.add_argument("--total-budget-seconds", type=bounded_number(float, 5, 1800), default=600)
     test.add_argument("--output", default=str(REPO / "outputs" / ("vod-playback-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))))
+    batch = commands.add_parser("campaign", help="discover and test recent/low-view videos with matched per-video comparisons")
+    batch.add_argument("--library", required=True)
+    batch.add_argument("--dart")
+    batch.add_argument("--count", type=bounded_number(int, 1, 12), default=4)
+    batch.add_argument("--recent-days", type=bounded_number(int, 1, 90), default=7)
+    batch.add_argument("--max-views", type=bounded_number(int, 1, 10_000_000), default=10_000)
+    batch.add_argument("--popular-min-views", type=bounded_number(int, 1, 100_000_000), default=100_000)
+    batch.add_argument("--old-min-days", type=bounded_number(int, 2, 3650), default=30)
+    batch.add_argument("--keywords", default="游戏,生活,科技", help="public discovery terms, at most 3 terms / 40 characters each")
+    batch.add_argument("--request-budget", type=bounded_number(int, 1, 12), default=8)
+    batch.add_argument("--catalog", help="optional local JSON metadata catalog; no media URL or credential fields")
+    batch.add_argument("--quality-code", type=bounded_number(int, 1, 1000), default=80)
+    batch.add_argument("--require-quality", action="store_true", help="refuse anonymous quality below the requested one")
+    batch.add_argument("--codec", choices=("avc", "hev", "av01"), default="avc")
+    batch.add_argument("--order", type=parse_order, default=("hw-direct", "parallel", "parallel", "hw-direct"))
+    batch.add_argument("--concurrency", type=bounded_number(int, 1, 32), default=8)
+    batch.add_argument("--chunk-kib", type=bounded_number(int, 64, 4096), default=1024)
+    batch.add_argument("--duration-seconds", type=bounded_number(float, 1, 60), default=8)
+    batch.add_argument("--start-seconds", type=bounded_number(float, 0, 86400), default=0)
+    batch.add_argument("--seek-seconds", type=bounded_number(float, 0, 86400), default=30)
+    batch.add_argument("--deadline-seconds", type=bounded_number(float, 5, 180), default=90)
+    batch.add_argument("--campaign-budget-seconds", type=bounded_number(float, 5, 1800), default=1200)
+    batch.add_argument("--discovery-deadline-seconds", type=bounded_number(float, 5, 180), default=90)
+    batch.add_argument("--seed", type=bounded_number(int, 0, 1_000_000), default=0)
+    batch.add_argument("--output", default=str(REPO / "outputs" / ("vod-campaign-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))))
     return root
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
-        report, rows, status = regress(args) if args.command == "regress" else playback(args)
+        if args.command == "campaign":
+            from tool.vod_campaign import campaign
+            report, rows, status = campaign(args)
+        else:
+            report, rows, status = regress(args) if args.command == "regress" else playback(args)
         write_report(args.output, report, rows)
         # A bounded public summary; no subprocess stdout, URLs, paths, or error text.
         print(json.dumps({"status": report.get("status", "passed" if status == 0 else "failed"),
