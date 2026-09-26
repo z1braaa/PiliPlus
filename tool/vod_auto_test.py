@@ -633,6 +633,13 @@ def playback(args):
         report["runtime_artifacts"] = {"libmpv_sha256": sha256_file(args.library),
                                        "native_probe_sha256": sha256_file(REPO / "tool/native_mpv_probe.py"),
                                        "orchestrator_sha256": sha256_file(Path(__file__))}
+        # The proxy can change while the Python scripts and mpv stay identical.
+        # Keep transport implementations in the comparison identity as well.
+        for label, path in (("bridge", "tool/cdn_benchmark_bridge.dart"),
+                            ("proxy", "lib/http/cdn_playback_proxy.dart"),
+                            ("origin_policy", "lib/http/cdn_origin_policy.dart"),
+                            ("startup_trace", "lib/utils/cdn_startup_trace.dart")):
+            report["runtime_artifacts"][label + "_sha256"] = sha256_file(REPO / path)
         args.runtime_artifacts = report["runtime_artifacts"]
         dart = resolve_executable(args.dart, "dart") if "parallel" in args.order else None
         group = comparison_key(manifest, args)

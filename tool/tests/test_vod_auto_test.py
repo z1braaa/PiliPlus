@@ -125,6 +125,17 @@ class StatisticsTests(unittest.TestCase):
         args.start_seconds = 0
         manifest["codec"] = "hev1.1.6.L120.90"
         self.assertNotEqual(before, vod.comparison_key(manifest, args))
+        manifest = vod.normalize_manifest(fixture_manifest())
+        args.runtime_artifacts = {"libmpv_sha256": "same", "proxy_sha256": "p0"}
+        p0_key = vod.comparison_key(manifest, args)
+        args.runtime_artifacts["proxy_sha256"] = "different_transport"
+        changed_key = vod.comparison_key(manifest, args)
+        self.assertNotEqual(p0_key, changed_key)
+        with self.assertRaises(vod.HarnessError):
+            vod.summarize_samples([
+                {"comparison_key": p0_key, "mode": "parallel", "status": "measured"},
+                {"comparison_key": changed_key, "mode": "parallel", "status": "measured"},
+            ])
 
     def test_trial_and_duration_limits_are_real_parser_constraints(self):
         with self.assertRaises(Exception):
@@ -247,6 +258,11 @@ class OrchestrationTests(unittest.TestCase):
             repo = Path(temporary)
             (repo / "tool").mkdir()
             (repo / "tool/native_mpv_probe.py").touch()
+            for relative in ("tool/cdn_benchmark_bridge.dart", "lib/http/cdn_playback_proxy.dart",
+                             "lib/http/cdn_origin_policy.dart", "lib/utils/cdn_startup_trace.dart"):
+                source = repo / relative
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text("// fixture " + source.name, encoding="utf-8")
             library = repo / "libmpv.dylib"
             library.touch()
             manifest = repo / "private.json"
@@ -269,6 +285,8 @@ class OrchestrationTests(unittest.TestCase):
             self.assertNotIn("audio-secret", encoded)
             self.assertNotIn("http://", encoded)
             self.assertEqual(len(report["runtime_artifacts"]["orchestrator_sha256"]), 64)
+            self.assertEqual(report["runtime_artifacts"]["proxy_sha256"],
+                             vod.sha256_file(repo / "lib/http/cdn_playback_proxy.dart"))
 
 
 class ProcessSafetyTests(unittest.TestCase):
