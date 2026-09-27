@@ -15,7 +15,7 @@
 
 ## 本版已批准范围
 
-[直播编译内容审查稿](../requirements/06-live-first-build-review.md) 基于当前 2.1.5 + CDN P0，用户已批准默认关闭布局、SC 生命周期/连接恢复及完整送礼、入团、灯牌流程。`BUILD-LIVE-01` 与 `LIVE-TX-01`～`06` 是本轮构建与交互验收；源码和客户端夹具已完成，新包构建另记；实际消费验证未运行。
+[直播编译内容审查稿](../requirements/06-live-first-build-review.md) 基于当前 2.1.5 + CDN P0，用户已批准默认关闭布局、SC 生命周期/连接恢复及完整送礼、入团、灯牌流程。`BUILD-LIVE-01` 与 `LIVE-TX-01`～`06` 是本轮构建与交互验收；源码、94 项 Flutter 夹具和 macOS `+5424` 构建已完成，隔离游客 GUI 部分通过；交付包要求 macOS 13 或更新，实际消费验证未运行。详细结果见[构建记录](results/live-macos-build-5424.json)和[GUI 记录](results/live-macos-gui-20260928.json)。
 
 ## 执行顺序
 

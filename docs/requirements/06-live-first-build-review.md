@@ -60,7 +60,7 @@
 
 ## 具体修改点
 
-| 模块 | 计划涉及文件 | 当前源码事实及处理 |
+| 模块 | 计划涉及文件 | 实施前基线事实及处理 |
 | --- | --- | --- |
 | 设置与偏好 | `lib/utils/storage_key.dart`、`lib/utils/storage_pref.dart`、`lib/pages/setting/models/video_settings.dart` | 新开关仅认可布尔 `true`，避免现有通用开关直接读取非法动态值造成异常 |
 | 布局与输入 | `lib/pages/live_room/view.dart`、`widgets/chat_panel.dart`、`widgets/header_control.dart`、`send_danmaku/view.dart`；新增独立增强面板 | 复用当前播放、聊天、榜单、输入逻辑，保持播放器位置和实例稳定，面板不拥有流生命周期 |
@@ -83,7 +83,7 @@
 
 ## 编译准备与审查决定
 
-2026-09-27 本机旧 SDK 的 `bin/flutter` / `bin/dart` 包装入口失效，但缓存内 Dart 3.13.4 和旧发布包 mpv 可用。已把本机视频测试入口改为实际 Dart 路径并自行跑完两批 20 次原生播放。随后从官方固定 3.47.5 tag 恢复缺失 SDK 文件、保留已有局部修改，并验证 Flutter 3.47.5 / Dart 3.13.4 启动；Xcode 27 首次启动状态检查通过。新直播包仍未编译，不能把环境可启动或历史编译通过写成本轮新包通过。
+2026-09-27 本机旧 SDK 的 `bin/flutter` / `bin/dart` 包装入口失效，但缓存内 Dart 3.13.4 和旧发布包 mpv 可用。已把本机视频测试入口改为实际 Dart 路径并自行跑完两批 20 次原生播放。随后从官方固定 3.47.5 tag 恢复缺失 SDK 文件、保留已有局部修改，并验证 Flutter 3.47.5 / Dart 3.13.4 启动；Xcode 27 首次启动状态检查通过。这是初轮准备记录。此后新直播包已完成编译，最终版本为 `2.1.5-CDN-P0-LIVE-L2+5424`，构建/签名/系统要求和 GUI 的实际结果见[本轮验证](../harness/validation.md#macos-最终包与隔离游客界面)，不能将包构建通过扩大为交易验收通过。
 
 准备构建时只恢复固定官方 SDK 及必要的局部兼容补丁，不直接执行含全局 Git 用户设置修改的整套 `patch.ps1`；构建环境和生成的 Xcode/Pods 迁移不混入直播业务提交。
 
