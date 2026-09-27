@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:PiliPlus/pages/setting/models/video_settings.dart';
+import 'package:PiliPlus/pages/live_room/view.dart'
+    show canFocusLiveEnhancementSidebar;
 import 'package:PiliPlus/pages/live_room/widgets/interaction_focus_boundary.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -136,6 +138,25 @@ void main() {
       );
     },
   );
+
+  test('fullscreen opens the drawer even when Offstage preserves a mounted sidebar', () {
+    bool focus({
+      double width = 1600,
+      bool fullscreen = false,
+      bool pip = false,
+      bool mounted = true,
+    }) => canFocusLiveEnhancementSidebar(
+      width: width,
+      isFullScreen: fullscreen,
+      isDesktopPip: pip,
+      sidebarMounted: mounted,
+    );
+    expect(focus(), isTrue);
+    expect(focus(fullscreen: true), isFalse);
+    expect(focus(pip: true), isFalse);
+    expect(focus(width: 899), isFalse);
+    expect(focus(mounted: false), isFalse);
+  });
 
   testWidgets('interaction input leaves player keyboard handlers untouched', (
     tester,

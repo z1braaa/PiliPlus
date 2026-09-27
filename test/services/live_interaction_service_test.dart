@@ -2,6 +2,7 @@
 // ignore_for_file: prefer_const_constructors
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:PiliPlus/models_new/live/interactions/live_interaction_parser.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
@@ -45,33 +46,36 @@ class _Transport implements LiveInteractionTransport {
   bool wearing = false;
   bool failPost = false;
   Map<String, dynamic>? response;
+  Map<String, dynamic>? catalogOverride;
   void Function(String)? onGet;
   Future<void> Function()? beforePost;
   final _Journal journal;
   _Transport(this.journal);
-  Map<String, dynamic> get catalog => {
-    'gift_data': {
-      'max_send_gift': max,
-      'room_gift_list': {
-        'gold_list': [
-          {'id': 3},
-        ],
-      },
-    },
-    'gift_config': {
-      'base_config': {
-        'list': [
-          {
-            'id': 3,
-            'name': '测试礼物',
-            'price': price,
-            'coin_type': 'gold',
-            'max_send_limit': 10,
+  Map<String, dynamic> get catalog =>
+      catalogOverride ??
+      {
+        'gift_data': {
+          'max_send_gift': max,
+          'room_gift_list': {
+            'gold_list': [
+              {'id': 3},
+            ],
           },
-        ],
-      },
-    },
-  };
+        },
+        'gift_config': {
+          'base_config': {
+            'list': [
+              {
+                'id': 3,
+                'name': '测试礼物',
+                'price': price,
+                'coin_type': 'gold',
+                'max_send_limit': 10,
+              },
+            ],
+          },
+        },
+      };
   @override
   Future<Map<String, dynamic>> get(
     String path,
@@ -707,5 +711,149 @@ void main() {
     expect(service.lastAction, isNull);
     expect(journal.records['10:6:20']?['state'], 'succeeded');
     expect(journal.records['11:6:20'], isNull);
+  });
+
+  Map<String, dynamic> knownBoxFixture() =>
+      (jsonDecode(
+            File('test/fixtures/live/room6_known_blind_boxes.json')
+                .readAsStringSync(),
+          ) as Map<String, dynamic>)['data']
+          as Map<String, dynamic>;
+
+  test(
+    'actual public blind boxes with draw zero and default scene are disabled',
+    () {
+      final parsed = LiveInteractionParser.gifts(knownBoxFixture(), 6, 20);
+      expect(parsed, hasLength(4));
+      for (final id in [35942, 32251, 35206]) {
+        final gift = parsed.singleWhere((gift) => gift.id == id);
+        expect(gift.priceKnown, true);
+        expect(gift.sendable, false);
+        expect(gift.unavailableReason, contains('盲盒'));
+      }
+      expect(parsed.singleWhere((gift) => gift.id == 33988).sendable, true);
+    },
+  );
+
+  test(
+    'blind box type or attribute marker independently disables ordinary path',
+    () {
+      final base = {
+        'id': 3,
+        'price': 100,
+        'coin_type': 'gold',
+        'draw': 0,
+        'privilege_required': 0,
+        'gift_type': 0,
+        'gift_attrs': [0],
+      };
+      for (final marker in [
+        {'gift_type': 6},
+        {'gift_type': '6'},
+        {
+          'gift_attrs': [6],
+        },
+        {
+          'gift_attrs': [0, '6'],
+        },
+      ]) {
+        final gift = LiveInteractionParser.gift(
+          {...base, ...marker},
+          maxQuantity: 10,
+          entry: {
+            'gift_scene': {'scene': 'default_gift', 'pay_type': 'send_gift'},
+          },
+        );
+        expect(gift.sendable, false);
+      }
+      expect(LiveInteractionParser.gift(base, maxQuantity: 10).sendable, true);
+    },
+  );
+
+  test('bag blind marker cannot bypass restriction through normal config', () {
+    final parsed = LiveInteractionParser.bag(
+      {
+        'gift_config': [
+          {
+            'id': 3,
+            'name': '夹具',
+            'price': 100,
+            'coin_type': 'gold',
+            'gift_type': 0,
+          },
+        ],
+        'list': [
+          {
+            'type': 1,
+            'gift_id': 3,
+            'gift_type': 6,
+            'gift_attrs': [6],
+            'bag_id': 4,
+            'gift_num': 2,
+            'expire_at': 0,
+          },
+        ],
+      },
+      6,
+      20,
+      now,
+    );
+    expect(parsed.single.available, false);
+    expect(parsed.single.gift.unavailableReason, contains('盲盒'));
+  });
+
+  test('service preflight rejects all actual boxes even if caller flags them sendable', () async {
+    transport.catalogOverride = knownBoxFixture();
+    for (final id in [35942, 32251, 35206]) {
+      await expectLater(
+        service.prepareGift(
+          LiveGift(
+            id: id,
+            name: '调用方模型',
+            price: 100,
+            coinType: 'gold',
+            sendable: true,
+          ),
+          1,
+        ),
+        throwsA(isA<LiveInteractionException>()),
+      );
+    }
+    expect(transport.posts, 0);
+  });
+
+  test('forged box approval is rejected while actual ordinary gift still sends once', () async {
+    transport.catalogOverride = knownBoxFixture();
+    final confirmation = LiveGiftConfirmation(
+      gift: const LiveGift(
+        id: 35942,
+        name: '中秋盲盒',
+        price: 9000,
+        coinType: 'gold',
+        sendable: true,
+      ),
+      quantity: 1,
+      purpose: LiveGiftPurpose.gift,
+      accountUid: 10,
+      roomId: 6,
+      anchorUid: 20,
+      expiresAt: now.add(const Duration(seconds: 45)),
+      operationId: 'forged-box',
+      accountIdentity: account.identity,
+    );
+    expect(
+      (await service.submitGift(confirmation)).state,
+      LiveActionState.notSubmitted,
+    );
+    expect(transport.posts, 0);
+    final normal = (await service.loadPanel()).gifts.singleWhere(
+      (gift) => gift.id == 33988,
+    );
+    expect(
+      (await service.submitGift(await service.prepareGift(normal, 1))).state,
+      LiveActionState.succeeded,
+    );
+    expect(transport.posts, 1);
+    expect(transport.bodies.single['gift_id'], 33988);
   });
 }

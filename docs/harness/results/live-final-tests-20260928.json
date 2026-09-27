@@ -1,0 +1,74 @@
+{
+  "created_at_utc": "2026-09-27T16:46:49.400253+00:00",
+  "source_baseline": "033bbe77ff9c315b802ac51d0c3057651fd6b919",
+  "working_tree_dirty": true,
+  "source_file_sha256": {
+    "lib/models_new/live/interactions/live_interaction.dart": "60e56980f8b413e754081ef2834fd2331eaee189967224a6bd6c547554926722",
+    "lib/models_new/live/interactions/live_interaction_parser.dart": "2c94da26b7707a321c4f38d929b048c2062e5ae5f2d7ef319b59e7fca8ab8de9",
+    "lib/models_new/live/live_superchat/item.dart": "2e88a1dfa96a1581d8637c94a94f4cbae6ba155a9a6997712123db9e2cd5c44b",
+    "lib/pages/live_room/controller.dart": "0d888b24f8ad5c83506a3922f8a5fbeb9458eedd2e0889214da0db77b242645d",
+    "lib/pages/live_room/live_message_session.dart": "480603f29972b90d3b68dbba90e2cedea5234f8a08404affee8a059af3f1a1d8",
+    "lib/pages/live_room/superchat/superchat_card.dart": "be3346ded56f6abb34a34a353a1ac42c54bc63899d41300614f97e6d3903f224",
+    "lib/pages/live_room/superchat/superchat_timeline.dart": "5229524beb4f147930eba69331502a3c47ad5259aa5598501b821ddf0ebdb53c",
+    "lib/pages/live_room/view.dart": "46e59de9f39d59bd4546108b9ed9c234339e4ad40c4cce98f52f9f9eab8cd252",
+    "lib/pages/live_room/widgets/enhancement_panel.dart": "e8161c14ad3013d57912a837d6ae15ccda590989ba538f8e538cd148721d4e96",
+    "lib/pages/live_room/widgets/interaction_focus_boundary.dart": "b15d890d441f434c8390022cec42f50c9f75aee558c0f6addae47b0d431e1122",
+    "lib/pages/live_room/widgets/interaction_panel.dart": "ebf341928aed3171c91f5da0ceb3d12137b6cf97e327714fff203ac36b614946",
+    "lib/pages/setting/models/video_settings.dart": "651842cdb5b2c9e18e28949b847984c57db71af802d7b464dc9c8a7348c9c77d",
+    "lib/services/live_interaction_service.dart": "3a685c78acbc2ee3e25d69cb058f0c6f8773b4026441dce6b47fd11f2bde0aa4",
+    "lib/tcp/live.dart": "98ca6ea4d2dab868870b101fa98e64fddf0b2689ed5776fb7b26e5df2874fc59",
+    "lib/utils/live_viewer_preferences.dart": "10876b3cc6ac49a56973791f536b83afb8c7bd101b6ad9ba3b7be018a3e6bc6b",
+    "lib/utils/storage_key.dart": "9258861be1a3c94e5e0a7b0ebedf398042275065ceb2e698c5651146e654694d",
+    "lib/utils/storage_pref.dart": "1e7d77ec58fb243ea523a27bb07bf78d636de43991dcdac719b3b67f54291cb1",
+    "test/pages/live_room/live_interaction_panel_test.dart": "6cd8640457ff14b1e9064a16af93e211910044673bad28e22394f9faa6dfa14c",
+    "test/pages/live_room/live_message_lifecycle_test.dart": "e99564d6992c662adfbc63c1e2bb6a1db3d6864ed1c6881742e04a8861fb15f1",
+    "test/pages/setting/live_enhancement_settings_test.dart": "7dc95e2d5119d1055839f1567950b1506a2df2d2e0798d848ab01278b5699f0c",
+    "test/services/live_interaction_service_test.dart": "13305ee693ed32e553155aa3189208cb340eb1e24cf390b821c58484e438bda2",
+    "tool/tests/test_vod_auto_test.py": "a826ba58cc6f51be7591b45abd33a9df3c4870c4a088357e6c9e6275e4b2fc4f",
+    "tool/vod_auto_test.py": "a2330a045c4c976343d079376335f360471ace3a8c791a45b8193a50e7e555b4",
+    "test/fixtures/live/room6_known_blind_boxes.json": "3c20b534d64d41f4f6ea7f2f76be81e45808e36f9151052da3641e14d8bfc594"
+  },
+  "flutter": {
+    "version": "3.47.5",
+    "dart": "3.13.4",
+    "all_suites": {
+      "passed": 94,
+      "failed": 0,
+      "skipped": 0,
+      "count_verified": true,
+      "framework_events": 15,
+      "framework_failures": 0
+    },
+    "per_suite": {
+      "existing_account": 2,
+      "existing_routing": 4,
+      "existing_cdn_settings": 5,
+      "live_message_lifecycle": 28,
+      "live_interaction_service": 38,
+      "live_settings_focus_and_entry_routing": 5,
+      "live_interaction_panel_and_session": 12
+    },
+    "raw_log_sha256": "1b639ecc6fcf8f48a64324b3012c2602a7ac7816c68c7dc4be7c33339d9311ac"
+  },
+  "targeted_analysis": {
+    "issues": 0,
+    "log_sha256": "fe3f2812867cf5193b5c4ecf514d44be3048ffce36d0f7a75f3e52532d018b3e"
+  },
+  "unchanged_dart_transport": {
+    "passed": 42,
+    "evidence": "Actual local regression runner 14+15+13, source transport unchanged"
+  },
+  "unchanged_python_tool": {
+    "passed": 93,
+    "skipped": 0,
+    "includes_bundled_native_fixture": true,
+    "log_sha256": "44c2c8a58ba3c7fa070917a3a86bd71dc80a83655824f7872bc7dc0e8364a1bd"
+  },
+  "prior_evidence": "live-client-tests-20260928.json",
+  "real_account_reads": false,
+  "write_requests": 0,
+  "limits": [
+    "Deterministic client tests do not prove authenticated production endpoints or paid operations",
+    "GUI acceptance and actual SC/network events have separate records"
+  ]
+}

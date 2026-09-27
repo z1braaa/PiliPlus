@@ -64,6 +64,18 @@ import 'package:screen_brightness_platform_interface/screen_brightness_platform_
 
 const baseWhite = Color(0xFFEEEEEE);
 
+/// Offstage preserves the sidebar state in fullscreen. A mounted state alone
+/// therefore cannot decide whether the interaction entry should focus it.
+bool canFocusLiveEnhancementSidebar({
+  required double width,
+  required bool isFullScreen,
+  required bool isDesktopPip,
+  required bool sidebarMounted,
+}) =>
+    sidebarMounted &&
+    !isDesktopPip &&
+    useLiveEnhancementSidebar(width: width, isFullScreen: isFullScreen);
+
 class LiveRoomPage extends StatefulWidget {
   const LiveRoomPage({super.key});
 
@@ -846,8 +858,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Future<void> _showEnhancement() async {
     if (!_enhancementEnabled || _enhancementSheetRoute != null) return;
-    if (_enhancementPanelKey.currentState case final panel?) {
-      panel.showInteractions();
+    if (canFocusLiveEnhancementSidebar(
+      width: maxWidth,
+      isFullScreen: isFullScreen,
+      isDesktopPip: plPlayerController.isDesktopPip,
+      sidebarMounted: _enhancementPanelKey.currentState != null,
+    )) {
+      _enhancementPanelKey.currentState!.showInteractions();
       return;
     }
     await showModalBottomSheet<void>(

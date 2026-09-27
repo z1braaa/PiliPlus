@@ -447,5 +447,78 @@
     "Lottery/activity-exclusive payment modes",
     "Unverified privilege-required gifts",
     "Top-up, external payment, SC purchase, guard purchase/subscription"
-  ]
+  ],
+  "known_blind_box_restriction": {
+    "reviewed_date": "2026-09-28",
+    "anonymous_probe": {
+      "url": "https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?room_id=7596842&platform=pc",
+      "http_status": 200,
+      "api_code": 0,
+      "payload_bytes": 248953,
+      "payload_sha256": "861feaddd62ac00e98b206cde8d18f659ba830efa98d24f8476cb33c664ac363"
+    },
+    "observed_items": [
+      {
+        "gift_id": 35942,
+        "name": "中秋盲盒"
+      },
+      {
+        "gift_id": 32251,
+        "name": "心动盲盒"
+      },
+      {
+        "gift_id": 35206,
+        "name": "幸运盲盒"
+      }
+    ],
+    "common_configuration": {
+      "gift_type": 6,
+      "gift_attrs": [
+        6
+      ],
+      "draw": 0,
+      "privilege_required": 0
+    },
+    "room_entry_observation": "gift_scene is null or default_gift/send_gift; these two fields alone do not identify these boxes",
+    "current_official_panel_mapping": {
+      "source": "app.js",
+      "character_range": [
+        1070064,
+        1071480
+      ],
+      "mapping": "server gift_type -> panel extraType"
+    },
+    "classification_evidence": "Named blind-box catalogue entries identify type 6/attribute 6 in the two observed rooms; this does not establish all future special gift taxonomy",
+    "parser_policy": "gift_type==6 or list gift_attrs contains 6 in config or item entry: display known blind box restriction and prevent ordinary or backpack send path",
+    "before_repair_smoke": "all three named boxes parsed as sendable=true in rooms 6 and 7596842",
+    "fixture": "test/fixtures/live/room6_known_blind_boxes.json",
+    "authenticated_eligibility_verified": false,
+    "write_requests_run": false,
+    "gui_boundary": "Guest disabled controls prove login restriction only, not special-gift filtering",
+    "remaining_boundary": "Unrecognized special-gift rules and official-channel target remapping are not established as supported",
+    "post_repair_validation": {
+      "targeted_service_tests": {
+        "passed": 38,
+        "failed": 0,
+        "new_blind_box_tests": 5,
+        "file": "test/services/live_interaction_service_test.dart",
+        "transport": "injected fixture; no network writes"
+      },
+      "targeted_analyze": "No issues found",
+      "real_public_payload_parser_smoke": {
+        "rooms": [
+          6,
+          7596842
+        ],
+        "known_blind_box_ids": [
+          35942,
+          32251,
+          35206
+        ],
+        "all_six_parse_results": "sendable=false; explicit blind box restriction; priceKnown=true"
+      },
+      "authenticated_eligibility_verified": false,
+      "write_requests_run": false
+    }
+  }
 }

@@ -39,6 +39,10 @@ abstract final class LiveInteractionParser {
       reason = '官方价格或币种信息不完整';
     } else if (maxQuantity <= 0) {
       reason = '官方当前数量限制未允许投喂';
+    } else if (_knownBlindBox(config) || _knownBlindBox(entry)) {
+      // Current official catalogues label known blind boxes as gift_type 6 /
+      // gift_attrs [6], even with draw=0 and default_gift/send_gift scenes.
+      reason = '盲盒礼物的规则与结果尚未接入，请使用官方专用流程';
     } else if (liveInt(special['is_use']) == 0) {
       reason = special['tips']?.toString() ?? '当前礼物不可投喂';
     } else if ((liveInt(config['bind_roomid']) ?? 0) > 0 &&
@@ -74,6 +78,11 @@ abstract final class LiveInteractionParser {
       unavailableReason: reason,
     );
   }
+
+  static bool _knownBlindBox(Map<String, dynamic> value) =>
+      liveInt(value['gift_type']) == 6 ||
+      (value['gift_attrs'] is List &&
+          (value['gift_attrs'] as List).any((item) => liveInt(item) == 6));
 
   static List<LiveGift> gifts(
     Map<String, dynamic> data,
@@ -142,6 +151,7 @@ abstract final class LiveInteractionParser {
     final config = configs[id] ?? entry;
     final value = gift(
       {...config, 'id': id},
+      entry: entry,
       roomId: roomId,
       anchorUid: anchorUid,
       maxQuantity: count,
