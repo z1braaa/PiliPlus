@@ -242,6 +242,7 @@ abstract final class SettingBoxKey {
       tempPlayerConf = 'tempPlayerConf',
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
+      liveRoomEnhancement = 'liveRoomEnhancement',
       saveReply = 'saveReply',
       appFont = 'appFont';
 }

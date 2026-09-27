@@ -1,0 +1,259 @@
+{
+  "created_at_utc": "2026-09-27T15:49:40+00:00",
+  "credentials": "none",
+  "observations": [
+    {
+      "kind": "room_html",
+      "url": "https://live.bilibili.com/6",
+      "method": "GET",
+      "anonymous": true,
+      "http_status": 200,
+      "bytes": 94359,
+      "sha256": "7611fafe5544140aea9ba231e4db44c7fcd24d78171e087b3e8a767d243e98da",
+      "script_sources": [],
+      "content_encoding": "identity"
+    },
+    {
+      "kind": "fans_panel_html",
+      "url": "https://live.bilibili.com/p/html/live-app-fanspanel/index.html",
+      "method": "GET",
+      "anonymous": true,
+      "http_status": 200,
+      "bytes": 4328,
+      "sha256": "47478b600b2cf677a1a3ac0cd276b242ddda298e7409635ece0abb9a9a24566f",
+      "script_sources": [
+        "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/polyfills-i8rokt8M.js",
+        "https://s1.hdslb.com/bfs/seed/jinkela/short/b-mirror/biliMirror.umd.mini.js",
+        "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-CmJdpsDS.js",
+        "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/polyfills-legacy-CvwngxFS.js",
+        "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-legacy-Bl7rxGes.js"
+      ]
+    },
+    {
+      "kind": "gift_catalog_candidate",
+      "url": "https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?room_id=6&platform=pc",
+      "method": "GET",
+      "anonymous": true,
+      "http_status": 200,
+      "bytes": 231062,
+      "sha256": "900fa38c91228a19deb88c9f49de9417b6233fb60bf3b2cd0563ac99c9e77f70",
+      "api_code": 0,
+      "data_keys": [
+        "gift_data",
+        "gift_config",
+        "global_config"
+      ],
+      "list_lengths": {},
+      "classification": "readonly_response_observed",
+      "content_encoding": "identity",
+      "shapes": {
+        "data": {
+          "gift_data": "dict",
+          "gift_config": "dict",
+          "global_config": "dict"
+        },
+        "data.gift_data": {
+          "room_gift_list": "dict",
+          "discount_gift_list": "NoneType",
+          "tab_list": "list",
+          "max_send_gift": "int",
+          "combo_interval_time": "int",
+          "lottery_gift_config": "NoneType",
+          "privilege": "dict",
+          "red_dot": "list",
+          "pay_limit_icon": "str",
+          "naming_gift": "NoneType",
+          "special_show_gift": "list",
+          "bag_tab_disable": "int",
+          "special_tag": "list",
+          "pay_limit_url": "str"
+        },
+        "data.gift_data.room_gift_list": {
+          "gold_list": "list",
+          "silver_list": "list",
+          "need_odds_offline": "bool",
+          "ab_result": "NoneType",
+          "panel_extra": "dict"
+        },
+        "data.gift_data.room_gift_list.gold_list": {
+          "length": 58,
+          "item_type": "dict"
+        },
+        "data.gift_data.room_gift_list.silver_list": {
+          "length": 0,
+          "item_type": null
+        },
+        "data.gift_data.room_gift_list.panel_extra": {
+          "banner": "dict",
+          "rights_entrance": "NoneType"
+        },
+        "data.gift_data.tab_list": {
+          "length": 2,
+          "item_type": "dict"
+        },
+        "data.gift_data.tab_list[0]": {
+          "tab_id": "int",
+          "tab_name": "str",
+          "position": "int",
+          "list": "list",
+          "tab_type": "int"
+        },
+        "data.gift_data.privilege": {
+          "buy_guard_btn": "str",
+          "is_expired": "int",
+          "privilege_type": "int"
+        },
+        "data.gift_data.red_dot": {
+          "length": 0,
+          "item_type": null
+        },
+        "data.gift_data.special_show_gift": {
+          "length": 0,
+          "item_type": null
+        },
+        "data.gift_data.special_tag": {
+          "length": 2,
+          "item_type": "dict"
+        },
+        "data.gift_data.special_tag[0]": {
+          "gift_id": "int",
+          "corner_mark": "str",
+          "corner_background": "str",
+          "has_bling": "bool",
+          "special_gift_banner": "dict",
+          "corner": "NoneType"
+        },
+        "data.gift_config": {
+          "base_config": "dict",
+          "room_config": "list"
+        },
+        "data.gift_config.base_config": {
+          "hited": "bool",
+          "list": "list",
+          "version": "int",
+          "ttl": "int"
+        },
+        "data.gift_config.base_config.list": {
+          "length": 96,
+          "item_type": "dict"
+        },
+        "data.gift_config.room_config": {
+          "length": 2,
+          "item_type": "dict"
+        },
+        "data.gift_config.room_config[0]": {
+          "id": "int",
+          "name": "str",
+          "price": "int",
+          "type": "int",
+          "coin_type": "str",
+          "bag_gift": "int",
+          "effect": "int",
+          "corner_mark": "str",
+          "corner_background": "str",
+          "broadcast": "int",
+          "draw": "int",
+          "stay_time": "int",
+          "animation_frame_num": "int",
+          "desc": "str",
+          "rule": "str",
+          "rights": "str",
+          "privilege_required": "int",
+          "count_map": "list",
+          "img_basic": "str",
+          "img_dynamic": "str",
+          "frame_animation": "str",
+          "gif": "str",
+          "webp": "str",
+          "full_sc_web": "str",
+          "full_sc_horizontal": "str",
+          "full_sc_vertical": "str",
+          "full_sc_horizontal_svga": "str",
+          "full_sc_vertical_svga": "str",
+          "bullet_head": "str",
+          "bullet_tail": "str",
+          "limit_interval": "int",
+          "bind_ruid": "int",
+          "bind_roomid": "int",
+          "gift_type": "int",
+          "combo_resources_id": "int"
+        },
+        "data.global_config": {
+          "combo_resources": "list",
+          "guard_resources": "list",
+          "naming_gift": "dict",
+          "send_disable_msg": "dict",
+          "gift_protocols": "list"
+        },
+        "data.global_config.combo_resources": {
+          "length": 4,
+          "item_type": "dict"
+        },
+        "data.global_config.combo_resources[0]": {
+          "combo_resources_id": "int",
+          "img_one": "str",
+          "img_two": "str",
+          "img_three": "str",
+          "img_four": "str",
+          "color_one": "str",
+          "color_two": "str"
+        },
+        "data.global_config.guard_resources": {
+          "length": 3,
+          "item_type": "dict"
+        },
+        "data.global_config.guard_resources[0]": {
+          "level": "int",
+          "img": "str",
+          "name": "str"
+        },
+        "data.global_config.naming_gift": {
+          "text": "dict"
+        },
+        "data.global_config.naming_gift.text": {
+          "app_user": "str",
+          "app_user_selected": "str",
+          "web_user": "str",
+          "web_user_selected": "str",
+          "combo_user": "str",
+          "combo_anchor": "str",
+          "vtr": "str"
+        },
+        "data.global_config.send_disable_msg": {
+          "gift_for_owner": "str",
+          "no_send_obj": "str",
+          "no_fans_incr": "str",
+          "jump_fans_url": "str",
+          "web_no_fans_incr": "str"
+        },
+        "data.global_config.gift_protocols": {
+          "length": 1,
+          "item_type": "dict"
+        },
+        "data.global_config.gift_protocols[0]": {
+          "gift_ids": "list",
+          "protocols": "list"
+        }
+      }
+    },
+    {
+      "kind": "fans_panel_script",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-CmJdpsDS.js",
+      "method": "GET",
+      "anonymous": true,
+      "http_status": 200,
+      "bytes": 916872,
+      "sha256": "cc2fd1a787b94ea3558824e4738dd8afa9e9133d374fe50d11426551512a946b",
+      "markers": {
+        "sendRelationFansGift": false,
+        "sendGiftDirect": false,
+        "fansMedal": false,
+        "GetActivatedMedalInfo": false
+      },
+      "classification": "static_resource_only"
+    }
+  ],
+  "verified_api_contract": false,
+  "refreshed_at_utc": "2026-09-27T15:50:57+00:00",
+  "boundary": "Successful anonymous room 6 GET observed; not complete account, pricing-unit, permission or transaction contract."
+}

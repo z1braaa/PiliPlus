@@ -114,6 +114,12 @@ List<SettingsModel> get videoSettings => [
     getSubtitle: () => '当前使用：${Pref.liveCdnUrl ?? "默认"}',
     onTap: _showLiveCDNDialog,
   ),
+  const _LiveEnhancementSwitchModel(
+    title: '直播界面增强（实验性）',
+    subtitle: '默认关闭；显示礼物、背包、粉丝团与灯牌面板。独立于 CDN 与画质；送礼、入团和点亮需逐次确认',
+    leading: Icon(Icons.live_tv_outlined),
+    setKey: SettingBoxKey.liveRoomEnhancement,
+  ),
   const _ManualCdnSwitchModel(
     title: 'CDN 测速',
     leading: Icon(Icons.speed),
@@ -226,6 +232,28 @@ List<SettingsModel> get videoSettings => [
 ];
 
 const _manualCdnDisabledSubtitle = '并发 CDN 已接管视频与音频；此项已停用，关闭并发加载后恢复原设置';
+
+/// Avoid the generic switch's unchecked dynamic-to-bool conversion on restore.
+class _LiveEnhancementSwitchModel extends SwitchModel {
+  const _LiveEnhancementSwitchModel({
+    required super.title,
+    required super.setKey,
+    super.subtitle,
+    super.leading,
+  });
+
+  @override
+  Widget get widget => StreamBuilder(
+    stream: GStorage.setting.watch(key: SettingBoxKey.liveRoomEnhancement),
+    builder: (context, _) => SwitchListTile(
+      title: Text(title!),
+      subtitle: Text(subtitle!),
+      secondary: leading,
+      value: Pref.liveRoomEnhancement,
+      onChanged: (enabled) => GStorage.setting.put(setKey, enabled),
+    ),
+  );
+}
 
 /// Rebuild only the affected rows when the parallel switch changes, including
 /// in settings search, where the rows do not share a page-level state.

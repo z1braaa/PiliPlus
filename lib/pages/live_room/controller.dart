@@ -22,6 +22,8 @@ import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
+import 'package:PiliPlus/pages/live_room/live_message_session.dart';
+import 'package:PiliPlus/pages/live_room/superchat/superchat_timeline.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
@@ -117,6 +119,23 @@ class LiveRoomController extends GetxController {
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
   LiveMessageStream? _msgStream;
+  final messageConnectionState = LiveMessageConnectionState.suspended.obs;
+  final superChatCapacityReached = false.obs;
+  bool _closed = false;
+  int? _messageRoom;
+  Object? _messageAccount;
+  Timer? _superChatTimer;
+  late SuperChatTimeline _superChatTimeline = SuperChatTimeline(roomId);
+  late final _messageSession = LiveMessageSession(
+    connect: _connectMessages,
+    disconnect: _releaseMessageStream,
+    onState: (state) {
+      if (!_closed) messageConnectionState.value = state;
+    },
+    onConnected: (_) {
+      if (showSuperChat) getSuperChatMsg();
+    },
+  );
 
   List<String> _keywordList = const [];
   Set<int> _shieldUids = const {};
@@ -210,6 +229,10 @@ class LiveRoomController extends GetxController {
     }
     if (showSuperChat) {
       pageController = PageController();
+      _superChatTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => clearSC(),
+      );
     }
   }
 
@@ -412,13 +435,28 @@ class LiveRoomController extends GetxController {
   }
 
   void closeLiveMsg() {
+    _messageSession.stop();
+    dmInfo = null;
+  }
+
+  void _releaseMessageStream() {
     _msgStream?.close();
     _msgStream = null;
   }
 
+  bool _messageMatches(int generation, int room, Object account) =>
+      !_closed &&
+      _messageSession.isCurrent(generation) &&
+      roomId == room &&
+      identical(account, Accounts.heartbeat);
+
   @pragma('vm:notify-debugger-on-exception')
   Future<void> prefetch() async {
-    final res = await LiveHttp.liveRoomDmPrefetch(roomId: roomId);
+    final room = roomId;
+    final account = Accounts.heartbeat;
+    final generation = _messageSession.generation;
+    final res = await LiveHttp.liveRoomDmPrefetch(roomId: room);
+    if (!_messageMatches(generation, room, account)) return;
     if (res case Success(:final response)) {
       if (response != null && response.isNotEmpty) {
         messages.addAll(
@@ -434,14 +472,52 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> getSuperChatMsg() async {
-    final res = await LiveHttp.superChatMsg(roomId);
+    final room = roomId;
+    final account = Accounts.heartbeat;
+    final generation = _messageSession.generation;
+    final res = await LiveHttp.superChatMsg(room);
+    if (!_messageMatches(generation, room, account)) return;
     if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
-      superChatMsg.addAll(list);
+      for (final item in list) {
+        _superChatTimeline.merge(item, _nowSeconds);
+      }
+      _publishSC();
     }
   }
 
+  int get _nowSeconds => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
   void clearSC() {
-    superChatMsg.removeWhere((e) => e.expired);
+    if (_closed) return;
+    if (_superChatTimeline.expire(_nowSeconds)) _publishSC();
+    final fullscreen = fsSC.value;
+    if (fullscreen != null &&
+        (fullscreen.deleted || fullscreen.endTime <= _nowSeconds)) {
+      fsSC.value = null;
+    }
+  }
+
+  void _publishSC() {
+    superChatCapacityReached.value = _superChatTimeline.saturated;
+    final persistent = superChatType == SuperChatType.persist;
+    superChatMsg.assignAll(_superChatTimeline.visible(persistent: persistent));
+    messages.removeWhere(
+      (item) =>
+          item is SuperChatItem &&
+          (item.deleted || (!persistent && item.expired)),
+    );
+    // Persistent chat cards share the same item and need notification when
+    // the room clock marks them as historical.
+    messages.refresh();
+    final fullscreen = fsSC.value;
+    if (fullscreen != null &&
+        (fullscreen.deleted ||
+            fullscreen.endTime <= _nowSeconds ||
+            !superChatMsg.any(
+              (item) => item.id == fullscreen.id && !item.expired,
+            ))) {
+      fsSC.value = null;
+    }
   }
 
   Future<void> _fetchBlockRules() async {
@@ -466,24 +542,50 @@ class LiveRoomController extends GetxController {
   }
 
   void startLiveMsg() {
+    if (_closed) return;
+    final account = Accounts.heartbeat;
+    if (messageConnectionState.value == LiveMessageConnectionState.stopped &&
+        _messageRoom == roomId &&
+        identical(_messageAccount, account)) {
+      return;
+    }
+    if (_messageSession.running &&
+        _messageRoom == roomId &&
+        identical(_messageAccount, account)) {
+      return;
+    }
+    _messageRoom = roomId;
+    _messageAccount = account;
+    if (_superChatTimeline.roomId != roomId) {
+      _superChatTimeline.clear();
+      _superChatTimeline = SuperChatTimeline(roomId);
+      superChatMsg.clear();
+      superChatCapacityReached.value = false;
+      messages.removeWhere((item) => item is SuperChatItem);
+      fsSC.value = null;
+    }
+    _messageSession.start(restart: true);
     if (messages.isEmpty) {
       prefetch();
-      if (showSuperChat) {
-        getSuperChatMsg();
-      }
     }
-    if (_msgStream != null) {
-      return;
+  }
+
+  void retryLiveMessages() {
+    if (_closed || !plPlayerController.playerStatus.isPlaying) return;
+    _messageSession.stop();
+    startLiveMsg();
+  }
+
+  Future<bool> _connectMessages(int generation) async {
+    final room = roomId;
+    final account = Accounts.heartbeat;
+    final res = await LiveHttp.liveRoomGetDanmakuToken(roomId: room);
+    if (!_messageMatches(generation, room, account)) return false;
+    if (res case Success(:final response)) {
+      dmInfo = response;
+      return initDm(response, generation: generation, account: account);
     }
-    if (dmInfo != null) {
-      initDm(dmInfo!);
-      return;
-    }
-    LiveHttp.liveRoomGetDanmakuToken(roomId: roomId).then((res) {
-      if (res case Success(:final response)) {
-        initDm(dmInfo = response);
-      }
-    });
+    return false;
   }
 
   void listener() {
@@ -509,8 +611,12 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
+    _closed = true;
+    _messageSession.dispose();
+    _superChatTimer?.cancel();
+    _superChatTimer = null;
+    _superChatTimeline.clear();
     _stopSizeSub();
-    closeLiveMsg();
     cancelLikeTimer();
     cancelLiveTimer();
     savedDanmaku?.clear();
@@ -539,21 +645,29 @@ class LiveRoomController extends GetxController {
     return queryLiveUrl();
   }
 
-  void initDm(LiveDmInfoData info) {
+  Future<bool> initDm(
+    LiveDmInfoData info, {
+    required int generation,
+    required Object account,
+  }) {
+    final room = roomId;
     if (info.hostList.isEmpty) {
-      return;
+      return Future.value(false);
     }
-    _msgStream =
-        LiveMessageStream(
-            streamToken: info.token,
-            roomId: roomId,
-            uid: Accounts.heartbeat.mid,
-            servers: info.hostList
-                .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
-                .toList(),
-          )
-          ..addEventListener(_danmakuListener)
-          ..init();
+    final stream = LiveMessageStream(
+      streamToken: info.token,
+      roomId: room,
+      uid: Accounts.heartbeat.mid,
+      servers: info.hostList
+          .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
+          .toList(),
+      onDisconnected: () => _messageSession.connectionLost(generation),
+    );
+    _msgStream = stream;
+    stream.addEventListener((event) {
+      if (_messageMatches(generation, room, account)) _danmakuListener(event);
+    });
+    return stream.init();
   }
 
   void addDm(dynamic msg, [DanmakuContentItem<DanmakuExtra>? item]) {
@@ -639,40 +753,52 @@ class LiveRoomController extends GetxController {
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data'], roomId);
-          superChatMsg.insert(0, item);
-          addDm(item);
-          if (Platform.isAndroid && AndroidHelper.isPipMode) return;
+          final merged = _superChatTimeline.merge(item, _nowSeconds);
+          if (merged == SuperChatMerge.ignored) break;
+          if (merged == SuperChatMerge.inserted) {
+            if (!item.expired || superChatType == SuperChatType.persist) {
+              addDm(item);
+            }
+          } else {
+            for (var i = 0; i < messages.length; i++) {
+              final existing = messages[i];
+              if (existing is SuperChatItem && existing.id == item.id) {
+                messages[i] = item;
+              }
+            }
+          }
+          _publishSC();
+          if (item.expired || (Platform.isAndroid && AndroidHelper.isPipMode)) {
+            return;
+          }
           if (plPlayerController.showDanmaku &&
               (isFullScreen || plPlayerController.isDesktopPip)) {
             fsSC.value = item.copyWith(
-              endTime: math.min(
-                item.endTime,
-                DateTime.now().millisecondsSinceEpoch ~/ 1000 + 10,
-              ),
+              endTime: math.min(item.endTime, _nowSeconds + 10),
             );
           }
           break;
-        // case 'SUPER_CHAT_MESSAGE_DELETE' when showSuperChat:
-        //   if (obj['roomid'] == roomId) {
-        //     final ids = obj['data']?['ids'] as List?;
-        //     if (ids != null && ids.isNotEmpty) {
-        //       if (superChatType == .valid) {
-        //         superChatMsg.removeWhere((e) => ids.contains(e.id));
-        //       } else {
-        //         bool? refresh;
-        //         for (final id in ids) {
-        //           if (superChatMsg.firstWhereOrNull((e) => e.id == id)
-        //               case final item?) {
-        //             item.deleted = true;
-        //             refresh ??= true;
-        //           }
-        //         }
-        //         if (refresh ?? false) {
-        //           superChatMsg.refresh();
-        //         }
-        //       }
-        //     }
-        //   }
+        case 'SUPER_CHAT_MESSAGE_DELETE' when showSuperChat:
+          final data = obj['data'];
+          final eventRoom =
+              obj['roomid'] ?? (data is Map ? data['roomid'] : null);
+          if (eventRoom != null && eventRoom.toString() != roomId.toString()) {
+            break;
+          }
+          final rawIds = data is Map ? data['ids'] : null;
+          if (rawIds is! List) break;
+          final ids = rawIds
+              .map((id) => int.tryParse(id.toString()))
+              .whereType<int>()
+              .where((id) => id > 0)
+              .toSet();
+          _superChatTimeline.delete(ids);
+          messages.removeWhere(
+            (item) => item is SuperChatItem && ids.contains(item.id),
+          );
+          if (ids.contains(fsSC.value?.id)) fsSC.value = null;
+          _publishSC();
+          break;
         case 'WATCHED_CHANGE':
           watchedShow.value = obj['data']['text_large'];
           break;

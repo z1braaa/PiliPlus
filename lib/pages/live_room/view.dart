@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -26,6 +27,8 @@ import 'package:PiliPlus/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/bottom_control.dart';
 import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
+import 'package:PiliPlus/pages/live_room/widgets/enhancement_panel.dart';
+import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -34,11 +37,13 @@ import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
+import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/max_screen_size.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -78,6 +83,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   late final GlobalKey chatKey = GlobalKey();
   late final GlobalKey scKey = GlobalKey();
   late final GlobalKey playerKey = GlobalKey();
+  late bool _enhancementEnabled = Pref.liveRoomEnhancement;
+  StreamSubscription<dynamic>? _enhancementSettings;
+  ModalRoute<dynamic>? _enhancementSheetRoute;
+  LiveInteractionSession? _interactionSession;
+  final _enhancementPanelKey = GlobalKey<LiveEnhancementPanelState>();
+  bool get _interactionUIVisible =>
+      _enhancementSheetRoute?.isActive == true ||
+      _enhancementPanelKey.currentState?.showingInteractions == true;
 
   @override
   void initState() {
@@ -90,6 +103,21 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(plPlayerController.play);
+    _enhancementSettings = GStorage.setting
+        .watch(key: SettingBoxKey.liveRoomEnhancement)
+        .listen((_) {
+          final enabled = Pref.liveRoomEnhancement;
+          if (!mounted || enabled == _enhancementEnabled) return;
+          setState(() => _enhancementEnabled = enabled);
+          if (!enabled) _interactionSession?.hide();
+          if (!enabled) {
+            final route = _enhancementSheetRoute;
+            _enhancementSheetRoute = null;
+            if (route != null && route.isActive) {
+              route.navigator?.removeRoute(route);
+            }
+          }
+        });
     if (plPlayerController.removeSafeArea) {
       hideSystemBar();
     }
@@ -141,11 +169,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     if (!mounted) return;
     plPlayerController.addStatusLister(playerListener);
+    if (_interactionUIVisible) _interactionSession?.load();
     super.didPopNext();
   }
 
   @override
   void didPushNext() {
+    _interactionSession?.hide();
     removeObserverMobile(this);
     plPlayerController.removeStatusLister(playerListener);
     _liveRoomController
@@ -172,6 +202,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   @override
   void dispose() {
+    _enhancementSettings?.cancel();
+    _interactionSession?.dispose();
     removeObserverMobile(this);
     videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
     if (Platform.isAndroid && !plPlayerController.setSystemBrightness) {
@@ -192,6 +224,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (plPlayerController.visible = state == .resumed) {
+      if (_interactionUIVisible) _interactionSession?.load();
       if (!plPlayerController.showDanmaku) {
         _liveRoomController
           ..refreshMsgIfNeeded()
@@ -199,6 +232,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         plPlayerController.showDanmaku = true;
       }
     } else if (state == .paused) {
+      _interactionSession?.hide();
       _liveRoomController.cancelLiveTimer();
       plPlayerController
         ..showDanmaku = false
@@ -428,6 +462,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                   )
                 : _buildBodyH(isFullScreen),
           ),
+          if (_enhancementEnabled &&
+              isFullScreen &&
+              !plPlayerController.isDesktopPip)
+            Positioned(
+              right: 12 + padding.right,
+              top: 12 + padding.top,
+              child: IconButton.filledTonal(
+                tooltip: '直播增强面板',
+                onPressed: _showEnhancement,
+                icon: const Icon(Icons.redeem_outlined),
+              ),
+            ),
         ],
       );
     });
@@ -607,6 +653,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               },
             ),
       actions: [
+        if (_enhancementEnabled)
+          IconButton(
+            tooltip: '直播增强面板',
+            onPressed: _showEnhancement,
+            icon: const Icon(Icons.redeem_outlined, size: 20),
+          ),
         // IconButton(
         //   tooltip: '刷新',
         //   onPressed: _liveRoomController.queryLiveUrl,
@@ -618,6 +670,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             final liveUrl =
                 'https://live.bilibili.com/${_liveRoomController.roomId}';
             return <PopupMenuEntry>[
+              CheckedPopupMenuItem<bool>(
+                checked: _enhancementEnabled,
+                onTap: () => GStorage.setting.put(
+                  SettingBoxKey.liveRoomEnhancement,
+                  !_enhancementEnabled,
+                ),
+                child: const Text('直播界面增强（实验性）'),
+              ),
               PopupMenuItem(
                 onTap: () => Utils.copyText(liveUrl),
                 child: const Row(
@@ -731,13 +791,85 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     );
   }
 
-  Widget get _buildBottomWidget => Column(
+  Widget get _buildBottomWidget =>
+      _enhancementEnabled &&
+          useLiveEnhancementSidebar(
+            width: maxWidth,
+            isFullScreen: isFullScreen,
+          )
+      ? _buildEnhancementPanel
+      : _buildOriginalBottomWidget;
+
+  Widget get _buildOriginalBottomWidget => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(child: _buildChatWidget()),
       _buildInputWidget,
     ],
   );
+
+  Widget get _buildEnhancementPanel => LiveEnhancementPanel(
+    key: _enhancementPanelKey,
+    controller: _liveRoomController,
+    interactions: _buildInteractionWidget,
+    input: _buildInputWidget,
+  );
+
+  Widget get _buildInteractionWidget => Obx(() {
+    final room = _liveRoomController.roomInfoH5.value;
+    final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
+    if (anchorUid == null || anchorUid <= 0) {
+      return const Center(child: Text('等待官方主播信息；当前不能提交互动。'));
+    }
+    if (_interactionSession?.service.anchorUid != anchorUid ||
+        _interactionSession?.service.roomId != _liveRoomController.roomId) {
+      final previous = _interactionSession;
+      previous?.hide(notify: false);
+      if (previous != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+      }
+      _interactionSession = LiveInteractionSession(
+        service: LiveInteractionService(
+          roomId: _liveRoomController.roomId,
+          anchorUid: anchorUid,
+        ),
+        isEnabled: () => mounted && _enhancementEnabled,
+      );
+    }
+    return LiveInteractionPanel(
+      key: ObjectKey(_interactionSession),
+      session: _interactionSession!,
+      anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
+      onLogin: () => Get.toNamed('/loginPage'),
+    );
+  });
+
+  Future<void> _showEnhancement() async {
+    if (!_enhancementEnabled || _enhancementSheetRoute != null) return;
+    if (_enhancementPanelKey.currentState case final panel?) {
+      panel.showInteractions();
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (sheetContext) {
+        _enhancementSheetRoute = ModalRoute.of(sheetContext);
+        return FractionallySizedBox(
+          heightFactor: 0.85,
+          child: LiveEnhancementDrawer(
+            controller: _liveRoomController,
+            interactions: _buildInteractionWidget,
+            onShowRank: _showRank,
+          ),
+        );
+      },
+    );
+    _enhancementSheetRoute = null;
+    _interactionSession?.hide();
+  }
 
   Widget _buildChatWidget([bool isPP = false]) {
     Widget chat() => LiveRoomChatPanel(

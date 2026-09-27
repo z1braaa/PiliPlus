@@ -208,7 +208,8 @@ def parse_regression_output(kind, stdout):
         if passed > total:
             raise HarnessError("invalid_test_count")
         return {"passed": passed, "failed": total - passed, "skipped": 0, "count_verified": True}
-    tests, counts = {}, {"passed": 0, "failed": 0, "skipped": 0, "count_verified": False,
+    tests, suites, completed = {}, {}, set()
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "count_verified": False,
                          "framework_events": 0, "framework_failures": 0}
     for line in stdout.splitlines():
         try:
@@ -217,19 +218,33 @@ def parse_regression_output(kind, stdout):
             continue
         if not isinstance(event, dict):
             continue
-        if event.get("type") == "testStart":
+        if event.get("type") == "suite":
+            suite = event.get("suite")
+            if isinstance(suite, dict) and isinstance(suite.get("id"), int):
+                suites[suite["id"]] = suite
+        elif event.get("type") == "testStart":
             test = event.get("test")
             if isinstance(test, dict) and isinstance(test.get("id"), int):
                 tests[test["id"]] = test
         elif event.get("type") == "testDone":
             identifier = event.get("testID")
-            if not isinstance(identifier, int) or identifier not in tests:
+            if not isinstance(identifier, int) or identifier not in tests or identifier in completed:
                 continue
+            completed.add(identifier)
             test = tests[identifier]
             # test_api puts `hidden` on testDone, not normally on testStart.
             # Loading and setUpAll/tearDownAll are framework lifecycle events,
             # not user test cases. Still retain their failures separately.
-            if event.get("hidden") is True or test.get("hidden") is True:
+            suite_id = test.get("suiteID")
+            suite_path = suites.get(suite_id, {}).get("path") if isinstance(suite_id, int) else None
+            # A failed loader is explicitly hidden=false in real Flutter
+            # --machine output. Match its suite-bound identity, not a user
+            # test whose name merely starts with "loading".
+            is_loader = (isinstance(suite_path, str)
+                         and test.get("name") == "loading " + suite_path
+                         and test.get("groupIDs") == []
+                         and test.get("line") is None and test.get("url") is None)
+            if event.get("hidden") is True or test.get("hidden") is True or is_loader:
                 counts["framework_events"] += 1
                 if event.get("result") in ("error", "failure"):
                     counts["framework_failures"] += 1

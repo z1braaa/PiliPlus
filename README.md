@@ -223,6 +223,8 @@
 
 [Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
 
+[下一版直播整合审查稿](docs/requirements/06-live-first-build-review.md) 记录已批准的默认关闭界面、SC/连接恢复和完整送礼、入团/灯牌范围。默认关闭的增强布局、SC/消息恢复与普通原生送礼/背包、入团/点亮、当前主播勋章流程已写入本分支并通过客户端测试。真实账号读写与消费未验证；普通赠礼丢失回执后的专属查证仍缺，未知不重发。使用方法和费用结果填写见[实机流程](docs/harness/live-interaction-testing.md)，当前完整缺口见[未落地清单](docs/harness/remaining-work-live-l2.md)。
+
 <br/>
 
 ## 声明

@@ -1,0 +1,451 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-09-27T16:21:20.288890+00:00",
+  "scope": "Current official JavaScript signatures plus anonymous GET observations; no user credentials or write requests used",
+  "sources": [
+    {
+      "source": "S02",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.3b48f866e1563d25d39c.js",
+      "bytes": 3525464,
+      "sha256": "fb51c9acf90afc446bc4a82ae6c5e55fc22ff5219aaf0f4cf152aa705506de82"
+    },
+    {
+      "source": "S03",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/bilibili.db8b38549c9cc2a44dc5.js",
+      "bytes": 2946742,
+      "sha256": "b4fa0b8cab5dd5c0fe178e3c22a882a88129a388983bb76c171f07f7e29eb4b6"
+    },
+    {
+      "source": "S05",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/1357.90ea2cfe3ee550109970.js",
+      "bytes": 13282,
+      "sha256": "da9ce613bde900c7a05f7c6a3037c92fb596e472854b0848640197ff60e21fc5"
+    },
+    {
+      "source": "S06",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/9649.1063b9e512e83582c1bc.js",
+      "bytes": 371392,
+      "sha256": "546a2c10db9cbb6ddb9195e93306b6714669bccdc022113fdbf5edca32a90aa8"
+    },
+    {
+      "source": "S07",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/6685.68c5e9483d5388688bbd.js",
+      "bytes": 364545,
+      "sha256": "c8e2119971b9a0557d29844dc201e9dff24af3495494636bd5b66ec9f050163c"
+    },
+    {
+      "source": "S10",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-CmJdpsDS.js",
+      "bytes": 916872,
+      "sha256": "cc2fd1a787b94ea3558824e4738dd8afa9e9133d374fe50d11426551512a946b"
+    },
+    {
+      "source": "S11",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/FansHome-CyGh9iPX.js",
+      "bytes": 21431,
+      "sha256": "8311bfa0ca42d873070fb4d972c56d4a207764c7a8d2a108188b5dd9d84d3490"
+    },
+    {
+      "source": "S12",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/fansmedal-panel-dwfR1anS.js",
+      "bytes": 2316,
+      "sha256": "e03458d28621374476159717b7ea95c7f07101b90decf61414e6800469935a4e"
+    },
+    {
+      "source": "S13",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/reqfansGroup-Bj8HbEMm.js",
+      "bytes": 114286,
+      "sha256": "86a2c88ed4eefd859ac0ee3b8f9f65e8407493f97865db8cf9489894ecee1ddf"
+    },
+    {
+      "source": "CashierHome-CtgQJTMM.js",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/CashierHome-CtgQJTMM.js",
+      "bytes": 20826,
+      "sha256": "158e1fe53007b82d708570cf1513e1277bba134ecf1972b80a97e5f07ea56351"
+    },
+    {
+      "source": "index-D1DYlSRj.js",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-D1DYlSRj.js",
+      "bytes": 52979,
+      "sha256": "d20ee71d0c4ccd517e86d780f72de58b5ddfa3682261f294b79597b26e7ff0cb"
+    },
+    {
+      "source": "index-xqSNIxNj.js",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-xqSNIxNj.js",
+      "bytes": 2256,
+      "sha256": "ff5a9aa7ba5995be2e4a5ad36d342ec443ea6b1dd90d9ce611a497f461be34e0"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "gift_catalog",
+      "method": "GET",
+      "path": "/xlive/web-room/v1/giftPanel/roomGiftList",
+      "request_field_whitelist": [
+        "room_id",
+        "ruid",
+        "platform",
+        "source",
+        "build"
+      ],
+      "login_required": false,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        968500,
+        972000
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": 0,
+        "message": "OK",
+        "response_sha256": "d2a854152bb151c7cfe4ade8f3806b08e27d916e9cdc1909025948f9cb4a941a",
+        "payload_bytes": 250124,
+        "payload_source_local_only": "gift.json",
+        "gold_count": 58
+      }
+    },
+    {
+      "id": "gift_bag",
+      "method": "GET",
+      "path": "/xlive/web-room/v1/gift/bag_list",
+      "request_field_whitelist": [
+        "t",
+        "room_id",
+        "mobi_app",
+        "receive_users"
+      ],
+      "login_required": true,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        977300,
+        979500
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": -101,
+        "message": "账号未登录",
+        "response_sha256": "b7b7250b824c2ec2bdfd4bdbad7f545963cde13940510013fef02d90e6c9ebef",
+        "payload_bytes": 54,
+        "payload_source_local_only": "bag.json"
+      }
+    },
+    {
+      "id": "gift_gold",
+      "method": "POST",
+      "path": "/xlive/revenue/v2/gift/sendGoldMultiUser",
+      "request_field_whitelist": [
+        "uid",
+        "gift_id",
+        "ruid",
+        "send_ruid",
+        "gift_num",
+        "coin_type",
+        "platform",
+        "biz_code",
+        "biz_id",
+        "price",
+        "receive_users",
+        "statistics",
+        "live_statistics",
+        "web_location",
+        "csrf",
+        "csrf_token"
+      ],
+      "login_required": true,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        1200130,
+        1206450
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "evidence_level": "current_official_static_signature_only"
+    },
+    {
+      "id": "gift_silver",
+      "method": "POST",
+      "path": "/xlive/revenue/v2/gift/sendSilverMultiUser",
+      "request_field_whitelist": [
+        "uid",
+        "gift_id",
+        "ruid",
+        "send_ruid",
+        "gift_num",
+        "coin_type",
+        "platform",
+        "biz_code",
+        "biz_id",
+        "price",
+        "receive_users",
+        "statistics",
+        "live_statistics",
+        "web_location",
+        "csrf",
+        "csrf_token"
+      ],
+      "login_required": true,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        1200130,
+        1206450
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "evidence_level": "current_official_static_signature_only"
+    },
+    {
+      "id": "gift_bag_send",
+      "method": "POST",
+      "path": "/xlive/revenue/v2/gift/sendBagMultiUser",
+      "request_field_whitelist": [
+        "uid",
+        "gift_id",
+        "ruid",
+        "send_ruid",
+        "gift_num",
+        "coin_type",
+        "bag_id",
+        "platform",
+        "biz_code",
+        "biz_id",
+        "price",
+        "receive_users",
+        "statistics",
+        "live_statistics",
+        "web_location",
+        "csrf",
+        "csrf_token"
+      ],
+      "login_required": true,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        1200130,
+        1206450
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "evidence_level": "current_official_static_signature_only"
+    },
+    {
+      "id": "medal_panel",
+      "method": "GET",
+      "path": "/xlive/app-ucenter/v1/fansMedal/panel",
+      "request_field_whitelist": [
+        "target_id",
+        "page",
+        "page_size"
+      ],
+      "login_required": true,
+      "source_local_reference": "chunk-9649.js",
+      "source_character_range": [
+        107046,
+        108050
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": -101,
+        "message": "账号未登录",
+        "response_sha256": "b7b7250b824c2ec2bdfd4bdbad7f545963cde13940510013fef02d90e6c9ebef",
+        "payload_bytes": 54,
+        "payload_source_local_only": "medal.json"
+      }
+    },
+    {
+      "id": "medal_wear",
+      "method": "POST",
+      "path": "/xlive/app-ucenter/v1/fansMedal/wear",
+      "request_field_whitelist": [
+        "medal_id",
+        "target_id",
+        "csrf",
+        "csrf_token"
+      ],
+      "login_required": true,
+      "source_local_reference": "chunk-9649.js",
+      "source_character_range": [
+        107386,
+        107760
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "evidence_level": "current_official_static_signature_only"
+    },
+    {
+      "id": "medal_take_off",
+      "method": "POST",
+      "path": "/xlive/app-ucenter/v1/fansMedal/take_off",
+      "request_field_whitelist": [
+        "target_id",
+        "csrf",
+        "csrf_token"
+      ],
+      "login_required": true,
+      "source_local_reference": "chunk-9649.js",
+      "source_character_range": [
+        107764,
+        108100
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "evidence_level": "current_official_static_signature_only"
+    },
+    {
+      "id": "fan_activation",
+      "method": "GET",
+      "path": "/xlive/app-ucenter/v1/fansMedal/GetActivatedMedalInfo",
+      "request_field_whitelist": [
+        "target_id",
+        "room_id",
+        "platform",
+        "scene"
+      ],
+      "login_required": true,
+      "source_local_reference": "reqfansGroup.js",
+      "source_character_range": [
+        112800,
+        113850
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": -101,
+        "message": "账号未登录",
+        "response_sha256": "b7b7250b824c2ec2bdfd4bdbad7f545963cde13940510013fef02d90e6c9ebef",
+        "payload_bytes": 54,
+        "payload_source_local_only": "activated.json"
+      }
+    },
+    {
+      "id": "fan_join_rules",
+      "method": "GET",
+      "path": "/xlive/guard-interface/v1/guard/GuardActiveWithFansClub",
+      "request_field_whitelist": [
+        "ruid",
+        "room_id",
+        "platform"
+      ],
+      "login_required": true,
+      "source_local_reference": "relation-index.js",
+      "source_character_range": [
+        655200,
+        657050
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": -101,
+        "message": "账号未登录",
+        "response_sha256": "b7b7250b824c2ec2bdfd4bdbad7f545963cde13940510013fef02d90e6c9ebef",
+        "payload_bytes": 54,
+        "payload_source_local_only": "fan.json"
+      }
+    },
+    {
+      "id": "live_wallet",
+      "method": "GET",
+      "path": "/xlive/web-room/v1/index/getInfoByUser",
+      "request_field_whitelist": [
+        "room_id",
+        "not_mock_enter_effect"
+      ],
+      "login_required": true,
+      "source_local_reference": "app.js",
+      "source_character_range": [
+        587300,
+        588000
+      ],
+      "verified_api_contract": false,
+      "authenticated_read_run": false,
+      "write_run": false,
+      "anonymous_read_observation": {
+        "api_code": -101,
+        "message": "账号未登录",
+        "response_sha256": "b7b7250b824c2ec2bdfd4bdbad7f545963cde13940510013fef02d90e6c9ebef",
+        "payload_bytes": 54,
+        "payload_source_local_only": "user.json"
+      }
+    }
+  ],
+  "fan_actions": {
+    "join": {
+      "rule_field": "GuardActiveWithFansClub.data.fans_club_info.fans_club_gift; valid discount_info wins",
+      "quantity": 1,
+      "coin_type": "gold",
+      "sender": "sendGoldMultiUser",
+      "source": "index-xqSNIxNj.js",
+      "source_character_range": [
+        750,
+        1850
+      ]
+    },
+    "light": {
+      "rule_field": "GetActivatedMedalInfo.data.fans_club_gift_info; valid gift_discount_info wins",
+      "quantity": 1,
+      "coin_type": "gold",
+      "sender": "sendGoldMultiUser",
+      "sources": [
+        "FansHome.js",
+        "reqfansGroup.js",
+        "app.js"
+      ],
+      "source_character_ranges": [
+        [
+          13329,
+          14720
+        ],
+        [
+          110300,
+          111200
+        ],
+        [
+          1613150,
+          1615350
+        ]
+      ]
+    }
+  },
+  "receipt_candidate": {
+    "source": "app.js",
+    "source_character_range": [
+      1202900,
+      1205100
+    ],
+    "fields": [
+      "data.uid",
+      "data.gift_list[].gift_id",
+      "gift_num",
+      "receive_user_info.uid",
+      "receiver_uinfo.uid",
+      "tid",
+      "extra.wallet.order_id"
+    ],
+    "acceptance": "API 0 plus exact sender, gift, quantity, receiver and unique receipt; fan target state separately confirmed by fresh GET",
+    "authenticated_verified": false
+  },
+  "unknown_result_policy": {
+    "automatic_retry": false,
+    "ordinary_gift_query_contract": "unresolved; balance/bag changes insufficient to attribute this transaction",
+    "join_light_query": "matching gift receipt plus fresh joined/is_lighted; target state alone does not prove lost gift result",
+    "journal": "flush submitting before POST; restore interrupted submitting as unknown; no Cookie/CSRF saved"
+  },
+  "unsupported_boundaries": [
+    "Official channel target remapping",
+    "Multi-person recipient selection",
+    "Lottery/activity-exclusive payment modes",
+    "Unverified privilege-required gifts",
+    "Top-up, external payment, SC purchase, guard purchase/subscription"
+  ]
+}

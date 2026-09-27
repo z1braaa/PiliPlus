@@ -37,6 +37,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
+import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -1015,6 +1016,11 @@ abstract final class Pref {
   static String? get imageSavePath => _setting.get(SettingBoxKey.imageSavePath);
 
   static String? get liveCdnUrl => _setting.get(SettingBoxKey.liveCdnUrl);
+
+  /// Missing and malformed restored values must never enable transactions UI.
+  static bool get liveRoomEnhancement => decodeLiveRoomEnhancement(
+    _setting.get(SettingBoxKey.liveRoomEnhancement),
+  );
 
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,
