@@ -1,0 +1,43 @@
+{
+  "created_at_utc": "2026-09-28T14:51:36Z",
+  "source_commit": "dea8071460a1a77b863fcf895dd3de1296013df9",
+  "display_version": "2.1.5-CDN-P0-LIVE-NEXT-FIX+5431",
+  "build_defines": {
+    "pili.name": "2.1.5-CDN-P0-LIVE-NEXT-FIX",
+    "pili.code": 5431,
+    "pili.hash": "dea8071460a1a77b863fcf895dd3de1296013df9",
+    "pili.time": 1790605840
+  },
+  "native_bundle_version": "2.1.5",
+  "native_build_number": "5431",
+  "flutter": "3.47.5",
+  "dart": "3.13.4",
+  "xcode": "27.0",
+  "build_result": "release macOS build passed; 137.4 MB app",
+  "flutter_tests": "130/130 passed",
+  "changed_source_analyze": "0 issues",
+  "full_analyze": "0 errors, 0 warnings, 37 pre-existing info diagnostics in unchanged code; exit 1",
+  "target_macos": "13.0",
+  "packaging_adjustment": "Raised LSMinimumSystemVersion from Flutter-generated 12.0 to 13.0, then ad-hoc re-signed with macos/Runner/Release.entitlements.",
+  "native_architectures": {
+    "mach_o_count": 27,
+    "all_have": ["x86_64", "arm64"],
+    "minimum_greater_than_13": [],
+    "non_universal": []
+  },
+  "signing": "ad-hoc; network client/server entitlements preserved; get-task-allow absent",
+  "codesign_deep_strict": "passed for staged app and read-only mounted DMG app",
+  "dmg_embedded_app_matches_staged_app": "Runner, Dart AOT and Info.plist byte-for-byte matched",
+  "dmg_path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/PiliPlus-2.1.5-CDN-P0-LIVE-NEXT-FIX+5431-macos-universal.dmg",
+  "dmg_sha256": "7cf37e43f068f305cd63dc6bfa18bb432b49994624261e2e4cd85b6172935885",
+  "dmg_bytes": 58994890,
+  "independent_guest_gui": "Release build copied to a distinct test bundle ID and signed; foreground GUI checked video BV1Uyha6nEbZ paused exit, BV17Qtx6rE6C playing exit, mini play/pause, playing restore, pause/play close, and outside Dynamic navigation. This is the same Release build, not a separately mounted DMG app. Test settings may inherit existing local preferences.",
+  "apple_notarization": "not_run",
+  "limits": [
+    "User installation of +5431 and complete mini-player matrix not yet run",
+    "Mac GUI narrow-window, drag/resize, live, natural completion, audio and stream-count checks not run",
+    "Intel/macOS 13 hardware not run; architecture and deployment metadata only",
+    "Authenticated, payment and server-side interaction checks not run",
+    "iOS, Android, Windows and Linux builds/device tests not run"
+  ]
+}
