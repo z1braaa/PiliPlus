@@ -197,18 +197,20 @@ class LiveInteractionPanel extends StatefulWidget {
     required this.session,
     required this.anchorName,
     required this.onLogin,
+    this.initialTab = 0,
   });
 
   final LiveInteractionSession session;
   final String anchorName;
   final VoidCallback onLogin;
+  final int initialTab;
 
   @override
   State<LiveInteractionPanel> createState() => _LiveInteractionPanelState();
 }
 
 class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
-  int _tab = 0;
+  late int _tab = widget.initialTab.clamp(0, 2).toInt();
   final _quantity = TextEditingController(text: '1');
   ModalRoute<dynamic>? _confirmationRoute;
 

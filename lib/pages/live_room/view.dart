@@ -8,6 +8,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
+import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -18,17 +19,20 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:PiliPlus/models/common/live/live_contribution_rank_type.dart';
 import 'package:PiliPlus/models_new/live/live_room_info_h5/data.dart';
+import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/live_room/contribution_rank/controller.dart';
 import 'package:PiliPlus/pages/live_room/contribution_rank/view.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
+import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/bottom_control.dart';
 import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/enhancement_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
+import 'package:PiliPlus/pages/live_room/widgets/interaction_focus_boundary.dart';
 import 'package:PiliPlus/pages/live_room/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -56,25 +60,13 @@ import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:canvas_danmaku/danmaku_screen.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 const baseWhite = Color(0xFFEEEEEE);
-
-/// Offstage preserves the sidebar state in fullscreen. A mounted state alone
-/// therefore cannot decide whether the interaction entry should focus it.
-bool canFocusLiveEnhancementSidebar({
-  required double width,
-  required bool isFullScreen,
-  required bool isDesktopPip,
-  required bool sidebarMounted,
-}) =>
-    sidebarMounted &&
-    !isDesktopPip &&
-    useLiveEnhancementSidebar(width: width, isFullScreen: isFullScreen);
 
 class LiveRoomPage extends StatefulWidget {
   const LiveRoomPage({super.key});
@@ -96,13 +88,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   late final GlobalKey scKey = GlobalKey();
   late final GlobalKey playerKey = GlobalKey();
   late bool _enhancementEnabled = Pref.liveRoomEnhancement;
+  bool _inlineEmojiVisible = false;
   StreamSubscription<dynamic>? _enhancementSettings;
   ModalRoute<dynamic>? _enhancementSheetRoute;
+  ModalRoute<dynamic>? _enhancementChatRoute;
   LiveInteractionSession? _interactionSession;
   final _enhancementPanelKey = GlobalKey<LiveEnhancementPanelState>();
-  bool get _interactionUIVisible =>
-      _enhancementSheetRoute?.isActive == true ||
-      _enhancementPanelKey.currentState?.showingInteractions == true;
+  final _inlineDmKey = GlobalKey<LiveSendDmPanelState>();
+  bool get _interactionUIVisible => _enhancementSheetRoute?.isActive == true;
 
   @override
   void initState() {
@@ -120,13 +113,21 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         .listen((_) {
           final enabled = Pref.liveRoomEnhancement;
           if (!mounted || enabled == _enhancementEnabled) return;
-          setState(() => _enhancementEnabled = enabled);
+          setState(() {
+            _enhancementEnabled = enabled;
+            if (!enabled) _inlineEmojiVisible = false;
+          });
           if (!enabled) _interactionSession?.hide();
           if (!enabled) {
             final route = _enhancementSheetRoute;
             _enhancementSheetRoute = null;
             if (route != null && route.isActive) {
               route.navigator?.removeRoute(route);
+            }
+            final chatRoute = _enhancementChatRoute;
+            _enhancementChatRoute = null;
+            if (chatRoute != null && chatRoute.isActive) {
+              chatRoute.navigator?.removeRoute(chatRoute);
             }
           }
         });
@@ -275,7 +276,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     if (plPlayerController.keyboardControl) {
       child = PlayerFocus(
         plPlayerController: plPlayerController,
-        onSendDanmaku: _liveRoomController.onSendDanmaku,
+        onSendDanmaku: _onSendDanmaku,
         onRefresh: _liveRoomController.queryLiveUrl,
         child: child,
       );
@@ -315,7 +316,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               title: roomInfoH5?.roomInfo?.title,
               upName: roomInfoH5?.anchorInfo?.baseInfo?.uname,
               plPlayerController: plPlayerController,
-              onSendDanmaku: _liveRoomController.onSendDanmaku,
+              onSendDanmaku: _onSendDanmaku,
               onPlayAudio: _liveRoomController.queryLiveUrl,
               isPortrait: isPortrait,
               liveController: _liveRoomController,
@@ -474,18 +475,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                   )
                 : _buildBodyH(isFullScreen),
           ),
-          if (_enhancementEnabled &&
-              isFullScreen &&
-              !plPlayerController.isDesktopPip)
-            Positioned(
-              right: 12 + padding.right,
-              top: 12 + padding.top,
-              child: IconButton.filledTonal(
-                tooltip: '直播增强面板',
-                onPressed: _showEnhancement,
-                icon: const Icon(Icons.redeem_outlined),
-              ),
-            ),
         ],
       );
     });
@@ -493,10 +482,20 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Widget _buildPH(bool isFullScreen) {
     final height = maxWidth / Style.aspectRatio16x9;
+    final showActions = _enhancementEnabled && !plPlayerController.isDesktopPip;
+    final actionHeight = showActions ? 60.0 : 0.0;
     final videoHeight = isFullScreen
-        ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
+        ? maxHeight -
+              (isWindowMode && !isPortrait ? 0 : padding.top) -
+              actionHeight
+        : _enhancementEnabled
+        ? min(
+            height,
+            max(0.0, maxHeight - padding.top - kToolbarHeight - actionHeight),
+          )
         : height;
-    final bottomHeight = maxHeight - padding.top - height - kToolbarHeight;
+    final bottomHeight =
+        maxHeight - padding.top - videoHeight - kToolbarHeight - actionHeight;
     return Column(
       children: [
         SizedBox(
@@ -508,57 +507,123 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             height: videoHeight,
           ),
         ),
-        Offstage(
-          offstage: isFullScreen,
-          child: SizedBox(
+        if (showActions) _buildLiveActionBar,
+        if (!_enhancementEnabled)
+          Offstage(
+            offstage: isFullScreen,
+            child: SizedBox(
+              width: maxWidth,
+              height: max(0.0, bottomHeight),
+              child: _buildBottomWidget,
+            ),
+          )
+        else if (!isFullScreen)
+          SizedBox(
             width: maxWidth,
-            height: max(0, bottomHeight),
+            height: max(0.0, bottomHeight),
             child: _buildBottomWidget,
           ),
-        ),
       ],
     );
   }
 
   Widget _buildPP(bool isFullScreen) {
-    final bottomHeight = 70 + padding.bottom;
-    final videoHeight = isFullScreen
-        ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
-        : maxHeight - bottomHeight;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          bottom: isFullScreen ? 0 : bottomHeight,
-          child: videoPlayerPanel(
-            width: maxWidth,
-            height: videoHeight,
-            isFullScreen,
-            needDm: isFullScreen,
-            alignment: isFullScreen ? Alignment.center : Alignment.topCenter,
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 55 + bottomHeight,
-          height: maxHeight * 0.32,
-          child: Offstage(
-            offstage: isFullScreen,
-            child: _buildChatWidget(true),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: bottomHeight,
-          child: Offstage(
-            offstage: isFullScreen,
-            child: _buildInputWidget,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final enhanced =
+            _enhancementEnabled && !plPlayerController.isDesktopPip;
+        final available = constraints.maxHeight;
+        final oldInputHeight = 70 + padding.bottom;
+        final actionHeight = enhanced ? min(60.0, available) : 0.0;
+        final emojiHeight = _inlineEmojiVisible
+            ? min(180.0, MediaQuery.sizeOf(context).height * 0.25)
+            : 0.0;
+        final inputHeight = enhanced && !isFullScreen
+            ? min(
+                oldInputHeight + emojiHeight,
+                max(0.0, available - actionHeight),
+              )
+            : 0.0;
+        final chatHeight = enhanced && !isFullScreen
+            ? min(
+                min(240.0, max(80.0, available * 0.28)),
+                max(0.0, available - actionHeight - inputHeight),
+              )
+            : 0.0;
+        final bottomVideo = enhanced
+            ? actionHeight + chatHeight + inputHeight
+            : isFullScreen
+            ? 0.0
+            : oldInputHeight;
+        final videoHeight = enhanced
+            ? max(0.0, available - bottomVideo)
+            : isFullScreen
+            ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
+            : maxHeight - oldInputHeight;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              bottom: bottomVideo,
+              child: videoPlayerPanel(
+                width: maxWidth,
+                height: videoHeight,
+                isFullScreen,
+                needDm: isFullScreen,
+                alignment: isFullScreen
+                    ? Alignment.center
+                    : Alignment.topCenter,
+              ),
+            ),
+            if (enhanced) ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: isFullScreen ? 0 : inputHeight + chatHeight,
+                height: actionHeight,
+                child: _buildLiveActionBar,
+              ),
+              if (!isFullScreen) ...[
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: inputHeight,
+                  height: chatHeight,
+                  child: _buildChatWidget(true),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: inputHeight,
+                  child: _buildInlineInputWidget,
+                ),
+              ],
+            ] else ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 55 + oldInputHeight,
+                height: maxHeight * 0.32,
+                child: Offstage(
+                  offstage: isFullScreen,
+                  child: _buildChatWidget(true),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: oldInputHeight,
+                child: Offstage(
+                  offstage: isFullScreen,
+                  child: _buildInputWidget,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -665,12 +730,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               },
             ),
       actions: [
-        if (_enhancementEnabled)
-          IconButton(
-            tooltip: '直播增强面板',
-            onPressed: _showEnhancement,
-            icon: const Icon(Icons.redeem_outlined, size: 20),
-          ),
         // IconButton(
         //   tooltip: '刷新',
         //   onPressed: _liveRoomController.queryLiveUrl,
@@ -773,6 +832,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     final height = isFullScreen
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : videoHeight;
+    final showActions = _enhancementEnabled && !plPlayerController.isDesktopPip;
+    final actionHeight = showActions ? 60.0 : 0.0;
     return Padding(
       padding: isFullScreen
           ? EdgeInsets.zero
@@ -783,21 +844,35 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             width: width,
             height: height,
             margin: EdgeInsets.only(bottom: padding.bottom),
-            child: videoPlayerPanel(
-              isFullScreen,
-              fill: Colors.transparent,
-              width: width,
-              height: height,
+            child: Column(
+              children: [
+                Expanded(
+                  child: videoPlayerPanel(
+                    isFullScreen,
+                    fill: Colors.transparent,
+                    width: width,
+                    height: max(0, height - actionHeight),
+                  ),
+                ),
+                if (showActions) _buildLiveActionBar,
+              ],
             ),
           ),
-          Offstage(
-            offstage: isFullScreen,
-            child: SizedBox(
+          if (!_enhancementEnabled)
+            Offstage(
+              offstage: isFullScreen,
+              child: SizedBox(
+                width: rightWidth,
+                height: videoHeight,
+                child: _buildBottomWidget,
+              ),
+            )
+          else if (!isFullScreen)
+            SizedBox(
               width: rightWidth,
               height: videoHeight,
               child: _buildBottomWidget,
             ),
-          ),
         ],
       ),
     );
@@ -816,18 +891,24 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(child: _buildChatWidget()),
-      _buildInputWidget,
+      _enhancementEnabled ? _buildInlineInputWidget : _buildInputWidget,
     ],
   );
 
   Widget get _buildEnhancementPanel => LiveEnhancementPanel(
     key: _enhancementPanelKey,
     controller: _liveRoomController,
-    interactions: _buildInteractionWidget,
-    input: _buildInputWidget,
+    inputBuilder: () => _buildInlineInputWidget,
+    onMention: _onAtUser,
   );
 
-  Widget get _buildInteractionWidget => Obx(() {
+  Widget get _buildLiveActionBar => LiveInteractionActionBar(
+    onGift: () => _showEnhancement(0),
+    onBag: () => _showEnhancement(1),
+    onFan: () => _showEnhancement(2),
+  );
+
+  Widget _buildInteractionWidget(int initialTab) => Obx(() {
     final room = _liveRoomController.roomInfoH5.value;
     final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
     if (anchorUid == null || anchorUid <= 0) {
@@ -853,20 +934,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       session: _interactionSession!,
       anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
       onLogin: () => Get.toNamed('/loginPage'),
+      initialTab: initialTab,
     );
   });
 
-  Future<void> _showEnhancement() async {
+  Future<void> _showEnhancement([int initialTab = 0]) async {
     if (!_enhancementEnabled || _enhancementSheetRoute != null) return;
-    if (canFocusLiveEnhancementSidebar(
-      width: maxWidth,
-      isFullScreen: isFullScreen,
-      isDesktopPip: plPlayerController.isDesktopPip,
-      sidebarMounted: _enhancementPanelKey.currentState != null,
-    )) {
-      _enhancementPanelKey.currentState!.showInteractions();
-      return;
-    }
+    if (_interactionSession?.snapshot != null) _interactionSession?.load();
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -878,7 +952,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           heightFactor: 0.85,
           child: LiveEnhancementDrawer(
             controller: _liveRoomController,
-            interactions: _buildInteractionWidget,
+            interactions: _buildInteractionWidget(initialTab),
             onShowRank: _showRank,
           ),
         );
@@ -888,11 +962,161 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     _interactionSession?.hide();
   }
 
+  void _onSendDanmaku([bool fromEmote = false]) {
+    if (_enhancementEnabled) {
+      _focusEnhancedChat(showEmote: fromEmote);
+      return;
+    }
+    _liveRoomController.onSendDanmaku(fromEmote);
+  }
+
+  void _onAtUser(DanmakuMsg item) {
+    if (_enhancementEnabled) {
+      _focusEnhancedChat(mention: item);
+      return;
+    }
+    _liveRoomController.onAtUser(item);
+  }
+
+  void _focusEnhancedChat({bool showEmote = false, DanmakuMsg? mention}) {
+    if (kReleaseMode && !_liveRoomController.isLogin) {
+      _liveRoomController.toastNotLogin();
+      return;
+    }
+    final composer = _inlineDmKey.currentState;
+    if (composer != null &&
+        ((!isFullScreen && !plPlayerController.isDesktopPip) ||
+            _enhancementChatRoute?.isActive == true)) {
+      if (mention case final item?) {
+        // PopupMenu closes after onTap. Wait for it to release focus before
+        // moving the cursor into the inline composer.
+        _focusInlineAfterFrame(showEmote: false, mention: item);
+      } else {
+        composer.focusInput(showEmote: showEmote);
+      }
+      return;
+    }
+    if (isFullScreen || plPlayerController.isDesktopPip) {
+      _showInlineChat(showEmote: showEmote, mention: mention);
+      return;
+    }
+    _enhancementPanelKey.currentState?.showChat();
+    _focusInlineAfterFrame(showEmote: showEmote, mention: mention);
+  }
+
+  void _focusInlineAfterFrame({
+    required bool showEmote,
+    DanmakuMsg? mention,
+    int framesRemaining = 2,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_enhancementEnabled) return;
+      final composer = _inlineDmKey.currentState;
+      if (composer == null) {
+        if (framesRemaining > 0) {
+          _focusInlineAfterFrame(
+            showEmote: showEmote,
+            mention: mention,
+            framesRemaining: framesRemaining - 1,
+          );
+        }
+      } else if (mention case final item?) {
+        composer.mention(item);
+      } else {
+        composer.focusInput(showEmote: showEmote);
+      }
+    });
+  }
+
+  Future<void> _showInlineChat({
+    bool showEmote = false,
+    DanmakuMsg? mention,
+  }) async {
+    if (!_enhancementEnabled || _enhancementChatRoute != null) return;
+    var focusRequested = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (sheetContext) {
+        _enhancementChatRoute = ModalRoute.of(sheetContext);
+        if (!focusRequested) {
+          focusRequested = true;
+          _focusInlineAfterFrame(showEmote: showEmote, mention: mention);
+        }
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: FractionallySizedBox(
+            heightFactor: 0.85,
+            child: LiveInteractionFocusBoundary(
+              child: Material(
+                color: Theme.of(sheetContext).colorScheme.surface,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('直播聊天')),
+                        IconButton(
+                          tooltip: '关闭聊天',
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: LiveRoomChatPanel(
+                        liveRoomController: _liveRoomController,
+                        isPP: false,
+                        onMention: _onAtUser,
+                      ),
+                    ),
+                    _buildInlineInputWidget,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    _enhancementChatRoute = null;
+  }
+
+  void _saveInlineDraft(List<RichTextItem> items) {
+    _liveRoomController.savedDanmaku = items.isEmpty ? null : items.toList();
+  }
+
+  void _onInlineEmojiChanged(bool value) {
+    if (mounted && _inlineEmojiVisible != value) {
+      setState(() => _inlineEmojiVisible = value);
+    }
+  }
+
+  Widget get _buildInlineInputWidget => LiveInteractionFocusBoundary(
+    child: Padding(
+      padding: EdgeInsets.only(bottom: padding.bottom),
+      child: LiveSendDmPanel(
+        key: _inlineDmKey,
+        inline: true,
+        autofocus: false,
+        onInlineEmojiChanged: _onInlineEmojiChanged,
+        liveRoomController: _liveRoomController,
+        items: _liveRoomController.savedDanmaku,
+        onSave: _saveInlineDraft,
+      ),
+    ),
+  );
+
   Widget _buildChatWidget([bool isPP = false]) {
     Widget chat() => LiveRoomChatPanel(
       key: chatKey,
       isPP: isPP,
       liveRoomController: _liveRoomController,
+      onMention: _enhancementEnabled ? _onAtUser : null,
     );
     return Padding(
       padding: .only(bottom: 12, top: isPortrait ? 12 : 0),

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
 import 'package:PiliPlus/pages/live_room/contribution_rank/view.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_panel.dart';
@@ -11,13 +12,13 @@ class LiveEnhancementPanel extends StatefulWidget {
   const LiveEnhancementPanel({
     super.key,
     required this.controller,
-    required this.interactions,
-    required this.input,
+    required this.inputBuilder,
+    required this.onMention,
   });
 
   final LiveRoomController controller;
-  final Widget interactions;
-  final Widget input;
+  final Widget Function() inputBuilder;
+  final ValueChanged<DanmakuMsg> onMention;
 
   @override
   State<LiveEnhancementPanel> createState() => LiveEnhancementPanelState();
@@ -25,11 +26,10 @@ class LiveEnhancementPanel extends StatefulWidget {
 
 class LiveEnhancementPanelState extends State<LiveEnhancementPanel>
     with SingleTickerProviderStateMixin {
-  late final _tabs = TabController(length: 5, vsync: this);
+  late final _tabs = TabController(length: 4, vsync: this);
   int _index = 0;
 
-  void showInteractions() => _tabs.animateTo(3);
-  bool get showingInteractions => _index == 3;
+  void showChat() => _tabs.animateTo(0);
 
   @override
   void initState() {
@@ -84,7 +84,6 @@ class LiveEnhancementPanelState extends State<LiveEnhancementPanel>
                 Tab(text: '聊天'),
                 Tab(text: 'SC'),
                 Tab(text: '榜单'),
-                Tab(text: '礼物 / 粉丝团'),
                 Tab(text: '房间'),
               ],
             ),
@@ -93,6 +92,7 @@ class LiveEnhancementPanelState extends State<LiveEnhancementPanel>
                 0 => LiveRoomChatPanel(
                   liveRoomController: controller,
                   isPP: false,
+                  onMention: widget.onMention,
                 ),
                 1 =>
                   controller.showSuperChat
@@ -125,16 +125,71 @@ class LiveEnhancementPanelState extends State<LiveEnhancementPanel>
                           roomId: controller.roomId,
                         );
                 }),
-                3 => widget.interactions,
                 _ => _RoomInformation(controller: controller),
               },
             ),
-            if (_index == 0) widget.input,
+            if (_index == 0) widget.inputBuilder(),
           ],
         ),
       ),
     );
   }
+}
+
+/// Visible only with the experimental layout. The interaction state and
+/// confirmation flow stay in the existing room-scoped interaction panel.
+class LiveInteractionActionBar extends StatelessWidget {
+  const LiveInteractionActionBar({
+    super.key,
+    required this.onGift,
+    required this.onBag,
+    required this.onFan,
+  });
+
+  final VoidCallback onGift;
+  final VoidCallback onBag;
+  final VoidCallback onFan;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surface,
+    child: SizedBox(
+      height: 60,
+      child: Row(
+        children: [
+          _action('礼物', '礼物互动', Icons.card_giftcard, onGift),
+          _action('背包', '背包礼物', Icons.inventory_2_outlined, onBag),
+          _action('粉丝团/灯牌', '粉丝团与灯牌', Icons.groups_outlined, onFan),
+        ],
+      ),
+    ),
+  );
+
+  Widget _action(
+    String text,
+    String tooltip,
+    IconData icon,
+    VoidCallback tap,
+  ) => Expanded(
+    child: Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: tap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22),
+            Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Narrow/fullscreen UI deliberately omits a second chat/SC instance. Those
