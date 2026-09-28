@@ -48,6 +48,7 @@ import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -354,6 +355,38 @@ class VideoDetailController extends GetxController
     }
     data = PlayUrlModel(timeLength: entry.totalTimeMilli);
     _setVideoHeight();
+  }
+
+  /// Recreate page metadata without replacing the retained media source.
+  /// The ordinary URL query fills in quality choices asynchronously.
+  void adoptPlayingSession() {
+    final player = plPlayerController.videoPlayerController;
+    if (player == null) return;
+    autoPlay = true;
+    videoState.value = true;
+    playedTime = player.state.position;
+    data = PlayUrlModel(
+      timeLength: plPlayerController.durationInMilliseconds,
+    );
+    if (isFileSource) return;
+    final quality = VideoQuality.fromCode(
+      plPlayerController.cacheVideoQa ?? Pref.defaultVideoQa,
+    );
+    currentVideoQa.value = quality;
+    currentDecodeFormats = VideoDecodeFormatType.AVC;
+    firstVideo = VideoItem(
+      id: quality.code,
+      quality: quality,
+      width: player.state.width,
+      height: player.state.height,
+    );
+    final source = plPlayerController.dataSource;
+    if (source is NetworkSource) {
+      videoUrl = source.videoSource;
+      audioUrl = source.audioSource;
+      _originalVideoUrls = source.originalVideoUrls;
+      _originalAudioUrls = source.originalAudioUrls;
+    }
   }
 
   @override
@@ -741,6 +774,8 @@ class VideoDetailController extends GetxController
     bool autoFullScreenFlag = false,
     CdnStartupTrace? startupTrace,
   }) async {
+    final requestedBvid = bvid;
+    final requestedCid = cid.value;
     final trace =
         startupTrace ??
         (isFileSource
@@ -795,6 +830,17 @@ class VideoDetailController extends GetxController
       startupTrace: trace,
     );
 
+    if (!isClosed &&
+        bvid == requestedBvid &&
+        cid.value == requestedCid &&
+        plPlayerController.dataStatus.value == DataStatus.error) {
+      onTerminalSourceFailure?.call(
+        requestedBvid,
+        requestedCid,
+        '播放器未能打开片源',
+      );
+    }
+
     if (isClosed) return;
 
     if (!isFileSource) {
@@ -815,6 +861,10 @@ class VideoDetailController extends GetxController
   }
 
   bool isQuerying = false;
+
+  /// Only terminal URL/source-setup failures reach this callback. Transient
+  /// media_kit stream errors are handled by the player's own retry path.
+  void Function(String bvid, int cid, String reason)? onTerminalSourceFailure;
 
   final languages = Rxn<List<LanguageItem>>();
   final currLang = Rxn<String>();
@@ -858,22 +908,41 @@ class VideoDetailController extends GetxController
   Future<void> queryVideoUrl({
     bool fromReset = false,
     bool autoFullScreenFlag = false,
+    bool keepCurrentSession = false,
   }) async {
     if (isFileSource) {
-      return _initPlayerIfNeeded(autoFullScreenFlag);
+      return keepCurrentSession
+          ? null
+          : _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
       return;
     }
+    final requestedBvid = bvid;
+    final requestedCid = cid.value;
     final trace = CdnStartupTrace.begin(
       parallelEnabled: Pref.cdnParallelLoading,
     );
     trace?.mark(CdnStartupStage.urlRequestStart);
     isQuerying = true;
     try {
-      await _queryVideoUrl(fromReset, autoFullScreenFlag, trace);
+      await _queryVideoUrl(
+        fromReset,
+        autoFullScreenFlag,
+        trace,
+        keepCurrentSession,
+        requestedBvid,
+        requestedCid,
+      );
     } catch (_) {
       trace?.mark(CdnStartupStage.urlFailed);
+      if (!keepCurrentSession) {
+        onTerminalSourceFailure?.call(
+          requestedBvid,
+          requestedCid,
+          '片源请求失败',
+        );
+      }
       rethrow;
     } finally {
       isQuerying = false;
@@ -885,6 +954,9 @@ class VideoDetailController extends GetxController
     bool fromReset,
     bool autoFullScreenFlag,
     CdnStartupTrace? trace,
+    bool keepCurrentSession,
+    String requestedBvid,
+    int requestedCid,
   ) async {
     if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
       querySponsorBlock(bvid: bvid, cid: cid.value);
@@ -918,7 +990,7 @@ class VideoDetailController extends GetxController
 
       volume = data.volume;
 
-      if (!fromReset) {
+      if (!fromReset && !keepCurrentSession) {
         final progress = args.remove('progress');
         if (progress != null) {
           defaultST = Duration(milliseconds: progress);
@@ -969,16 +1041,27 @@ class VideoDetailController extends GetxController
           currentDecodeFormats = VideoDecodeFormatType.AVC;
           currentVideoQa.value = videoQuality;
           trace?.mark(CdnStartupStage.sourceSelected);
-          await _initPlayerIfNeeded(
-            autoFullScreenFlag,
-            startupTrace: trace,
-          );
+          if (!keepCurrentSession) {
+            await _initPlayerIfNeeded(
+              autoFullScreenFlag,
+              startupTrace: trace,
+            );
+          }
           return;
         } else {
           trace?.mark(CdnStartupStage.urlFailed);
+          if (!keepCurrentSession) {
+            onTerminalSourceFailure?.call(
+              requestedBvid,
+              requestedCid,
+              '视频资源不存在',
+            );
+          }
           SmartDialog.showToast('视频资源不存在');
-          _autoPlay.value = false;
-          videoState.value = false;
+          if (!keepCurrentSession) {
+            _autoPlay.value = false;
+            videoState.value = false;
+          }
           if (plPlayerController.isFullScreen.value) {
             plPlayerController.triggerFullScreen(status: false);
           }
@@ -1043,11 +1126,22 @@ class VideoDetailController extends GetxController
         currentAudioQa = null;
       }
       trace?.mark(CdnStartupStage.sourceSelected);
-      await _initPlayerIfNeeded(autoFullScreenFlag, startupTrace: trace);
+      if (!keepCurrentSession) {
+        await _initPlayerIfNeeded(autoFullScreenFlag, startupTrace: trace);
+      }
     } else {
       trace?.mark(CdnStartupStage.urlFailed);
-      _autoPlay.value = false;
-      videoState.value = false;
+      if (!keepCurrentSession) {
+        onTerminalSourceFailure?.call(
+          requestedBvid,
+          requestedCid,
+          '片源接口未返回可播放地址',
+        );
+      }
+      if (!keepCurrentSession) {
+        _autoPlay.value = false;
+        videoState.value = false;
+      }
       if (plPlayerController.isFullScreen.value) {
         plPlayerController.triggerFullScreen(status: false);
       }

@@ -136,6 +136,54 @@ class LiveWallet {
   const LiveWallet({this.gold, this.silver});
 }
 
+/// Read-only current guard identity from the official GuardActive response.
+/// Null fields must never be interpreted as not subscribed.
+class LiveGuardStatus {
+  final int? activeState;
+  final List<LiveGuardTier> tiers;
+  const LiveGuardStatus({this.activeState, this.tiers = const []});
+}
+
+class LiveGuardTier {
+  final int type;
+  final int? status;
+  final DateTime? expiresAt;
+  const LiveGuardTier({required this.type, this.status, this.expiresAt});
+
+  String get label => switch (type) {
+    3 => '舰长',
+    2 => '提督',
+    1 => '总督',
+    _ => '档位 $type',
+  };
+}
+
+/// Server-supplied read-only SC tiers. Creating an SC order is a separate
+/// transaction and is deliberately not inferred from this configuration.
+class LiveSuperChatConfig {
+  final String title;
+  final String message;
+  final List<LiveSuperChatTier> tiers;
+  const LiveSuperChatConfig({
+    this.title = '',
+    this.message = '',
+    this.tiers = const [],
+  });
+}
+
+class LiveSuperChatTier {
+  final int id;
+  final int price;
+  final int? maxLength;
+  final int? visibleSeconds;
+  const LiveSuperChatTier({
+    required this.id,
+    required this.price,
+    this.maxLength,
+    this.visibleSeconds,
+  });
+}
+
 class LiveInteractionSnapshot {
   final int roomId;
   final int anchorUid;
@@ -146,6 +194,7 @@ class LiveInteractionSnapshot {
   final List<LiveMedal> medals;
   final LiveFanStatus? fanStatus;
   final LiveWallet? wallet;
+  final LiveGuardStatus? guardStatus;
   final Map<String, String> errors;
   const LiveInteractionSnapshot({
     required this.roomId,
@@ -157,6 +206,7 @@ class LiveInteractionSnapshot {
     this.medals = const [],
     this.fanStatus,
     this.wallet,
+    this.guardStatus,
     this.errors = const {},
   });
 }

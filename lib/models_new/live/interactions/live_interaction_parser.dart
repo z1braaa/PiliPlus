@@ -245,6 +245,48 @@ abstract final class LiveInteractionParser {
     );
   }
 
+  static LiveGuardStatus? guardStatus(Map<String, dynamic> data) {
+    final active = liveInt(data['is_active']);
+    if (active == null && data['guards_info'] is! List) return null;
+    DateTime? expiry(Object? value) {
+      final seconds = liveInt(value);
+      return seconds != null && seconds > 0
+          ? DateTime.fromMillisecondsSinceEpoch(seconds * 1000)
+          : null;
+    }
+
+    return LiveGuardStatus(
+      activeState: active,
+      tiers: [
+        for (final entry in liveMaps(data['guards_info']))
+          if (liveInt(entry['guard_type']) case final int type)
+            LiveGuardTier(
+              type: type,
+              status: liveInt(entry['guard_status']),
+              expiresAt: expiry(entry['expired_time']),
+            ),
+      ],
+    );
+  }
+
+  static LiveSuperChatConfig superChatConfig(Map<String, dynamic> data) =>
+      LiveSuperChatConfig(
+        title: data['title']?.toString() ?? '',
+        message: data['msg']?.toString() ?? '',
+        tiers: [
+          for (final entry in liveMaps(data['price_configs']))
+            if (liveInt(entry['id']) case final int id)
+              if (liveInt(entry['price']) case final int price)
+                if (id > 0 && price > 0)
+                  LiveSuperChatTier(
+                    id: id,
+                    price: price,
+                    maxLength: liveInt(entry['limit']),
+                    visibleSeconds: liveInt(entry['second']),
+                  ),
+        ],
+      );
+
   /// Code 0 alone is insufficient: identify sender, exact gift and recipient.
   static String? giftReceipt(
     Map<String, dynamic> data,

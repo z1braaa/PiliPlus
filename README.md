@@ -219,13 +219,13 @@
 
 ## 后续需求与验证
 
-本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化、直播观看端增强，以及[应用内小窗与临时播放列表](docs/requirements/07-mini-player-temporary-playlist.md)的规划；[开发与验收指引](docs/harness/README.md) 记录需求、证据和验证状态。已实现的并发 CDN V2 另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。规划中的功能尚未计入上面的已完成功能列表；应用内小窗不同于上面已列的画中画，临时列表不同于账号“稍后再看”。
+本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化、[直播互动重排](docs/requirements/08-live-interaction-refresh-review.md)及[应用内小窗与临时播放列表](docs/requirements/07-mini-player-temporary-playlist.md)；[开发与验收指引](docs/harness/README.md) 区分已实现、已验证和未运行。并发 CDN V2 的已实现基线另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。应用内小窗不同于系统画中画，临时列表不同于账号“稍后再看”。
 
 [Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
 
-[直播整合审查稿](docs/requirements/06-live-first-build-review.md) 记录已批准的默认关闭界面、SC/连接恢复和送礼、入团/灯牌范围。增强布局、SC/消息恢复与普通原生送礼/背包、入团/点亮、当前主播勋章流程已写入本分支。源码 `8bbbe51f…` 已解决发送中切换 SC 的重复提交及晚到回执，Flutter 全套 99/99 通过、定向分析 0 问题；macOS `2.1.5-CDN-P0-LIVE-L2-UI+5427` 双架构构建、签名和隔离游客 GUI 部分通过，要求 macOS 13 或更新。真实账号读写与消费、登录弹幕、输入法及窄窗未验；普通赠礼丢失回执后的专属查证仍缺，未知不重发。使用方法和费用结果填写见[实机流程](docs/harness/live-interaction-testing.md)，当前完整缺口见[未落地清单](docs/harness/remaining-work-live-l2.md)。
+[首版直播整合审查稿](docs/requirements/06-live-first-build-review.md) 对应历史 `+5427` 包；[新版要求](docs/requirements/08-live-interaction-refresh-review.md) 在此基础上调整礼物、聊天与粉丝团位置，并开始接入小窗和临时列表。源码与三次 macOS 游客预览已覆盖部分布局和播放行为，但官方支付页、SC 购买、登录账号写操作、窄窗及其他平台均需分别验收。三次 `+5429` 均为**未提交工作树预览**，不能当作最终发行包或交易成功证据。使用方法和费用结果填写见[实机流程](docs/harness/live-interaction-testing.md)，逐项结果与完整缺口分别见[验证记录](docs/harness/validation.md)和[未落地清单](docs/harness/remaining-work-live-l2.md)。
 
-直播 `LIVE-UI-09/10` 的聊天输入与礼物/粉丝入口位置已在源码修正；`+5427` 游客 GUI 观察到输入 tile、礼物/背包/粉丝图标、三个入口抽屉及全屏图标。登录编辑/发送、输入法、窄窗与全屏抽屉点击仍待验。应用内可缩放小窗与默认开启的临时播放列表仍是后续需求，不应将已有 PiP 或稍后再看当作完成。
+直播增强的设置默认关闭；小窗默认关闭、临时列表默认开启。临时列表重复加入同一视频／分 P 时移动已有待播项，当前播放项不重启。新功能的具体完成度以[需求追踪表](docs/harness/traceability.md)为准，上方功能清单不将仅规划或仅预览的能力标为正式完成。
 
 <br/>
 

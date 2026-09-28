@@ -30,6 +30,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/in_app_mini_player.dart';
 import 'package:PiliPlus/tcp/live.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -60,7 +61,9 @@ class LiveRoomController extends GetxController {
   LiveRoomController(this.heroTag);
   final String heroTag;
 
+  final int requestedRoomId = Get.arguments;
   int roomId = Get.arguments;
+  bool adoptedMiniPlayer = false;
   int? ruid;
   DanmakuController<DanmakuExtra>? danmakuController;
   final plPlayerController = PlPlayerController.getInstance(
@@ -224,7 +227,18 @@ class LiveRoomController extends GetxController {
     final account = Accounts.main;
     isLogin = account.isLogin;
     mid = account.mid;
-    queryLiveUrl(autoFullScreenFlag: true);
+    InAppMiniPlayer.instance.dismissForOtherMedia(
+      exceptOwner: 'live:$requestedRoomId',
+    );
+    adoptedMiniPlayer = InAppMiniPlayer.instance.adoptByPage(
+      ownerKey: 'live:$requestedRoomId',
+      routeName: '/liveRoom',
+    );
+    if (adoptedMiniPlayer) isLoaded.value = true;
+    queryLiveUrl(
+      autoFullScreenFlag: !adoptedMiniPlayer,
+      preservePlayer: adoptedMiniPlayer,
+    );
     queryLiveInfoH5();
     if (Accounts.heartbeat.isLogin && !Pref.historyPause) {
       VideoHttp.roomEntryAction(roomId: roomId);
@@ -254,7 +268,10 @@ class LiveRoomController extends GetxController {
     );
   }
 
-  Future<void> queryLiveUrl({bool autoFullScreenFlag = false}) async {
+  Future<void> queryLiveUrl({
+    bool autoFullScreenFlag = false,
+    bool preservePlayer = false,
+  }) async {
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -283,12 +300,13 @@ class LiveRoomController extends GetxController {
       stream = playurl.stream;
       _initStreamIndex();
       await Future.wait([
-        ?initLiveUrl(
-          streamIndex: streamIndex,
-          formatIndex: formatIndex,
-          codecIndex: codecIndex,
-          liveUrlIndex: liveUrlIndex,
-        ),
+        if (!preservePlayer)
+          ?initLiveUrl(
+            streamIndex: streamIndex,
+            formatIndex: formatIndex,
+            codecIndex: codecIndex,
+            liveUrlIndex: liveUrlIndex,
+          ),
         if (!isLoaded.value && Accounts.heartbeat.isLogin) _fetchBlockRules(),
       ]);
       isLoaded.value = true;
@@ -297,7 +315,7 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  late List<Stream> stream;
+  List<Stream> stream = [];
   int streamIndex = 0;
   int formatIndex = 0;
   int codecIndex = 0;

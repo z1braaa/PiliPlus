@@ -689,6 +689,9 @@ abstract final class Pref {
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
 
+  static bool get inAppMiniPlayer =>
+      _setting.get(SettingBoxKey.inAppMiniPlayer, defaultValue: false);
+
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
 
@@ -1001,6 +1004,9 @@ abstract final class Pref {
 
   static bool get enablePlayAll =>
       _setting.get(SettingBoxKey.enablePlayAll, defaultValue: true);
+
+  static bool get enableTemporaryQueue =>
+      _setting.get(SettingBoxKey.enableTemporaryQueue, defaultValue: true);
 
   static bool get enableTapDm =>
       _setting.get(SettingBoxKey.enableTapDm, defaultValue: true);

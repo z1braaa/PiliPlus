@@ -44,6 +44,7 @@ class _Transport implements LiveInteractionTransport {
   int level = 0;
   bool light = false;
   bool wearing = false;
+  bool guardActive = false;
   bool failPost = false;
   Map<String, dynamic>? response;
   Map<String, dynamic>? catalogOverride;
@@ -119,6 +120,24 @@ class _Transport implements LiveInteractionTransport {
           'level': level,
           'fans_club_gift': {'gift_id': 3, 'price': price},
         },
+      },
+      String p when p.endsWith('/guard/GuardActive') => {
+        'is_active': guardActive ? 1 : 2,
+        'guards_info': guardActive
+            ? [
+                {
+                  'guard_type': 3,
+                  'guard_status': 1,
+                  'expired_time': 1790000000,
+                },
+              ]
+            : <Map<String, dynamic>>[],
+      },
+      String p when p.endsWith('/SuperChat/config') => {
+        'title': '醒目留言',
+        'price_configs': [
+          {'id': 7, 'price': 30, 'limit': 40, 'second': 60},
+        ],
       },
       String p when p.endsWith('getInfoByUser') => {
         'wallet': {if (balance != null) 'gold': balance, 'silver': 1000},
@@ -712,6 +731,32 @@ void main() {
     expect(journal.records['10:6:20']?['state'], 'succeeded');
     expect(journal.records['11:6:20'], isNull);
   });
+
+  test(
+    'read-only guard status keeps tier and expiry separate from payment result',
+    () async {
+      transport.guardActive = true;
+      final snapshot = await service.loadPanel();
+      expect(snapshot.guardStatus?.activeState, 1);
+      expect(snapshot.guardStatus?.tiers.single.label, '舰长');
+      expect(snapshot.guardStatus?.tiers.single.expiresAt, isNotNull);
+      expect(transport.posts, 0);
+      expect(LiveInteractionParser.guardStatus(const {}), isNull);
+    },
+  );
+
+  test(
+    'SC config reads current room tiers without creating an order',
+    () async {
+      final config = await service.loadSuperChatConfig(
+        parentAreaId: 1,
+        areaId: 2,
+      );
+      expect(config.tiers.single.price, 30);
+      expect(config.tiers.single.maxLength, 40);
+      expect(transport.posts, 0);
+    },
+  );
 
   Map<String, dynamic> knownBoxFixture() =>
       (jsonDecode(

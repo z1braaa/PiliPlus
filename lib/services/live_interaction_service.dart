@@ -237,12 +237,33 @@ class LiveInteractionService {
       '/xlive/app-ucenter/v1/fansMedal/GetActivatedMedalInfo';
   static const _relationPath =
       '/xlive/guard-interface/v1/guard/GuardActiveWithFansClub';
+  static const _guardActivePath =
+      '/xlive/general-interface/v1/guard/GuardActive';
   static const _userPath = '/xlive/web-room/v1/index/getInfoByUser';
+  static const _superChatConfigPath = '/av/v1/SuperChat/config';
   Map<String, dynamic> get _roomQuery => {
     'room_id': roomId,
     'ruid': anchorUid,
     'platform': 'pc',
   };
+
+  Future<LiveSuperChatConfig> loadSuperChatConfig({
+    required int parentAreaId,
+    required int areaId,
+  }) async {
+    final account = _account();
+    _guard(account);
+    if (parentAreaId <= 0 || areaId <= 0) {
+      throw const LiveInteractionException('直播分区信息尚未加载，不能查询当前 SC 档位');
+    }
+    final data = await _get(_superChatConfigPath, {
+      'room_id': roomId,
+      'ruid': anchorUid,
+      'parent_area_id': parentAreaId,
+      'area_id': areaId,
+    }, account);
+    return LiveInteractionParser.superChatConfig(data);
+  }
 
   Future<LiveInteractionSnapshot> loadPanel() async {
     final account = _account();
@@ -283,6 +304,10 @@ class LiveInteractionService {
         }),
         fetch('粉丝团', _relationPath, _roomQuery),
         fetch('余额', _userPath, {'room_id': roomId, 'not_mock_enter_effect': 1}),
+        fetch('大航海身份', _guardActivePath, {
+          'ruid': anchorUid,
+          'platform': 'pc',
+        }),
       ],
     ]);
     _guard(account, login: false);
@@ -323,6 +348,9 @@ class LiveInteractionService {
               gold: liveInt(wallet['gold']),
               silver: liveInt(wallet['silver']),
             )
+          : null,
+      guardStatus: account.loggedIn && !errors.containsKey('大航海身份')
+          ? LiveInteractionParser.guardStatus(data[6])
           : null,
       errors: Map.unmodifiable(errors),
     );

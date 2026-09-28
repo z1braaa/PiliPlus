@@ -11,6 +11,7 @@ import 'package:PiliPlus/pages/live_emote/controller.dart';
 import 'package:PiliPlus/pages/live_emote/view.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
 import 'package:PiliPlus/pages/live_room/live_danmaku_send_gate.dart';
+import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -20,6 +21,9 @@ class LiveSendDmPanel extends CommonRichTextPubPage {
   final bool fromEmote;
   final bool inline;
   final ValueChanged<bool>? onInlineEmojiChanged;
+  final VoidCallback? onFanClub;
+  final VoidCallback? onSuperChat;
+  final LiveInteractionSession? fanSession;
   final LiveRoomController liveRoomController;
 
   const LiveSendDmPanel({
@@ -30,6 +34,9 @@ class LiveSendDmPanel extends CommonRichTextPubPage {
     this.fromEmote = false,
     this.inline = false,
     this.onInlineEmojiChanged,
+    this.onFanClub,
+    this.onSuperChat,
+    this.fanSession,
     required this.liveRoomController,
   });
 
@@ -150,22 +157,54 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.inline) {
-      if (kReleaseMode && !liveRoomController.isLogin) {
-        return Material(
-          color: theme.colorScheme.surface,
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.login),
-            title: const Text('登录后发送弹幕'),
-            onTap: liveRoomController.toastNotLogin,
-          ),
-        );
-      }
       return Material(
         color: theme.colorScheme.surface,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: kReleaseMode && !liveRoomController.isLogin
+                          ? liveRoomController.toastNotLogin
+                          : null,
+                      onTapDown: kReleaseMode && !liveRoomController.isLogin
+                          ? null
+                          : liveRoomController.onLikeTapDown,
+                      onTapUp: kReleaseMode && !liveRoomController.isLogin
+                          ? null
+                          : liveRoomController.onLikeTapUp,
+                      onTapCancel: kReleaseMode && !liveRoomController.isLogin
+                          ? null
+                          : liveRoomController.onLikeTapUp,
+                      child: const Tooltip(
+                        message: '点赞',
+                        child: SizedBox.square(
+                          dimension: 32,
+                          child: Icon(Icons.thumb_up_off_alt, size: 21),
+                        ),
+                      ),
+                    ),
+                    _emojiButton(_inlineEmoji),
+                    iconButton(
+                      tooltip: '醒目留言 SC',
+                      onPressed: widget.onSuperChat,
+                      iconSize: 22,
+                      iconColor: theme.colorScheme.primary,
+                      icon: const Text(
+                        'SC',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             buildInputView(),
             if (_inlineEmoji)
               SizedBox(
@@ -225,30 +264,38 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
       child: Row(
         children: [
           if (widget.inline)
-            _emojiButton(_inlineEmoji)
+            _fanClubButton()
           else
             Obx(() => _emojiButton(panelType.value == .emoji)),
           const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () => RichTextField(
-                key: key,
-                textInputAction: .send,
-                controller: editController,
-                autofocus: false,
-                readOnly: readOnly.value,
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-                focusNode: focusNode,
-                decoration: const InputDecoration(
-                  hintText: "输入弹幕内容",
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(fontSize: 14),
-                ),
-                style: theme.textTheme.bodyLarge,
-                // inputFormatters: [LengthLimitingTextInputFormatter(20)],
-              ),
-            ),
+            child: widget.inline && kReleaseMode && !liveRoomController.isLogin
+                ? InkWell(
+                    onTap: liveRoomController.toastNotLogin,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('登录后发送弹幕'),
+                    ),
+                  )
+                : Obx(
+                    () => RichTextField(
+                      key: key,
+                      textInputAction: .send,
+                      controller: editController,
+                      autofocus: false,
+                      readOnly: readOnly.value,
+                      onChanged: onChanged,
+                      onSubmitted: onSubmitted,
+                      focusNode: focusNode,
+                      decoration: const InputDecoration(
+                        hintText: "输入弹幕内容",
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(fontSize: 14),
+                      ),
+                      style: theme.textTheme.bodyLarge,
+                      // inputFormatters: [LengthLimitingTextInputFormatter(20)],
+                    ),
+                  ),
           ),
           Obx(
             () => enablePublish.value
@@ -303,6 +350,37 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurfaceVariant,
   );
+
+  Widget _fanClubButton() {
+    final session = widget.fanSession;
+    Widget button(String label) => Tooltip(
+      message: '查看粉丝团与大航海；访客可浏览只读信息',
+      child: OutlinedButton.icon(
+        onPressed: widget.onFanClub,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        icon: const Icon(Icons.workspace_premium_outlined, size: 20),
+        label: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 86),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    );
+    if (session == null) return button('获取勋章');
+    return AnimatedBuilder(
+      animation: session,
+      builder: (context, _) {
+        final status = session.snapshot?.fanStatus;
+        return button(
+          status?.joined == true
+              ? (status?.name.isNotEmpty == true ? status!.name : '我的勋章')
+              : '获取勋章',
+        );
+      },
+    );
+  }
 
   @override
   Future<void> onCustomPublish({

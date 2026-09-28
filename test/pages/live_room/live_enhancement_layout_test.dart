@@ -16,6 +16,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class _Room extends Fake implements LiveRoomController {
+  bool login = true;
   @override
   final messageConnectionState = LiveMessageConnectionState.connected.obs;
   @override
@@ -39,7 +40,7 @@ class _Room extends Fake implements LiveRoomController {
   @override
   int get roomId => 6;
   @override
-  bool get isLogin => true;
+  bool get isLogin => login;
   @override
   bool get showSuperChat => false;
   @override
@@ -48,6 +49,10 @@ class _Room extends Fake implements LiveRoomController {
   void handleJumpToBottom() {}
   @override
   void toastNotLogin() {}
+  @override
+  void onLikeTapDown(dynamic _) {}
+  @override
+  void onLikeTapUp([dynamic _]) {}
   @override
   Future<LoadingState<void>> sendLiveDanmaku({
     required String message,
@@ -168,7 +173,7 @@ void main() {
       await tester.pump();
       expect(routes.pushes, 1);
       expect(find.byType(LiveSendDmPanel), findsOneWidget);
-      await tester.tap(find.text('SC'));
+      await tester.tap(find.widgetWithText(Tab, 'SC'));
       await tester.pumpAndSettle();
       expect(find.byType(LiveSendDmPanel), findsNothing);
       expect(room.savedDanmaku, isNotEmpty);
@@ -225,7 +230,7 @@ void main() {
       expect(room.writes, 1);
       expect(room.danmakuSendGate.pending, isTrue);
 
-      await tester.tap(find.text('SC'));
+      await tester.tap(find.widgetWithText(Tab, 'SC'));
       await tester.pumpAndSettle();
       expect(find.byType(LiveSendDmPanel), findsNothing);
       await tester.tap(find.text('聊天'));
@@ -257,7 +262,7 @@ void main() {
             .text,
         'B',
       );
-      await tester.tap(find.text('SC'));
+      await tester.tap(find.widgetWithText(Tab, 'SC'));
       await tester.pumpAndSettle();
       expect(room.savedDanmaku?.single.text, 'B');
       expect(tester.takeException(), isNull);
@@ -299,7 +304,7 @@ void main() {
         .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
         .onCustomPublish();
     await tester.pump();
-    await tester.tap(find.text('SC'));
+    await tester.tap(find.widgetWithText(Tab, 'SC'));
     await tester.pumpAndSettle();
     room.sendResult!.complete(const Error('暂时失败'));
     await first;
@@ -358,7 +363,7 @@ void main() {
           .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
           .onCustomPublish();
       await tester.pump();
-      await tester.tap(find.text('SC'));
+      await tester.tap(find.widgetWithText(Tab, 'SC'));
       await tester.pumpAndSettle();
       expect(room.savedDanmaku?.single.text, 'A');
       room.sendResult!.complete(const Success<void>(null));
@@ -379,39 +384,107 @@ void main() {
     },
   );
 
-  testWidgets(
-    'video action icons select gift, bag and fan flows at narrow width',
-    (
-      tester,
-    ) async {
-      final selected = <String>[];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: LiveInteractionActionBar(
-                onGift: () => selected.add('gift'),
-                onBag: () => selected.add('bag'),
-                onFan: () => selected.add('fan'),
+  testWidgets('compact gift entry expands left and exposes the full menu', (
+    tester,
+  ) async {
+    var fullMenu = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: LiveGiftActionBar(
+              session: null,
+              onFullMenu: () => fullMenu++,
+              onQuickGift: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('向左展开礼物快捷条'), findsOneWidget);
+    await tester.tap(find.byTooltip('向左展开礼物快捷条'));
+    await tester.pump();
+    expect(find.byTooltip('展开完整礼物菜单'), findsOneWidget);
+    await tester.tap(find.byTooltip('展开完整礼物菜单'));
+    expect(fullMenu, 1);
+    expect(find.byIcon(Icons.card_giftcard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('guest can tap fan and SC composer entries without sending', (
+    tester,
+  ) async {
+    final room = _Room()..login = false;
+    var fanOpens = 0;
+    var scOpens = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomRight,
+            child: SizedBox(
+              width: 400,
+              height: 130,
+              child: LiveSendDmPanel(
+                inline: true,
+                autofocus: false,
+                liveRoomController: room,
+                onFanClub: () => fanOpens++,
+                onSuperChat: () => scOpens++,
               ),
             ),
           ),
         ),
-      );
-      for (final (label, expected) in [
-        ('礼物', 'gift'),
-        ('背包', 'bag'),
-        ('粉丝团/灯牌', 'fan'),
-      ]) {
-        await tester.tap(find.text(label));
-        await tester.pump();
-        expect(selected.last, expected);
-      }
-      expect(find.byIcon(Icons.card_giftcard), findsOneWidget);
-      expect(find.byIcon(Icons.inventory_2_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.groups_outlined), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('获取勋章'));
+    await tester.tap(find.byTooltip('醒目留言 SC'));
+    expect(fanOpens, 1);
+    expect(scOpens, 1);
+    expect(room.writes, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    room.danmakuSendGate.dispose();
+  });
+
+  testWidgets('landscape enhancement panel exposes guest fan and SC actions', (
+    tester,
+  ) async {
+    final room = _Room()..login = false;
+    var fanOpens = 0;
+    var scOpens = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 1200,
+            child: LiveEnhancementPanel(
+              controller: room,
+              inputBuilder: () => LiveSendDmPanel(
+                inline: true,
+                autofocus: false,
+                liveRoomController: room,
+                onFanClub: () => fanOpens++,
+                onSuperChat: () => scOpens++,
+              ),
+              onMention: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('获取勋章'));
+    await tester.tap(find.byTooltip('醒目留言 SC'));
+    expect(fanOpens, 1);
+    expect(scOpens, 1);
+    expect(room.writes, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    room.scrollController.dispose();
+    room.danmakuSendGate.dispose();
+  });
 }

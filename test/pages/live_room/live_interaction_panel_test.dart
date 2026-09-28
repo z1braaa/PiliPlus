@@ -286,13 +286,15 @@ void main() {
                 session: session,
                 anchorName: '测试主播',
                 onLogin: () {},
+                onRecharge: () async {},
+                onOpenGuard: () async {},
               ),
             ),
           ),
         ),
       );
       await tester.enterText(find.byType(TextField), '3');
-      await tester.tap(find.widgetWithText(TextButton, '送礼'));
+      await tester.tap(find.widgetWithText(TextButton, '投喂'));
       await tester.pumpAndSettle();
       expect(find.text('确认送礼'), findsOneWidget);
       expect(find.text('合计：240 金瓜子'), findsOneWidget);
@@ -326,12 +328,14 @@ void main() {
               session: session,
               anchorName: '测试主播',
               onLogin: () {},
+              onRecharge: () async {},
+              onOpenGuard: () async {},
             ),
           ),
         ),
       ),
     );
-    await tester.tap(find.widgetWithText(TextButton, '送礼'));
+    await tester.tap(find.widgetWithText(TextButton, '投喂'));
     await tester.pumpAndSettle();
     expect(find.text('确认送礼'), findsOneWidget);
     enabled = false;
@@ -365,6 +369,8 @@ void main() {
                 session: session,
                 anchorName: '测试主播',
                 onLogin: () {},
+                onRecharge: () async {},
+                onOpenGuard: () async {},
               ),
             ),
           ),
@@ -375,10 +381,192 @@ void main() {
       await tester.drag(find.byType(NestedScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final send = find.widgetWithText(TextButton, '送礼');
+      final send = find.widgetWithText(TextButton, '投喂');
       if (send.evaluate().isNotEmpty) {
         expect(tester.widget<TextButton>(send).onPressed, isNull);
       }
+      expect(service.writes, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+      session.dispose();
+    },
+  );
+
+  testWidgets('quick gift quantity is chosen before the guarded confirmation', (
+    tester,
+  ) async {
+    final service = _Service();
+    final session = LiveInteractionSession(
+      service: service,
+      isEnabled: () => true,
+    )..snapshot = _snapshot;
+    int? chosen;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 250,
+            child: LiveGiftActionBar(
+              session: session,
+              onFullMenu: () {},
+              onQuickGift: (gift, quantity) {
+                expect(gift.id, _gift.id);
+                chosen = quantity;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('向左展开礼物快捷条'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('×1'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '3');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('×3'), findsOneWidget);
+    await tester.tap(find.text('投喂'));
+    expect(chosen, 3);
+    expect(service.writes, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    session.dispose();
+  });
+
+  testWidgets(
+    'guard response uses raw candidate status, not a verified subscription claim',
+    (
+      tester,
+    ) async {
+      final service = _Service();
+      final session =
+          LiveInteractionSession(
+              service: service,
+              isEnabled: () => true,
+            )
+            ..snapshot = const LiveInteractionSnapshot(
+              roomId: 6,
+              anchorUid: 10,
+              accountUid: 20,
+              loggedIn: true,
+              guardStatus: LiveGuardStatus(
+                activeState: 1,
+                tiers: [LiveGuardTier(type: 3, status: 1)],
+              ),
+            );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 600,
+              child: LiveInteractionPanel(
+                session: session,
+                anchorName: '测试主播',
+                onLogin: () {},
+                onRecharge: () async {},
+                onOpenGuard: () async {},
+                initialTab: 3,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('大航海只读响应'), findsOneWidget);
+      expect(find.text('身份状态码：1'), findsOneWidget);
+      expect(find.textContaining('这些只读字段不能证明'), findsOneWidget);
+      expect(find.text('在航'), findsNothing);
+      expect(find.textContaining('刷新登录后重试'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      session.dispose();
+    },
+  );
+
+  testWidgets('guest cannot open recharge and sees login recovery guidance', (
+    tester,
+  ) async {
+    final service = _Service();
+    final session =
+        LiveInteractionSession(
+            service: service,
+            isEnabled: () => true,
+          )
+          ..snapshot = const LiveInteractionSnapshot(
+            roomId: 6,
+            anchorUid: 10,
+            accountUid: 0,
+            loggedIn: false,
+          );
+    var opened = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 600,
+            child: LiveInteractionPanel(
+              session: session,
+              anchorName: '测试主播',
+              onLogin: () {},
+              onRecharge: () async => opened = true,
+              onOpenGuard: () async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    final recharge = find.widgetWithText(TextButton, '充值');
+    expect(tester.widget<TextButton>(recharge).onPressed, isNull);
+    expect(find.textContaining('刷新登录后重试'), findsOneWidget);
+    expect(opened, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    session.dispose();
+  });
+
+  testWidgets(
+    'guest can browse fan and guard panels without transaction actions',
+    (
+      tester,
+    ) async {
+      final service = _Service();
+      final session =
+          LiveInteractionSession(
+              service: service,
+              isEnabled: () => true,
+            )
+            ..snapshot = const LiveInteractionSnapshot(
+              roomId: 6,
+              anchorUid: 10,
+              accountUid: 0,
+              loggedIn: false,
+            );
+      var openedGuard = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 600,
+              child: LiveInteractionPanel(
+                session: session,
+                anchorName: '测试主播',
+                onLogin: () {},
+                onRecharge: () async {},
+                onOpenGuard: () async => openedGuard = true,
+                initialTab: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('测试主播的粉丝团'), findsOneWidget);
+      expect(find.textContaining('访客可浏览此面板'), findsOneWidget);
+      await tester.tap(find.widgetWithText(ChoiceChip, '大航海'));
+      await tester.pumpAndSettle();
+      expect(find.text('大航海'), findsWidgets);
+      final guard = find.widgetWithText(FilledButton, '在应用内打开官方大航海');
+      expect(tester.widget<FilledButton>(guard).onPressed, isNull);
+      expect(openedGuard, isFalse);
       expect(service.writes, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();
@@ -413,6 +601,8 @@ void main() {
               session: session,
               anchorName: '测试主播',
               onLogin: () {},
+              onRecharge: () async {},
+              onOpenGuard: () async {},
             ),
           ),
         ),
@@ -451,6 +641,7 @@ void main() {
                     controller: room,
                     interactions: const Center(child: Text('独立互动面板')),
                     onShowRank: () {},
+                    title: '礼物',
                   ),
                 ),
               ],
@@ -462,8 +653,7 @@ void main() {
       expect(existingChatScroll.positions.length, 1);
       expect(find.byType(LiveRoomChatPanel), findsNothing);
       expect(find.byType(SuperChatPanel), findsNothing);
-      await tester.tap(find.text('房间'));
-      await tester.pumpAndSettle();
+      expect(find.text('独立互动面板'), findsOneWidget);
       expect(existingChatScroll.positions.length, 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

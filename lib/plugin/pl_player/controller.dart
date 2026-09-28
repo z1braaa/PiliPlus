@@ -580,6 +580,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       .._playerCount += 1;
   }
 
+  /// Keep the existing media session alive while its detail route is removed.
+  /// The mini-player owns a reference, not another Player or media source.
+  void retainForInAppMiniPlayer() => _playerCount += 1;
+
+  /// Transfer or release the mini-player's reference without resetting player
+  /// settings that a still-mounted detail page may be using.
+  void releaseFromInAppMiniPlayer() {
+    if (_playerCount > 1) {
+      _playerCount -= 1;
+    } else {
+      dispose();
+    }
+  }
+
   bool _processing = false;
   bool get processing => _processing;
 

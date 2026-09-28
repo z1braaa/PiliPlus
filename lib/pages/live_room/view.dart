@@ -42,11 +42,14 @@ import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
+import 'package:PiliPlus/services/in_app_mini_player.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
+import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/max_screen_size.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
@@ -67,6 +70,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 const baseWhite = Color(0xFFEEEEEE);
+const _liveGiftBarHeight = 96.0;
 
 class LiveRoomPage extends StatefulWidget {
   const LiveRoomPage({super.key});
@@ -93,9 +97,20 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   ModalRoute<dynamic>? _enhancementSheetRoute;
   ModalRoute<dynamic>? _enhancementChatRoute;
   LiveInteractionSession? _interactionSession;
+  bool _openingOfficialWeb = false;
   final _enhancementPanelKey = GlobalKey<LiveEnhancementPanelState>();
   final _inlineDmKey = GlobalKey<LiveSendDmPanelState>();
   bool get _interactionUIVisible => _enhancementSheetRoute?.isActive == true;
+  String get _miniOwnerKey => 'live:${_liveRoomController.requestedRoomId}';
+
+  bool _showMiniPlayer() => InAppMiniPlayer.instance.show(
+    ownerKey: _miniOwnerKey,
+    routeName: '/liveRoom',
+    routeArguments: _liveRoomController.requestedRoomId,
+    ownerRoute: ModalRoute.of(context),
+    controller: plPlayerController,
+    title: _liveRoomController.roomInfoH5.value?.roomInfo?.title,
+  );
 
   @override
   void initState() {
@@ -157,6 +172,16 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   @override
   Future<void> didPopNext() async {
+    final miniClosed = InAppMiniPlayer.instance.wasClosedForOwner(
+      _miniOwnerKey,
+    );
+    if (miniClosed) _liveRoomController.isPlaying = false;
+    final restoredMini =
+        InAppMiniPlayer.instance.consumeExistingRestore(_miniOwnerKey) ||
+        InAppMiniPlayer.instance.adoptByPage(
+          ownerKey: _miniOwnerKey,
+          routeName: '/liveRoom',
+        );
     addObserverMobile(this);
     if (!plPlayerController.isLive) {
       plPlayerController.isLive = true;
@@ -164,21 +189,30 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     plPlayerController.danmakuController =
         _liveRoomController.danmakuController;
-    PlPlayerController.setPlayCallBack(plPlayerController.play);
-    _liveRoomController.startLiveTimer();
-    if (plPlayerController.playerStatus.isPlaying &&
+    PlPlayerController.setPlayCallBack(
+      miniClosed ? null : plPlayerController.play,
+    );
+    if (!miniClosed) _liveRoomController.startLiveTimer();
+    if (!miniClosed &&
+        plPlayerController.playerStatus.isPlaying &&
         plPlayerController.cid == null) {
       _liveRoomController
         ..danmakuController?.resume()
         ..startLiveMsg();
     } else {
-      final shouldPlay = _liveRoomController.isPlaying ?? false;
+      final shouldPlay =
+          !miniClosed && (_liveRoomController.isPlaying ?? false);
       if (shouldPlay) {
         _liveRoomController
           ..danmakuController?.resume()
           ..startLiveMsg();
       }
-      await _liveRoomController.playerInit(autoplay: shouldPlay);
+      if (!miniClosed &&
+          !restoredMini &&
+          !_liveRoomController.adoptedMiniPlayer &&
+          !_openingOfficialWeb) {
+        await _liveRoomController.playerInit(autoplay: shouldPlay);
+      }
     }
     if (!mounted) return;
     plPlayerController.addStatusLister(playerListener);
@@ -188,6 +222,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   @override
   void didPushNext() {
+    final wasPlaying = plPlayerController.playerStatus.isPlaying;
+    final miniShown = _showMiniPlayer();
+    // When the optional mini-player cannot take ownership, do not leave live
+    // audio playing behind another media route. Preserve the original choice
+    // for didPopNext before the asynchronous pause changes playerStatus.
+    if (Pref.inAppMiniPlayer && !miniShown && wasPlaying) {
+      unawaited(plPlayerController.pause());
+    }
     _interactionSession?.hide();
     removeObserverMobile(this);
     plPlayerController.removeStatusLister(playerListener);
@@ -195,7 +237,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ..danmakuController?.clear()
       ..cancelLiveTimer()
       ..closeLiveMsg()
-      ..isPlaying = plPlayerController.playerStatus.isPlaying;
+      ..isPlaying = wasPlaying;
     super.didPushNext();
   }
 
@@ -341,6 +383,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         return const SizedBox.shrink();
       },
     );
+    final mountedPlayer = player;
+    player = ValueListenableBuilder<MiniPlayback?>(
+      valueListenable: InAppMiniPlayer.instance.current,
+      builder: (context, session, _) => session?.ownerKey == _miniOwnerKey
+          ? const SizedBox.shrink()
+          : mountedPlayer,
+    );
     if (_liveRoomController.showSuperChat &&
         (isFullScreen || plPlayerController.isDesktopPip)) {
       player = Stack(
@@ -416,7 +465,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     return popScope(
       canPop: !isFullScreen && !plPlayerController.isDesktopPip,
-      onPopInvokedWithResult: plPlayerController.onPopInvokedWithResult,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && _showMiniPlayer()) return;
+        plPlayerController.onPopInvokedWithResult(didPop, result);
+      },
       child: player,
     );
   }
@@ -483,7 +535,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   Widget _buildPH(bool isFullScreen) {
     final height = maxWidth / Style.aspectRatio16x9;
     final showActions = _enhancementEnabled && !plPlayerController.isDesktopPip;
-    final actionHeight = showActions ? 60.0 : 0.0;
+    final actionHeight = showActions ? _liveGiftBarHeight : 0.0;
     final videoHeight = isFullScreen
         ? maxHeight -
               (isWindowMode && !isPortrait ? 0 : padding.top) -
@@ -534,13 +586,15 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             _enhancementEnabled && !plPlayerController.isDesktopPip;
         final available = constraints.maxHeight;
         final oldInputHeight = 70 + padding.bottom;
-        final actionHeight = enhanced ? min(60.0, available) : 0.0;
+        final actionHeight = enhanced
+            ? min(_liveGiftBarHeight, available)
+            : 0.0;
         final emojiHeight = _inlineEmojiVisible
             ? min(180.0, MediaQuery.sizeOf(context).height * 0.25)
             : 0.0;
         final inputHeight = enhanced && !isFullScreen
             ? min(
-                oldInputHeight + emojiHeight,
+                oldInputHeight + 32 + emojiHeight,
                 max(0.0, available - actionHeight),
               )
             : 0.0;
@@ -833,7 +887,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : videoHeight;
     final showActions = _enhancementEnabled && !plPlayerController.isDesktopPip;
-    final actionHeight = showActions ? 60.0 : 0.0;
+    final actionHeight = showActions ? _liveGiftBarHeight : 0.0;
     return Padding(
       padding: isFullScreen
           ? EdgeInsets.zero
@@ -902,64 +956,281 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     onMention: _onAtUser,
   );
 
-  Widget get _buildLiveActionBar => LiveInteractionActionBar(
-    onGift: () => _showEnhancement(0),
-    onBag: () => _showEnhancement(1),
-    onFan: () => _showEnhancement(2),
-  );
+  Widget get _buildLiveActionBar => Obx(() {
+    final room = _liveRoomController.roomInfoH5.value;
+    final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
+    return LiveGiftActionBar(
+      session: anchorUid == null || anchorUid <= 0
+          ? null
+          : _sessionFor(anchorUid),
+      onFullMenu: () => _showEnhancement(0),
+      onQuickGift: (gift, quantity) =>
+          _showEnhancement(0, quickGift: gift, quickQuantity: quantity),
+    );
+  });
 
-  Widget _buildInteractionWidget(int initialTab) => Obx(() {
+  LiveInteractionSession _sessionFor(int anchorUid) {
+    final existing = _interactionSession;
+    if (existing != null &&
+        existing.service.anchorUid == anchorUid &&
+        existing.service.roomId == _liveRoomController.roomId) {
+      return existing;
+    }
+    existing?.hide(notify: false);
+    if (existing != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => existing.dispose());
+    }
+    return _interactionSession = LiveInteractionSession(
+      service: LiveInteractionService(
+        roomId: _liveRoomController.roomId,
+        anchorUid: anchorUid,
+      ),
+      isEnabled: () => mounted && _enhancementEnabled,
+    );
+  }
+
+  Widget _buildInteractionWidget(
+    int initialTab, {
+    LiveGift? quickGift,
+    int quickQuantity = 1,
+  }) => Obx(() {
     final room = _liveRoomController.roomInfoH5.value;
     final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
     if (anchorUid == null || anchorUid <= 0) {
       return const Center(child: Text('等待官方主播信息；当前不能提交互动。'));
     }
-    if (_interactionSession?.service.anchorUid != anchorUid ||
-        _interactionSession?.service.roomId != _liveRoomController.roomId) {
-      final previous = _interactionSession;
-      previous?.hide(notify: false);
-      if (previous != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
-      }
-      _interactionSession = LiveInteractionSession(
-        service: LiveInteractionService(
-          roomId: _liveRoomController.roomId,
-          anchorUid: anchorUid,
-        ),
-        isEnabled: () => mounted && _enhancementEnabled,
-      );
-    }
+    final session = _sessionFor(anchorUid);
     return LiveInteractionPanel(
-      key: ObjectKey(_interactionSession),
-      session: _interactionSession!,
+      key: ObjectKey(session),
+      session: session,
       anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
       onLogin: () => Get.toNamed('/loginPage'),
+      onRecharge: _openOfficialRecharge,
+      onOpenGuard: () => _openOfficialGuard(anchorUid),
       initialTab: initialTab,
+      quickGift: quickGift,
+      quickQuantity: quickQuantity,
     );
   });
 
-  Future<void> _showEnhancement([int initialTab = 0]) async {
-    if (!_enhancementEnabled || _enhancementSheetRoute != null) return;
-    if (_interactionSession?.snapshot != null) _interactionSession?.load();
+  Future<void> _openOfficialRecharge() async {
+    await _openOfficialWeb('https://link.bilibili.com/p/live-h5-recharge/');
+  }
+
+  Future<void> _openOfficialGuard(int anchorUid) async {
+    final url = Uri.https(
+      'live.bilibili.com',
+      '/p/html/live-app-guard-info/index.html',
+      {'uid': '$anchorUid', 'is_live_webview': '1'},
+    ).toString();
+    await _openOfficialWeb(url);
+  }
+
+  Future<void> _openOfficialWeb(String url) async {
+    final account = Accounts.main;
+    final mainGeneration = Accounts.mainChangeGeneration;
+    if (!account.isLogin) {
+      SmartDialog.showToast('请先在 PiliPlus 登录；若官方页仍要求登录，请刷新登录后重试');
+      return;
+    }
+    try {
+      await LoginUtils.prepareOfficialLiveWebview(account);
+    } catch (_) {
+      SmartDialog.showToast(
+        Platform.isLinux
+            ? 'Linux 暂无法核验官方网页登录态，已阻止打开付费页面'
+            : '无法确认官方网页与当前主账号一致，已阻止打开；请刷新登录后重试',
+      );
+      return;
+    }
+    if (!mounted ||
+        !identical(Accounts.main, account) ||
+        Accounts.mainChangeGeneration != mainGeneration) {
+      SmartDialog.showToast('主账号已切换，已阻止打开官方页面');
+      return;
+    }
+    final wasPlaying = plPlayerController.playerStatus.isPlaying;
+    _openingOfficialWeb = true;
+    if (wasPlaying) await plPlayerController.pause();
+    InAppMiniPlayer.instance.suppressNextNavigation(_miniOwnerKey);
+    try {
+      await Get.toNamed(
+        '/webview',
+        parameters: {'url': url},
+        arguments: {'inApp': true, 'officialLiveAccount': account},
+      );
+    } finally {
+      _openingOfficialWeb = false;
+      if (mounted &&
+          wasPlaying &&
+          identical(Accounts.main, account) &&
+          Accounts.mainChangeGeneration == mainGeneration) {
+        await plPlayerController.play();
+      }
+    }
+  }
+
+  Future<void> _showSuperChatPurchase() async {
+    if (!Accounts.main.isLogin) {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        constraints: const BoxConstraints(maxWidth: 480),
+        builder: (sheetContext) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '醒目留言 SC',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '访客可以阅读直播中的 SC。编辑、购买与发送需要先在 PiliPlus 登录；官方页面若仍要求登录，请返回刷新登录后重试。',
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('知道了'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    final room = _liveRoomController.roomInfoH5.value?.roomInfo;
+    final anchorUid = room?.uid ?? _liveRoomController.ruid;
+    final config = anchorUid == null || anchorUid <= 0
+        ? null
+        : _sessionFor(anchorUid).service.loadSuperChatConfig(
+            parentAreaId: room?.parentAreaId ?? 0,
+            areaId: room?.areaId ?? 0,
+          );
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (sheetContext) {
-        _enhancementSheetRoute = ModalRoute.of(sheetContext);
-        return FractionallySizedBox(
-          heightFactor: 0.85,
-          child: LiveEnhancementDrawer(
-            controller: _liveRoomController,
-            interactions: _buildInteractionWidget(initialTab),
-            onShowRank: _showRank,
+      constraints: const BoxConstraints(maxWidth: 480),
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '醒目留言 SC',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              if (config == null)
+                const Text('房间或主播信息未就绪，SC 档位尚不能读取。')
+              else
+                FutureBuilder<LiveSuperChatConfig>(
+                  future: config,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const LinearProgressIndicator();
+                    }
+                    if (snapshot.hasError || snapshot.data == null) {
+                      return const Text('SC 当前档位读取失败；以官方页面的最新价格和权限为准。');
+                    }
+                    final tiers = snapshot.data!.tiers;
+                    if (tiers.isEmpty) return const Text('此房间未返回 SC 档位候选数据。');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('以下为官方配置接口的只读候选字段；单位与当前可购性待登录核实。'),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final tier in tiers)
+                              Chip(
+                                label: Text(
+                                  '原始档位值 ${tier.price}（单位待核实）'
+                                  '${tier.maxLength == null ? "" : " · ${tier.maxLength}字"}'
+                                  '${tier.visibleSeconds == null ? "" : " · ${tier.visibleSeconds}秒"}',
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              const SizedBox(height: 12),
+              const Text(
+                '当前版本打开哔哩哔哩官方直播间；如该房间支持 SC，请在官方页面完成编辑、付款与审核。若官方页要求登录，请返回 PiliPlus 刷新登录后重试。返回本页不代表留言已发送成功。',
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () async {
+                  Navigator.pop(sheetContext);
+                  await _openOfficialWeb(
+                    'https://live.bilibili.com/${_liveRoomController.roomId}',
+                  );
+                  if (mounted) {
+                    _interactionSession?.load();
+                  }
+                },
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('在应用内打开官方直播间查看 SC'),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
-    _enhancementSheetRoute = null;
-    _interactionSession?.hide();
+  }
+
+  Future<void> _showEnhancement(
+    int initialTab, {
+    LiveGift? quickGift,
+    int quickQuantity = 1,
+  }) async {
+    if (!_enhancementEnabled) return;
+    if (_enhancementSheetRoute?.isActive != true) {
+      _enhancementSheetRoute = null;
+    }
+    if (_enhancementSheetRoute != null) return;
+    if (_interactionSession?.snapshot != null) _interactionSession?.load();
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        isScrollControlled: true,
+        constraints: const BoxConstraints(maxWidth: 560),
+        builder: (sheetContext) {
+          _enhancementSheetRoute = ModalRoute.of(sheetContext);
+          return FractionallySizedBox(
+            heightFactor: 0.85,
+            child: LiveEnhancementDrawer(
+              controller: _liveRoomController,
+              interactions: _buildInteractionWidget(
+                initialTab,
+                quickGift: quickGift,
+                quickQuantity: quickQuantity,
+              ),
+              onShowRank: _showRank,
+              title: initialTab < 2 ? '礼物' : '粉丝团与大航海',
+            ),
+          );
+        },
+      );
+    } finally {
+      _enhancementSheetRoute = null;
+      _interactionSession?.hide();
+    }
   }
 
   void _onSendDanmaku([bool fromEmote = false]) {
@@ -1104,6 +1375,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         inline: true,
         autofocus: false,
         onInlineEmojiChanged: _onInlineEmojiChanged,
+        onFanClub: () => _showEnhancement(2),
+        onSuperChat: _showSuperChatPurchase,
+        fanSession: _interactionSession,
         liveRoomController: _liveRoomController,
         items: _liveRoomController.savedDanmaku,
         onSave: _saveInlineDraft,

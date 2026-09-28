@@ -197,28 +197,42 @@ class LiveInteractionPanel extends StatefulWidget {
     required this.session,
     required this.anchorName,
     required this.onLogin,
+    required this.onRecharge,
+    required this.onOpenGuard,
     this.initialTab = 0,
+    this.quickGift,
+    this.quickQuantity = 1,
   });
 
   final LiveInteractionSession session;
   final String anchorName;
   final VoidCallback onLogin;
+  final Future<void> Function() onRecharge;
+  final Future<void> Function() onOpenGuard;
   final int initialTab;
+  final LiveGift? quickGift;
+  final int quickQuantity;
 
   @override
   State<LiveInteractionPanel> createState() => _LiveInteractionPanelState();
 }
 
 class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
-  late int _tab = widget.initialTab.clamp(0, 2).toInt();
+  late int _tab = widget.initialTab.clamp(0, 3).toInt();
   final _quantity = TextEditingController(text: '1');
   ModalRoute<dynamic>? _confirmationRoute;
 
   @override
   void initState() {
     super.initState();
+    _quantity.text = '${widget.quickQuantity}';
     widget.session.addListener(_cancelDisabledConfirmation);
     if (widget.session.snapshot == null) widget.session.load();
+    if (widget.quickGift case final gift?) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _gift(gift);
+      });
+    }
   }
 
   @override
@@ -306,37 +320,57 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
                   ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
+                    horizontal: 12,
                     vertical: 4,
                   ),
-                  child: Wrap(
-                    spacing: 6,
+                  child: Row(
                     children: [
-                      for (final entry in const [
-                        '礼物',
-                        '背包',
-                        '粉丝团 / 灯牌',
-                      ].indexed)
-                        ChoiceChip(
-                          label: Text(entry.$2),
-                          selected: _tab == entry.$1,
-                          onSelected: (_) => setState(() => _tab = entry.$1),
+                      for (final entry
+                          in (_tab < 2
+                              ? const [(0, '礼物'), (1, '背包')]
+                              : const [(2, '粉丝团'), (3, '大航海')]))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(entry.$2),
+                            selected: _tab == entry.$1,
+                            onSelected: (_) => setState(() => _tab = entry.$1),
+                          ),
                         ),
                     ],
                   ),
                 ),
-                if (_tab != 2)
+                if (_tab < 2)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                    child: TextField(
-                      controller: _quantity,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: '数量',
-                        helperText: '每次操作都会重新核对并要求确认',
-                        isDense: true,
-                      ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _quantity,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: '数量',
+                              helperText: '提交前重新核对商品和金额',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: data?.loggedIn == true
+                              ? () async {
+                                  await widget.onRecharge();
+                                  if (mounted) widget.session.load();
+                                }
+                              : null,
+                          icon: const Icon(Icons.battery_charging_full),
+                          label: const Text('充值'),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -350,7 +384,8 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
             : switch (_tab) {
                 0 => _gifts(data),
                 1 => _bag(data),
-                _ => _fans(data),
+                2 => _fans(data),
+                _ => _guard(data),
               },
       );
     },
@@ -392,76 +427,226 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
       .map((e) => _Notice('${e.key}：${e.value}', isError: true))
       .toList();
 
-  Widget _gifts(LiveInteractionSnapshot data) => ListView(
-    padding: const EdgeInsets.only(bottom: 16),
-    children: [
-      if (data.wallet case final wallet?)
-        _Notice(
-          '余额（金瓜子）：${wallet.gold ?? "未知"}；银瓜子：${wallet.silver ?? "未知"}',
+  Widget _gifts(LiveInteractionSnapshot data) => CustomScrollView(
+    slivers: [
+      SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (data.wallet case final wallet?)
+              _Notice(
+                '官方余额：金瓜子 ${wallet.gold ?? "未知"}；银瓜子 ${wallet.silver ?? "未知"}。币种以商品当前价格为准。',
+              ),
+            const _Notice(
+              '充值在官方页面办理。若页面要求登录，请返回 PiliPlus 刷新登录后重试；返回后不能凭页面关闭判断充值成功。',
+            ),
+            ..._errors(data),
+            if (data.gifts.isEmpty) const _Notice('本房间没有可用礼物目录，不能提交送礼。'),
+          ],
         ),
-      ..._errors(data),
-      if (data.gifts.isEmpty) const _Notice('本房间没有可用礼物目录，不能提交送礼。'),
-      for (final gift in data.gifts)
-        ListTile(
-          title: Text(gift.name),
-          subtitle: Text(
-            '${gift.priceKnown ? "${gift.price} ${gift.coinLabel} / 个" : "价格未知"}'
-            '${gift.description.isEmpty ? "" : "\n${gift.description}"}'
-            '${gift.unavailableReason == null ? "" : "\n${gift.unavailableReason}"}',
-          ),
-          trailing: TextButton(
-            onPressed: data.loggedIn && gift.sendable && !widget.session.blocked
-                ? () => _gift(gift)
-                : null,
-            child: const Text('送礼'),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
+        sliver: SliverLayoutBuilder(
+          builder: (context, constraints) => SliverGrid(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 145,
+              mainAxisExtent: 166,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final gift = data.gifts[index];
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: gift.imageUrl.isEmpty
+                              ? const Icon(Icons.card_giftcard, size: 42)
+                              : Image.network(
+                                  gift.imageUrl,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) =>
+                                      const Icon(Icons.card_giftcard, size: 42),
+                                ),
+                        ),
+                        Text(
+                          gift.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          gift.priceKnown
+                              ? '${gift.price} ${gift.coinLabel}'
+                              : '价格未知',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        SizedBox(
+                          height: 32,
+                          child: TextButton(
+                            onPressed:
+                                data.loggedIn &&
+                                    gift.sendable &&
+                                    !widget.session.blocked
+                                ? () => _gift(gift)
+                                : null,
+                            child: const Text('投喂'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              childCount: data.gifts.length,
+            ),
           ),
         ),
+      ),
     ],
   );
 
-  Widget _bag(LiveInteractionSnapshot data) => ListView(
-    padding: const EdgeInsets.only(bottom: 16),
-    children: [
-      ..._errors(data),
-      if (!data.loggedIn)
-        const _Notice('请先登录。')
-      else if (data.bag.isEmpty)
-        const _Notice('背包暂无礼物；读取异常时会单独显示，不能视为库存为零。'),
-      for (final item in data.bag)
-        ListTile(
-          title: Text('${item.name} × ${item.quantity}'),
-          subtitle: Text(
-            '有效期：${item.expiresAt?.toLocal().toString() ?? "服务端未提供"}'
-            '${item.available ? "" : "\n已过期或不可用于此房间"}',
+  Widget _bag(LiveInteractionSnapshot data) => CustomScrollView(
+    slivers: [
+      SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ..._errors(data),
+            if (!data.loggedIn)
+              const _Notice('请先登录。')
+            else if (data.bag.isEmpty)
+              const _Notice('背包暂无礼物；读取异常时会单独显示，不能视为库存为零。'),
+          ],
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 145,
+            mainAxisExtent: 170,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
-          trailing: TextButton(
-            onPressed:
-                item.available && data.loggedIn && !widget.session.blocked
-                ? () => _gift(item.gift, bag: item)
-                : null,
-            child: const Text('赠送'),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = data.bag[index];
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: item.gift.imageUrl.isEmpty
+                            ? const Icon(Icons.inventory_2_outlined, size: 42)
+                            : Image.network(
+                                item.gift.imageUrl,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 42,
+                                ),
+                              ),
+                      ),
+                      Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '库存 ${item.quantity}',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      Text(
+                        item.expiresAt == null
+                            ? '有效期未知'
+                            : '至 ${item.expiresAt!.toLocal().toString().split(' ').first}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      SizedBox(
+                        height: 32,
+                        child: TextButton(
+                          onPressed:
+                              item.available &&
+                                  data.loggedIn &&
+                                  !widget.session.blocked
+                              ? () => _gift(item.gift, bag: item)
+                              : null,
+                          child: const Text('赠送'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            childCount: data.bag.length,
           ),
         ),
+      ),
     ],
   );
 
   Widget _fans(LiveInteractionSnapshot data) {
     final status = data.fanStatus;
     return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       children: [
         ..._errors(data),
-        if (status == null)
-          const _Notice('粉丝团和灯牌状态未取得，不能推断为未加入或未点亮。')
-        else ...[
-          ListTile(
-            title: Text(
-              '${status.name.isEmpty ? "粉丝团" : status.name} · Lv.${status.level ?? "未知"}',
+        if (status == null) ...[
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined),
+              title: Text('${widget.anchorName}的粉丝团'),
+              subtitle: Text(
+                data.loggedIn
+                    ? '成员与灯牌状态暂未取得，请稍后只读刷新。'
+                    : '访客可浏览此面板；成员等级、勋章与灯牌状态登录后读取。',
+              ),
             ),
-            subtitle: Text(
-              '入团：${_state(status.joined, "已加入", "未加入")}\n'
-              '灯牌：${_state(status.isLighted, "已点亮", "未点亮")}\n'
-              '亲密度：${status.intimacy ?? "未知"} / ${status.nextIntimacy ?? "未知"}',
+          ),
+          const _Notice('粉丝团和灯牌状态未取得，不能推断为未加入或未点亮。'),
+        ] else ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${widget.anchorName}的${status.name.isEmpty ? "粉丝团" : status.name}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '粉丝团：${_state(status.joined, "已加入", "未加入")}  ·  灯牌：${_state(status.isLighted, "已点亮", "未点亮")}',
+                  ),
+                  Text(
+                    '勋章 Lv.${status.level ?? "未知"}  ·  亲密度 ${status.intimacy ?? "未知"} / ${status.nextIntimacy ?? "未知"}',
+                  ),
+                  if (status.intimacy != null &&
+                      status.nextIntimacy != null &&
+                      status.nextIntimacy! > 0) ...[
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: (status.intimacy! / status.nextIntimacy!).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           if (status.joined != true)
@@ -478,41 +663,102 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
               status.lightGift,
               data.loggedIn && status.isLighted == false,
             ),
+          const SizedBox(height: 12),
+          Text('亲密度任务', style: Theme.of(context).textTheme.titleMedium),
+          if (status.tasks.isEmpty) const _Notice('当前没有可展示的任务；每日规则以官方页面为准。'),
           for (final task in status.tasks)
-            ListTile(
-              dense: true,
-              title: Text(task.name),
-              subtitle: Text(task.description),
-              trailing: Text(_state(task.completed, '已完成', '待完成')),
+            Card(
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.favorite_border),
+                title: Text(task.name),
+                subtitle: Text(task.description),
+                trailing: Text(_state(task.completed, '已完成', '待完成')),
+              ),
             ),
         ],
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Text('勋章佩戴与摘下', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
+        const SizedBox(height: 12),
+        Text('勋章佩戴与摘下', style: Theme.of(context).textTheme.titleMedium),
         if (data.medals.isEmpty) const _Notice('未取得可佩戴勋章。'),
         for (final medal in data.medals)
-          ListTile(
-            title: Text('${medal.name} · Lv.${medal.level}'),
-            subtitle: Text(
-              '${medal.wearing ? "佩戴中" : "未佩戴"}；'
-              '灯牌：${_state(medal.isLighted, "亮", "未点亮")}\n'
-              '主播 UID：${medal.targetUid}'
-              '${medal.targetUid == widget.session.service.anchorUid ? "" : "\n属于其他主播，本面板仅办理当前直播间勋章"}',
-            ),
-            trailing: TextButton(
-              onPressed:
-                  data.loggedIn &&
-                      !widget.session.blocked &&
-                      medal.targetUid == widget.session.service.anchorUid
-                  ? () => _medal(medal)
-                  : null,
-              child: Text(medal.wearing ? '摘下' : '佩戴'),
+          Card(
+            child: ListTile(
+              title: Text('${medal.name} · Lv.${medal.level}'),
+              subtitle: Text(
+                '${medal.wearing ? "佩戴中" : "未佩戴"}；'
+                '灯牌：${_state(medal.isLighted, "亮", "未点亮")}\n'
+                '主播 UID：${medal.targetUid}'
+                '${medal.targetUid == widget.session.service.anchorUid ? "" : "\n属于其他主播，本面板仅办理当前直播间勋章"}',
+              ),
+              trailing: TextButton(
+                onPressed:
+                    data.loggedIn &&
+                        !widget.session.blocked &&
+                        medal.targetUid == widget.session.service.anchorUid
+                    ? () => _medal(medal)
+                    : null,
+                child: Text(medal.wearing ? '摘下' : '佩戴'),
+              ),
             ),
           ),
       ],
     );
   }
+
+  Widget _guard(LiveInteractionSnapshot data) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      Text('大航海', style: Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height: 12),
+      if (data.guardStatus case final status?) ...[
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '大航海只读响应（字段含义待登录核实）',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text('身份状态码：${status.activeState ?? "未提供"}'),
+                for (final tier in status.tiers)
+                  Text(
+                    '${tier.label}（档位代码 ${tier.type}）· 状态码 ${tier.status ?? "未提供"}'
+                    '${tier.expiresAt == null ? "" : " · 到期字段 ${tier.expiresAt!.toLocal().toString().split(" ").first}"}',
+                  ),
+                const Text('这些只读字段不能证明本次付款或开通成功。'),
+              ],
+            ),
+          ),
+        ),
+      ] else
+        const _Notice('大航海身份尚未取得；返回官方页面后可只读刷新，但不能凭页面关闭判断开通成功。'),
+      const Text('舰长、提督、总督的档位、权益、期限和最终价格以当前主播的哔哩哔哩官方页面为准。'),
+      const SizedBox(height: 16),
+      const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('付款前请在官方页面核对主播、档位、期限、金额及连续包月条款。返回此页只会刷新身份状态，不视为支付成功。'),
+        ),
+      ),
+      const SizedBox(height: 12),
+      FilledButton.icon(
+        onPressed: data.loggedIn
+            ? () async {
+                await widget.onOpenGuard();
+                if (mounted) widget.session.load();
+              }
+            : null,
+        icon: const Icon(Icons.sailing_outlined),
+        label: const Text('在应用内打开官方大航海'),
+      ),
+      if (!data.loggedIn)
+        const _Notice('请先在 PiliPlus 登录。')
+      else
+        const _Notice('若官方页面仍要求登录，请返回 PiliPlus 刷新登录后重试。'),
+    ],
+  );
 
   String _state(bool? value, String yes, String no) => value == null
       ? '未知'

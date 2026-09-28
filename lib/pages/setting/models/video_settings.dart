@@ -116,7 +116,7 @@ List<SettingsModel> get videoSettings => [
   ),
   const _LiveEnhancementSwitchModel(
     title: '直播界面增强（实验性）',
-    subtitle: '默认关闭；显示礼物、背包、粉丝团与灯牌面板。独立于 CDN 与画质；送礼、入团和点亮需逐次确认',
+    subtitle: '默认关闭；显示礼物快捷条、聊天互动与粉丝团／大航海面板。独立于 CDN 与画质；付费操作需逐次确认',
     leading: Icon(Icons.live_tv_outlined),
     setKey: SettingBoxKey.liveRoomEnhancement,
   ),
