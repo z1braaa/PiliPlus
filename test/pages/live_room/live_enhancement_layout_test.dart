@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
+import 'package:PiliPlus/pages/live_room/live_danmaku_send_gate.dart';
 import 'package:PiliPlus/pages/live_room/live_message_session.dart';
 import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
@@ -27,6 +31,10 @@ class _Room extends Fake implements LiveRoomController {
   @override
   List<RichTextItem>? savedDanmaku;
   @override
+  final danmakuSendGate = LiveDanmakuSendGate();
+  Completer<LoadingState<void>>? sendResult;
+  int writes = 0;
+  @override
   int get trimDmIndex => 0;
   @override
   int get roomId => 6;
@@ -40,6 +48,17 @@ class _Room extends Fake implements LiveRoomController {
   void handleJumpToBottom() {}
   @override
   void toastNotLogin() {}
+  @override
+  Future<LoadingState<void>> sendLiveDanmaku({
+    required String message,
+    int? dmType,
+    Object? emoticonOptions,
+    int replyMid = 0,
+    String replayDmid = '',
+  }) {
+    writes++;
+    return sendResult?.future ?? Future.value(const Success<void>(null));
+  }
 }
 
 class _Routes extends NavigatorObserver {
@@ -50,7 +69,50 @@ class _Routes extends NavigatorObserver {
   }
 }
 
+void _setDraft(WidgetTester tester, String value) {
+  tester.widget<RichTextField>(find.byType(RichTextField)).controller
+    ..clear()
+    ..syncRichText(
+      TextEditingDeltaInsertion(
+        oldText: '',
+        textInserted: value,
+        insertionOffset: 0,
+        selection: TextSelection.collapsed(offset: value.length),
+        composing: TextRange.empty,
+      ),
+    )
+    ..value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+  tester
+      .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
+      .onChanged(
+        value,
+      );
+}
+
 void main() {
+  test('disposed room ignores a late successful send receipt', () async {
+    final gate = LiveDanmakuSendGate();
+    final receipt = Completer<LoadingState<void>>();
+    var draftSuccessCalls = 0;
+
+    final pending = gate.trySend(
+      () => receipt.future,
+      clearDraftOnSuccess: true,
+      onDraftSuccess: (_) => draftSuccessCalls++,
+    );
+    expect(gate.pending, isTrue);
+    gate.dispose();
+
+    receipt.complete(const Success<void>(null));
+    expect(await pending, isNull);
+    expect(gate.pending, isFalse);
+    expect(gate.successSerial, 0);
+    expect(draftSuccessCalls, 0);
+  });
+
   testWidgets(
     'enhanced chat edits below its list without opening a publish route and restores draft',
     (tester) async {
@@ -123,6 +185,197 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       room.scrollController.dispose();
+      room.danmakuSendGate.dispose();
+    },
+  );
+
+  testWidgets(
+    'pending send survives SC tab replacement and an A receipt does not clear a new B draft',
+    (tester) async {
+      final room = _Room()..sendResult = Completer<LoadingState<void>>();
+      Widget input() => LiveSendDmPanel(
+        inline: true,
+        autofocus: false,
+        liveRoomController: room,
+        items: room.savedDanmaku,
+        onSave: (items) => room.savedDanmaku = items.toList(),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 440,
+              child: LiveEnhancementPanel(
+                controller: room,
+                inputBuilder: input,
+                onMention: (DanmakuMsg _) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _setDraft(tester, 'A');
+      final oldComposer = tester.state<LiveSendDmPanelState>(
+        find.byType(LiveSendDmPanel),
+      );
+      final first = oldComposer.onCustomPublish();
+      await tester.pump();
+      expect(room.writes, 1);
+      expect(room.danmakuSendGate.pending, isTrue);
+
+      await tester.tap(find.text('SC'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LiveSendDmPanel), findsNothing);
+      await tester.tap(find.text('聊天'));
+      await tester.pumpAndSettle();
+      final newComposer = tester.state<LiveSendDmPanelState>(
+        find.byType(LiveSendDmPanel),
+      );
+      expect(identical(oldComposer, newComposer), isFalse);
+      expect(
+        tester
+            .widget<RichTextField>(find.byType(RichTextField))
+            .controller
+            .text,
+        'A',
+      );
+      await newComposer.onCustomPublish();
+      expect(room.writes, 1);
+
+      _setDraft(tester, 'B');
+      room.sendResult!.complete(const Success<void>(null));
+      await first;
+      await tester.pump();
+      expect(room.writes, 1);
+      expect(room.danmakuSendGate.pending, isFalse);
+      expect(
+        tester
+            .widget<RichTextField>(find.byType(RichTextField))
+            .controller
+            .text,
+        'B',
+      );
+      await tester.tap(find.text('SC'));
+      await tester.pumpAndSettle();
+      expect(room.savedDanmaku?.single.text, 'B');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      room.scrollController.dispose();
+      room.danmakuSendGate.dispose();
+    },
+  );
+
+  testWidgets('failed send keeps draft available for an explicit retry', (
+    tester,
+  ) async {
+    final room = _Room()..sendResult = Completer<LoadingState<void>>();
+    Widget input() => LiveSendDmPanel(
+      inline: true,
+      autofocus: false,
+      liveRoomController: room,
+      items: room.savedDanmaku,
+      onSave: (items) => room.savedDanmaku = items.toList(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 440,
+            child: LiveEnhancementPanel(
+              controller: room,
+              inputBuilder: input,
+              onMention: (DanmakuMsg _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _setDraft(tester, 'A');
+    final first = tester
+        .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
+        .onCustomPublish();
+    await tester.pump();
+    await tester.tap(find.text('SC'));
+    await tester.pumpAndSettle();
+    room.sendResult!.complete(const Error('暂时失败'));
+    await first;
+    expect(room.savedDanmaku?.single.text, 'A');
+    expect(room.danmakuSendGate.pending, isFalse);
+    await tester.tap(find.text('聊天'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<RichTextField>(find.byType(RichTextField)).controller.text,
+      'A',
+    );
+    room.sendResult = Completer<LoadingState<void>>();
+    final retry = tester
+        .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
+        .onCustomPublish();
+    await tester.pump();
+    expect(room.writes, 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+    room.sendResult!.complete(const Error('暂时失败'));
+    await retry;
+    room.scrollController.dispose();
+    room.danmakuSendGate.dispose();
+  });
+
+  testWidgets(
+    'confirmed send clears its unchanged draft before composer remount',
+    (
+      tester,
+    ) async {
+      final room = _Room()..sendResult = Completer<LoadingState<void>>();
+      Widget input() => LiveSendDmPanel(
+        inline: true,
+        autofocus: false,
+        liveRoomController: room,
+        items: room.savedDanmaku,
+        onSave: (items) => room.savedDanmaku = items.toList(),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 440,
+              child: LiveEnhancementPanel(
+                controller: room,
+                inputBuilder: input,
+                onMention: (DanmakuMsg _) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _setDraft(tester, 'A');
+      final pending = tester
+          .state<LiveSendDmPanelState>(find.byType(LiveSendDmPanel))
+          .onCustomPublish();
+      await tester.pump();
+      await tester.tap(find.text('SC'));
+      await tester.pumpAndSettle();
+      expect(room.savedDanmaku?.single.text, 'A');
+      room.sendResult!.complete(const Success<void>(null));
+      await pending;
+      expect(room.savedDanmaku, isNull);
+      await tester.tap(find.text('聊天'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<RichTextField>(find.byType(RichTextField))
+            .controller
+            .text,
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      room.scrollController.dispose();
+      room.danmakuSendGate.dispose();
     },
   );
 

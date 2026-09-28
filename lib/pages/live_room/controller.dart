@@ -22,6 +22,7 @@ import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
+import 'package:PiliPlus/pages/live_room/live_danmaku_send_gate.dart';
 import 'package:PiliPlus/pages/live_room/live_message_session.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_timeline.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
@@ -111,6 +112,7 @@ class LiveRoomController extends GetxController {
   // dm
   LiveDmInfoData? dmInfo;
   List<RichTextItem>? savedDanmaku;
+  final danmakuSendGate = LiveDanmakuSendGate();
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
@@ -621,6 +623,7 @@ class LiveRoomController extends GetxController {
     cancelLiveTimer();
     savedDanmaku?.clear();
     savedDanmaku = null;
+    danmakuSendGate.dispose();
     messages.clear();
     if (showSuperChat) {
       superChatMsg.clear();
@@ -892,7 +895,23 @@ class LiveRoomController extends GetxController {
     );
   }
 
+  Future<LoadingState<void>> sendLiveDanmaku({
+    required String message,
+    int? dmType,
+    Object? emoticonOptions,
+    int replyMid = 0,
+    String replayDmid = '',
+  }) => LiveHttp.sendLiveMsg(
+    roomId: roomId,
+    msg: message,
+    dmType: dmType,
+    emoticonOptions: emoticonOptions,
+    replyMid: replyMid,
+    replayDmid: replayDmid,
+  );
+
   void onAtUser(DanmakuMsg item) {
+    danmakuSendGate.markDraftChanged();
     savedDanmaku = [
       RichTextItem.fromStart(
         '@${item.name} ',
