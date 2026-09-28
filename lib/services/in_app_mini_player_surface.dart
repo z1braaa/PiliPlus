@@ -57,16 +57,19 @@ class InAppMiniPlayerSurface extends StatelessWidget {
             child: Row(
               children: [
                 _MiniActionButton(
+                  key: const ValueKey('mini-close'),
                   tooltip: '关闭小窗并停止播放',
                   onPressed: onClose,
                   icon: Icons.close,
                 ),
                 _MiniActionButton(
+                  key: const ValueKey('mini-restore'),
                   tooltip: '返回播放页',
                   onPressed: onRestore,
                   icon: Icons.open_in_full,
                 ),
                 _MiniActionButton(
+                  key: const ValueKey('mini-play-pause'),
                   tooltip: playing ? '暂停' : '播放',
                   onPressed: onPlayPause,
                   icon: playing ? Icons.pause : Icons.play_arrow,
@@ -122,6 +125,7 @@ class _MiniActionButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     required this.icon,
+    super.key,
   });
 
   final String tooltip;
@@ -129,18 +133,20 @@ class _MiniActionButton extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: Semantics(
-      label: tooltip,
-      button: true,
-      child: InkWell(
-        onTap: onPressed,
-        child: SizedBox(
-          width: 36,
-          height: 44,
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
+  Widget build(BuildContext context) => Semantics(
+    label: tooltip,
+    button: true,
+    child: InkWell(
+      onTap: onPressed,
+      mouseCursor: SystemMouseCursors.click,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
+      child: SizedBox(
+        width: 36,
+        height: 44,
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
     ),
   );
