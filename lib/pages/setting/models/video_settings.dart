@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/common/widgets/flutter/list_tile.dart' as setting_tile;
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
@@ -245,13 +246,29 @@ class _LiveEnhancementSwitchModel extends SwitchModel {
   @override
   Widget get widget => StreamBuilder(
     stream: GStorage.setting.watch(key: SettingBoxKey.liveRoomEnhancement),
-    builder: (context, _) => SwitchListTile(
-      title: Text(title!),
-      subtitle: Text(subtitle!),
-      secondary: leading,
-      value: Pref.liveRoomEnhancement,
-      onChanged: (enabled) => GStorage.setting.put(setKey, enabled),
-    ),
+    builder: (context, _) {
+      final theme = Theme.of(context);
+      final enabled = Pref.liveRoomEnhancement;
+      return setting_tile.ListTile(
+        title: Text(title!, style: theme.textTheme.titleMedium),
+        subtitle: Text(
+          subtitle!,
+          style: theme.textTheme.labelMedium!.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+        leading: leading,
+        trailing: Transform.scale(
+          scale: 0.8,
+          alignment: Alignment.centerRight,
+          child: Switch(
+            value: enabled,
+            onChanged: (value) => GStorage.setting.put(setKey, value),
+          ),
+        ),
+        onTap: () => GStorage.setting.put(setKey, !enabled),
+      );
+    },
   );
 }
 

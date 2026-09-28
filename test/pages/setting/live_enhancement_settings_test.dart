@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliPlus/pages/setting/models/video_settings.dart';
+import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_focus_boundary.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -49,6 +50,50 @@ void main() {
   });
   setUp(() => box.clear());
   tearDownAll(() => box.close());
+
+  testWidgets('live enhancement control matches other settings rows', (
+    tester,
+  ) async {
+    const ordinary = SwitchModel(
+      title: '对照开关',
+      leading: Icon(Icons.cloud_download_outlined),
+      setKey: 'liveEnhancementLayoutPeer',
+    );
+    final enhanced = videoSettings.singleWhere(
+      (item) => item.title == '直播界面增强（实验性）',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListTileTheme(
+            data: const ListTileThemeData(
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            child: Column(children: [ordinary.widget, enhanced.widget]),
+          ),
+        ),
+      ),
+    );
+
+    Rect paintedBounds(Finder finder) {
+      final box = tester.renderObject<RenderBox>(finder);
+      return MatrixUtils.transformRect(
+        box.getTransformTo(null),
+        Offset.zero & box.size,
+      );
+    }
+
+    final icon = paintedBounds(find.byIcon(Icons.live_tv_outlined));
+    final title = paintedBounds(find.text('直播界面增强（实验性）'));
+    final controls = find.byType(Switch);
+    expect(controls, findsNWidgets(2));
+    final ordinarySwitch = paintedBounds(controls.at(0));
+    final enhancedSwitch = paintedBounds(controls.at(1));
+    expect(icon.center.dx, lessThan(title.left));
+    expect(enhancedSwitch.center.dx, greaterThan(title.right));
+    expect(enhancedSwitch.width, closeTo(ordinarySwitch.width, 0.5));
+    expect(enhancedSwitch.height, closeTo(ordinarySwitch.height, 0.5));
+  });
 
   test(
     'missing and malformed restored values are off; only boolean true opts in',
