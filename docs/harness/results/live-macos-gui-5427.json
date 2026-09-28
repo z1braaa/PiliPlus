@@ -1,0 +1,38 @@
+{
+  "recorded_at_utc": "2026-09-28T07:07:02.294011+00:00",
+  "method": "Native accessibility and screenshots through CUA on an isolated re-signed copy of the final Release app",
+  "display_version": "2.1.5-CDN-P0-LIVE-L2-UI+5427",
+  "source_commit": "8bbbe51f0a7e3622b3879c6bf7e8b73c3adc4e72",
+  "qa_bundle_id": "com.example.piliplus.liveqa5427",
+  "host": "arm64 macOS 27.0",
+  "room_id": 21147363,
+  "public_anchor": "流浪猫乐园",
+  "account": "guest; no authentication used",
+  "observed": {
+    "about_version_and_commit": "matched final build",
+    "fresh_bundle_live_enhancement_default": "off",
+    "original_layout": "app-bottom send-danmaku entry before enabling",
+    "new_layout": "guest send-danmaku tile directly beneath right-side chat; gift, bag and fan-club/badge icon actions beneath video",
+    "public_live_picture": "observed timestamp changes during playback",
+    "danmaku_connection": "connected",
+    "gift_action": "opened catalog drawer with room and anchor; guest login prompt; no purchase",
+    "bag_action": "opened bag view with guest login prompt",
+    "fan_action": "opened fan-club/badge view with unknown state shown as unknown rather than absent",
+    "SC_to_chat_switch": "guest send-danmaku tile disappeared on SC tab and returned beneath chat on Chat tab",
+    "fullscreen": "video and gift, bag, fan icons visible in bottom action bar"
+  },
+  "enhancement_toggle_count": 1,
+  "no_player_instance_or_stream_request_instrumentation": true,
+  "not_run": [
+    "authenticated inline text editing, IME, emoji, @ mention and live send",
+    "real gift, bag send, fan join, badge light or other account mutation",
+    "fullscreen interaction drawer click",
+    "narrow-window breakpoint and mobile device layouts",
+    "audio level, player instance count, stream re-request count and long-duration stability",
+    "SC delete/expiry and forced network outage",
+    "Intel hardware, macOS 13 hardware and other platforms"
+  ],
+  "user_initiated_account_writes": 0,
+  "credentials_read": false,
+  "user_installed_application_modified": false
+}

@@ -1,0 +1,34 @@
+{
+  "recorded_at_utc": "2026-09-28T07:07:02.294011+00:00",
+  "source_commit": "8bbbe51f0a7e3622b3879c6bf7e8b73c3adc4e72",
+  "display_version": "2.1.5-CDN-P0-LIVE-L2-UI+5427",
+  "flutter": {
+    "version": "3.47.5",
+    "dart": "3.13.4",
+    "command": "flutter test --no-pub --machine",
+    "all_suites": {
+      "passed": 99,
+      "failed": 0,
+      "skipped": 0,
+      "framework_events": 16,
+      "framework_failures": 0,
+      "count_verified": true
+    },
+    "raw_log_sha256": "22996be66ac499002354013d24430d191de1f0318c9e5a829e2cc81af5156d24"
+  },
+  "targeted_analysis": {
+    "files": 9,
+    "issues": 0,
+    "log_sha256": "617810a6cc4703e0cf99c57971bc3385f463e7f6e599921dddea6689fd93ece6"
+  },
+  "regression_scope": [
+    "Inline live editor sits below chat, does not open app-bottom PublishRoute and restores a draft after a tab switch",
+    "Gift, bag and fan icon actions remain available at 320 logical pixels",
+    "Room-scoped send gate prevents a second request when SC tab recreates the composer",
+    "A successful response does not erase a newer draft B; a failed send preserves the draft for explicit retry",
+    "Late successful response after room gate disposal does not clear a draft or record success"
+  ],
+  "diff_check": "passed",
+  "real_account_send": "not_run",
+  "note": "Deterministic client checks; not proof of production endpoint success, IME behavior or paid interactions."
+}

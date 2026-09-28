@@ -9,13 +9,13 @@
 | [验收矩阵](validation.md) | 测试场景、测量口径、性能提案与结果记录模板 |
 | [点播手动测试](manual-vod-testing.md) | 用户网络起播、卡顿与恢复的分步流程、指标和回填模板 |
 | [Python 点播自动化](automated-vod-testing.md) | 回归汇总、同素材双轨对照、有限匿名取源、分层批量初筛与可视报告，以及原生指标/预算/隐私边界 |
-| [当前未落地与待验证](remaining-work-live-l2.md) | 普通赠礼未知查证、特殊互动、真实账号/平台和点播余项 |
+| [当前未落地与待验证](remaining-work-live-l2.md) | 普通赠礼未知查证、特殊互动、直播布局、应用内小窗/临时列表、真实账号/平台和点播余项 |
 | [直播互动实机验收](live-interaction-testing.md) | 开关/布局/恢复、送礼/入团/点亮的实际操作流程、服务端指标及回填表 |
 | [设计决策](decisions.md) | 已确定约束、待决事项和改变决定所需的证据 |
 
 ## 本版已批准范围
 
-[直播编译内容审查稿](../requirements/06-live-first-build-review.md) 基于当前 2.1.5 + CDN P0，用户已批准默认关闭布局、SC 生命周期/连接恢复及完整送礼、入团、灯牌流程。`BUILD-LIVE-01` 与 `LIVE-TX-01`～`06` 是本轮构建与交互验收；源码、94 项 Flutter 夹具和 macOS `+5424` 构建已完成，隔离游客 GUI 部分通过；交付包要求 macOS 13 或更新，实际消费验证未运行。详细结果见[构建记录](results/live-macos-build-5424.json)和[GUI 记录](results/live-macos-gui-20260928.json)。
+[直播编译内容审查稿](../requirements/06-live-first-build-review.md) 基于官方 2.1.5 + CDN P0；用户批准默认关闭布局、SC 生命周期/连接恢复及完整送礼、入团、灯牌流程。`LIVE-UI-09/10` 把输入固定在聊天区下方、互动入口移至视频下方。源码 `8bbbe51f…` 已解决切 SC 重复提交/晚到回执，Flutter 全套 **99/99**、定向分析 0 问题；`+5427` macOS 13 双架构构建、签名与隔离游客 GUI 部分通过。实际登录弹幕、IME、窄窗、消费及其他平台未运行。结果见[布局测试](results/live-layout-tests-5427.json)、[构建记录](results/live-macos-build-5427.json)与[GUI 记录](results/live-macos-gui-5427.json)；`+5426` 仅为阶段历史证据。
 
 ## 执行顺序
 
