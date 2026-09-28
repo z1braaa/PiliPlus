@@ -223,7 +223,7 @@
 
 [Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
 
-[首版直播整合审查稿](docs/requirements/06-live-first-build-review.md) 对应历史 `+5427` 包；[新版要求](docs/requirements/08-live-interaction-refresh-review.md) 在此基础上调整礼物、聊天与粉丝团位置，并开始接入小窗和临时列表。源码与三次 macOS 游客预览已覆盖部分布局和播放行为，但官方支付页、SC 购买、登录账号写操作、窄窗及其他平台均需分别验收。三次 `+5429` 均为**未提交工作树预览**，不能当作最终发行包或交易成功证据。使用方法和费用结果填写见[实机流程](docs/harness/live-interaction-testing.md)，逐项结果与完整缺口分别见[验证记录](docs/harness/validation.md)和[未落地清单](docs/harness/remaining-work-live-l2.md)。
+[首版直播整合审查稿](docs/requirements/06-live-first-build-review.md) 对应历史 `+5427` 包；[新版要求](docs/requirements/08-live-interaction-refresh-review.md) 在此基础上调整礼物、聊天与粉丝团位置，并接入小窗和临时列表。`+5430` macOS 测试包已由固定源码构建，版本、双架构、最低系统、签名与摘要见[构建记录](docs/harness/results/live-next-macos-build-5430.json)。三次 `+5429` 均为未提交工作树预览；它们及 `+5430` 的游客界面观察都不能当作真实付费成功证据。官方支付页、SC 购买、登录账号写操作、窄窗及其他平台仍需分别验收；使用方法见[实机流程](docs/harness/live-interaction-testing.md)，逐项结果与缺口见[验证记录](docs/harness/validation.md)和[未落地清单](docs/harness/remaining-work-live-l2.md)。
 
 直播增强的设置默认关闭；小窗默认关闭、临时列表默认开启。临时列表重复加入同一视频／分 P 时移动已有待播项，当前播放项不重启。新功能的具体完成度以[需求追踪表](docs/harness/traceability.md)为准，上方功能清单不将仅规划或仅预览的能力标为正式完成。
 
