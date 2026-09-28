@@ -1,0 +1,50 @@
+{
+  "created_at_utc": "2026-09-28T15:24:50Z",
+  "source_commit": "90df53554289aa5c76d339a1ab1210415006a011",
+  "display_version": "2.1.5-CDN-P0-LIVE-NEXT-FIX2+5432",
+  "build_defines": {
+    "pili.name": "2.1.5-CDN-P0-LIVE-NEXT-FIX2",
+    "pili.code": 5432,
+    "pili.hash": "90df53554289aa5c76d339a1ab1210415006a011",
+    "pili.time": 1790608461
+  },
+  "native_bundle_version": "2.1.5",
+  "native_build_number": "5432",
+  "build_result": "macOS Release passed; staged app 137.4 MB",
+  "flutter_tests": "132/132 passed",
+  "changed_source_analyze": "0 issues",
+  "target_macos": "13.0",
+  "native_architectures": {
+    "mach_o_count": 27,
+    "all_have": ["x86_64", "arm64"],
+    "slice_count": 54,
+    "highest_minimum_os": "13.0"
+  },
+  "signing": "ad-hoc; strict/deep verification passed; release entitlements retain sandbox, network and user-selected file access; get-task-allow absent",
+  "read_only_dmg_mount": "passed",
+  "dmg_embedded_app_matches_staged_app": "Runner, Dart AOT and Info.plist byte-for-byte matched",
+  "dmg_path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/PiliPlus-2.1.5-CDN-P0-LIVE-NEXT-FIX2+5432-macos-universal.dmg",
+  "dmg_sha256": "5f5540b781b609a9ec7000e6fab47991c72a9e15008f6a61057f731a621fe880",
+  "dmg_bytes": 53366799,
+  "independent_guest_gui": {
+    "app": "Same Release build copied to isolated, ad-hoc signed bundle com.example.piliplus.minihoverqa.5432; distinct from the installed user app.",
+    "video": "BV1PGaP6YEGt",
+    "observed": [
+      "Foreground coordinate click started playback, then Escape produced a mini-player.",
+      "Coordinate click on pause changed the accessible label from Pause to Play; the bar remained black in the captured image.",
+      "Coordinate click on restore returned to the video page at approximately 00:22.",
+      "Escape after pausing produced a mini-player with a Play control and still frame; coordinate click on close removed the visible mini-player and its accessible controls."
+    ],
+    "hover_dwell": "Not verified. The desktop accessibility automation intermittently returned AXError.failure after the app went to background, preventing a reliable foreground >=1-second hover capture. The 160/320 px widget tests did hover each of the three controls for 1 second, but this is a different evidence level.",
+    "limits": "This is an isolated GUI smoke test, not a user installation, long hover dwell, audio stop, or complete mini-player matrix."
+  },
+  "apple_notarization": "not_run",
+  "limits": [
+    "User installation of +5432 and complete mini-player matrix not yet run",
+    "Long mouse hover on each control and outside-page click/scroll with mini visible pending",
+    "Mac GUI narrow-window, drag/resize, live, natural completion, audio and stream-count checks not run",
+    "Intel/macOS 13 hardware not run; architecture and deployment metadata only",
+    "Authenticated, payment and server-side interaction checks not run",
+    "iOS, Android, Windows and Linux builds/device tests not run"
+  ]
+}
