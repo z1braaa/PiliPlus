@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/in_app_mini_player_surface.dart';
 import 'package:PiliPlus/services/mini_overlay_handoff.dart';
+import 'package:PiliPlus/services/mini_player_eligibility.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart';
 import 'package:PiliPlus/services/temporary_queue_service.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -60,10 +63,16 @@ class InAppMiniPlayer {
         _stoppedOwners.contains(ownerKey)) {
       return false;
     }
+    final player = controller.videoPlayerController;
     if (!Pref.inAppMiniPlayer ||
-        controller.playerStatus != PlayerStatus.playing ||
+        player == null ||
         controller.videoController == null ||
-        controller.videoPlayerController == null ||
+        !canEnterInAppMiniPlayer(
+          status: controller.playerStatus,
+          sourceLoaded: controller.dataStatus.value == DataStatus.loaded,
+          hasStartedPlayback: controller.hasStartedPlayback,
+          sourceCompleted: player.state.completed,
+        ) ||
         controller.isFullScreen.value ||
         controller.isPipMode) {
       return false;
@@ -244,7 +253,7 @@ class MiniPlayback {
   final String? title;
 }
 
-/// App-window overlay. It is deliberately inside the app's Navigator window.
+/// App-window overlay. Only its positioned window participates in hit testing.
 class InAppMiniPlayerHost extends StatefulWidget {
   const InAppMiniPlayerHost({required this.child, super.key});
 
@@ -259,185 +268,94 @@ class _InAppMiniPlayerHostState extends State<InAppMiniPlayerHost> {
   double _width = 300;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        ValueListenableBuilder<MiniPlayback?>(
-          valueListenable: InAppMiniPlayer.instance.current,
-          builder: (context, session, _) {
-            if (session == null) return const SizedBox.shrink();
-            final safe = MediaQuery.paddingOf(context);
-            final availableWidth = math.max(1.0, constraints.maxWidth - 24);
-            final state = session.controller.videoPlayerController!.state;
-            final ratio = state.width > 0 && state.height > 0
-                ? state.width / state.height
-                : 16 / 9;
-            final fitRatio = ratio.clamp(0.5, 2.0).toDouble();
-            final availableHeight = math.max(
-              1.0,
-              constraints.maxHeight - safe.vertical - 16,
-            );
-            final maxWidth = math.min(
-              520.0,
-              math.min(
-                availableWidth,
-                math.max(1.0, (availableHeight - 44) * fitRatio),
-              ),
-            );
-            final minWidth = math.min(160.0, maxWidth);
-            final width = _width.clamp(minWidth, maxWidth).toDouble();
-            final height = width / fitRatio + 44;
-            final maxX = math.max(0.0, constraints.maxWidth - width - 8);
-            final maxY = math.max(
-              safe.top,
-              constraints.maxHeight - height - safe.bottom - 8,
-            );
-            final position = _topLeft ?? Offset(maxX, maxY);
-            final x = position.dx.clamp(8.0, math.max(8.0, maxX)).toDouble();
-            final y = position.dy.clamp(safe.top, maxY).toDouble();
+  Widget build(BuildContext context) => ValueListenableBuilder<MiniPlayback?>(
+    valueListenable: InAppMiniPlayer.instance.current,
+    child: widget.child,
+    builder: (context, session, child) => LayoutBuilder(
+      builder: (context, constraints) {
+        // Keep the Navigator in the same Stack slot across handoffs so
+        // showing or hiding the mini view does not recreate its route tree.
+        if (session == null) {
+          return Stack(fit: StackFit.expand, children: [child!]);
+        }
+        final safe = MediaQuery.paddingOf(context);
+        final availableWidth = math.max(1.0, constraints.maxWidth - 24);
+        final state = session.controller.videoPlayerController!.state;
+        final ratio = state.width > 0 && state.height > 0
+            ? state.width / state.height
+            : 16 / 9;
+        final fitRatio = ratio.clamp(0.5, 2.0).toDouble();
+        final availableHeight = math.max(
+          1.0,
+          constraints.maxHeight - safe.vertical - 16,
+        );
+        final maxWidth = math.min(
+          520.0,
+          math.min(
+            availableWidth,
+            math.max(1.0, (availableHeight - 44) * fitRatio),
+          ),
+        );
+        final minWidth = math.min(160.0, maxWidth);
+        final width = _width.clamp(minWidth, maxWidth).toDouble();
+        final height = width / fitRatio + 44;
+        final maxX = math.max(0.0, constraints.maxWidth - width - 8);
+        final maxY = math.max(
+          safe.top,
+          constraints.maxHeight - height - safe.bottom - 8,
+        );
+        final position = _topLeft ?? Offset(maxX, maxY);
+        final x = position.dx.clamp(8.0, math.max(8.0, maxX)).toDouble();
+        final y = position.dy.clamp(safe.top, maxY).toDouble();
 
-            return Positioned(
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child!,
+            Positioned(
               left: x,
               top: y,
               width: width,
               height: height,
-              child: Material(
-                elevation: 12,
-                clipBehavior: Clip.antiAlias,
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.black,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: InAppMiniPlayer.instance.restore,
-                        child: ColoredBox(
-                          color: Colors.black,
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: SimpleVideo(
-                                controller: session.controller.videoController!,
-                                aspectRatio: ratio,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 44,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onPanUpdate: (details) => setState(() {
-                                _topLeft = Offset(
-                                  x + details.delta.dx,
-                                  y + details.delta.dy,
-                                );
-                              }),
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 10),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: width < 220
-                                      ? const Icon(
-                                          Icons.drag_indicator,
-                                          color: Colors.white70,
-                                          size: 18,
-                                        )
-                                      : Text(
-                                          session.title?.isNotEmpty == true
-                                              ? session.title!
-                                              : '拖动小窗',
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (width >= 160)
-                            StreamBuilder<bool>(
-                              stream: session
-                                  .controller
-                                  .videoPlayerController!
-                                  .stream
-                                  .playing,
-                              initialData:
-                                  session.controller.playerStatus.isPlaying,
-                              builder: (context, snapshot) => IconButton(
-                                tooltip: snapshot.data == true ? '暂停' : '播放',
-                                onPressed: () {
-                                  if (snapshot.data == true) {
-                                    session.controller.pause();
-                                  } else {
-                                    session.controller.play();
-                                  }
-                                },
-                                icon: Icon(
-                                  snapshot.data == true
-                                      ? Icons.pause
-                                      : Icons.play_arrow,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          if (width >= 220)
-                            IconButton(
-                              tooltip: '返回播放页',
-                              onPressed: InAppMiniPlayer.instance.restore,
-                              icon: const Icon(
-                                Icons.open_in_full,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          IconButton(
-                            tooltip: '关闭小窗并停止播放',
-                            onPressed: InAppMiniPlayer.instance.close,
-                            icon: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onPanUpdate: (details) => setState(() {
-                              _width = (_width + details.delta.dx).clamp(
-                                minWidth,
-                                maxWidth,
-                              );
-                            }),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(
-                                Icons.drag_handle,
-                                color: Colors.white70,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              child: StreamBuilder<bool>(
+                stream:
+                    session.controller.videoPlayerController!.stream.playing,
+                initialData: session.controller.playerStatus.isPlaying,
+                builder: (context, snapshot) => InAppMiniPlayerSurface(
+                  frame: SimpleVideo(
+                    controller: session.controller.videoController!,
+                    aspectRatio: ratio,
+                  ),
+                  width: width,
+                  playing: snapshot.data == true,
+                  title: session.title,
+                  onPlayPause: () {
+                    if (snapshot.data == true) {
+                      session.controller.pause();
+                    } else {
+                      session.controller.play();
+                    }
+                  },
+                  onRestore: InAppMiniPlayer.instance.restore,
+                  onClose: InAppMiniPlayer.instance.close,
+                  onMove: (details) => setState(() {
+                    _topLeft = Offset(
+                      x + details.delta.dx,
+                      y + details.delta.dy,
+                    );
+                  }),
+                  onResize: (details) => setState(() {
+                    _width = (_width + details.delta.dx).clamp(
+                      minWidth,
+                      maxWidth,
+                    );
+                  }),
                 ),
               ),
-            );
-          },
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     ),
   );
 }

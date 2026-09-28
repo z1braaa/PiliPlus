@@ -80,6 +80,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   static PlPlayerController? _instance;
 
   PlayerStatus playerStatus = .paused;
+  bool _hasStartedPlayback = false;
+  bool get hasStartedPlayback => _hasStartedPlayback;
 
   final Rx<DataStatus> dataStatus = Rx(.none);
 
@@ -628,6 +630,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     CdnStartupTrace? startupTrace,
   }) async {
     final sourceGeneration = ++_mediaSourceGeneration;
+    _hasStartedPlayback = false;
     startupTrace?.mark(CdnStartupStage.playerSourceQueued);
     try {
       _processing = true;
@@ -1078,6 +1081,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       stream.playing.listen((bool playing) {
         if (playing) {
           playerStatus = .playing;
+          _hasStartedPlayback = true;
           _stopWakeLockTimer();
           _updatePlaybackState();
           WakelockPlus.enable();
@@ -1732,6 +1736,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
+    _hasStartedPlayback = false;
     _mediaSourceGeneration += 1;
     _processing = false;
     _closeCdnPlaybackProxy(_cdnPlaybackProxy);
