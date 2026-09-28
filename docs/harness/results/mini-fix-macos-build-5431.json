@@ -32,9 +32,17 @@
   "dmg_sha256": "7cf37e43f068f305cd63dc6bfa18bb432b49994624261e2e4cd85b6172935885",
   "dmg_bytes": 58994890,
   "independent_guest_gui": "Release build copied to a distinct test bundle ID and signed; foreground GUI checked video BV1Uyha6nEbZ paused exit, BV17Qtx6rE6C playing exit, mini play/pause, playing restore, pause/play close, and outside Dynamic navigation. This is the same Release build, not a separately mounted DMG app. Test settings may inherit existing local preferences.",
+  "post_release_video_erratum": {
+    "reviewed_on": "2026-09-28",
+    "evidence": "User-provided screen recording; original ScreenRecordings UUID path blocked by macOS permissions, reviewed a same-time accessible Desktop recording copy. Byte-level identity between paths was not verified. Installed running app version/build/source matched +5431.",
+    "observed_failure": "In the foreground, mouse hover over restore, play, and close respectively produced a gray rectangle from the hovered control to the right edge of the mini-player bar. Moving the pointer away restored the black bar. The prior background-window explanation and conclusion that the gray bar was fixed are withdrawn.",
+    "paused_exit": "In this recording, the video was paused before leaving the detail page; a paused mini-player appeared. The earlier paused-exit failure did not recur in this recording.",
+    "close_boundary": "The recording alone does not establish whether a mouse click on close was delivered or whether audio stopped. Prior isolated GUI control activation did not cover real pointer hover.",
+    "release_assessment": "Not accepted as a fix for the reported gray control bar; MINI-02 and pointer-driven MINI-04 remain blocked."
+  },
   "apple_notarization": "not_run",
   "limits": [
-    "User installation of +5431 and complete mini-player matrix not yet run",
+    "User +5431 foreground recording shows a remaining gray control-bar defect; complete mini-player matrix not passed",
     "Mac GUI narrow-window, drag/resize, live, natural completion, audio and stream-count checks not run",
     "Intel/macOS 13 hardware not run; architecture and deployment metadata only",
     "Authenticated, payment and server-side interaction checks not run",
