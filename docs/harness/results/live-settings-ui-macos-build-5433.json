@@ -32,18 +32,18 @@
   "dmg_bytes": 59717109,
   "independent_guest_gui": {
     "app": "Isolated signed QA copy com.example.piliplus.settingsqa.5433; distinct from user-installed PiliPlus.",
-    "window": "Normal 2360x1440 macOS window, Audio/Video Settings.",
+    "window": "Normal 2360x1440 and narrow 1000x1440 macOS windows, Audio/Video Settings.",
     "observed": [
       "Live enhancement icon visibly left of title, switch right; switch visually same footprint as adjacent CDN Speed/Audio CDN switches and vertically aligned.",
       "Fresh guest default off. Accessibility click on switch changed off to on; clicking row text changed on to off.",
-      "Parallel CDN switch remained off, showing this setting did not toggle CDN mode."
+      "Parallel CDN switch remained off, showing this setting did not toggle CDN mode.",
+      "At 1000 px width the Settings page switched to a single-column layout. Reopening Audio/Video Settings showed the live icon on the left and a right-side switch with the same visual footprint as neighboring switches, without clipping; coordinate clicks on the switch and row text changed off to on and on to off."
     ],
-    "limits": "Narrow-window resize attempt did not actually resize, so narrow-window layout was not verified. This QA did not cover an authenticated account or live transaction."
+    "limits": "This QA did not cover an authenticated account or live transaction."
   },
   "apple_notarization": "not_run",
   "limits": [
     "User-installed +5433 package visual and interaction acceptance pending",
-    "Narrow-window settings layout not verified in macOS GUI",
     "Intel/macOS 13 hardware not run; architecture and deployment metadata only",
     "Authenticated, payment and server-side interaction checks not run",
     "iOS, Android, Windows and Linux builds/device tests not run"
