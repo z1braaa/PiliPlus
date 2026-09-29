@@ -267,3 +267,6 @@
    <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
  </picture>
 </a>
+
+
+2026-09-29：[5434 电池单位修正、CDN 自动优化与实际测量结果](docs/harness/cdn-auto-evaluation-20260929.md)。含失败分母、原生播放器对照与高画质/长时未验边界。

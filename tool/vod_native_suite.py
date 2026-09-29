@@ -19,6 +19,7 @@ def main():
     p.add_argument('--count',type=vod.bounded_number(int,1,40),default=8)
     p.add_argument('--seconds',type=vod.bounded_number(int,5,60),default=15)
     p.add_argument('--budget-seconds',type=vod.bounded_number(int,60,7200),default=1800)
+    p.add_argument('--network-timeout-seconds',type=vod.bounded_number(int,1,60),help='Use the same network timeout for all modes; otherwise mirror app defaults.')
     options=p.parse_args()
     data=json.loads(Path(options.catalog).read_text())
     selected=data if isinstance(data,list) else data['selection']
@@ -26,7 +27,7 @@ def main():
     report=vod.base_report('native_confirmation_suite')
     report.update(selection=selected, samples=[],videos=[],status='running',
         boundary='Same libmpv dual-track startup/cache/seek; no GUI frame or audible-sample evidence.',
-        plan={'duration_seconds':options.seconds,'budget_seconds':options.budget_seconds,'modes':['hw-direct','smart']})
+        plan={'duration_seconds':options.seconds,'seek_seconds':max(30,options.seconds+15),'budget_seconds':options.budget_seconds,'modes':['hw-direct','smart'],'network_timeout_override_seconds':options.network_timeout_seconds})
     start=time.monotonic()
     def save():
         report['elapsed_seconds']=round(time.monotonic()-start,3)
@@ -39,8 +40,8 @@ def main():
             print(json.dumps({'video':i+1,'count':len(selected),'bvid':bvid}),flush=True)
             args=argparse.Namespace(bvid=bvid,page=1,manifest=None,quality_code=80,codec='avc',allow_lower_quality=True,
                 library=options.library,dart=options.dart,order=('hw-direct','smart','smart','hw-direct') if i%2==0 else ('smart','hw-direct','hw-direct','smart'),
-                concurrency=8,chunk_kib=1024,duration_seconds=options.seconds,start_seconds=0,seek_seconds=30,
-                deadline_seconds=60,total_budget_seconds=remaining)
+                concurrency=8,chunk_kib=1024,duration_seconds=options.seconds,start_seconds=0,seek_seconds=max(30,options.seconds+15),
+                deadline_seconds=max(60,options.seconds+45),total_budget_seconds=remaining,network_timeout_seconds=options.network_timeout_seconds)
             entry={'catalog':record,'status':'running'};report['videos'].append(entry)
             def on_sample(subreport,row):
                 row.update(bvid=bvid,stratum=record.get('stratum'))

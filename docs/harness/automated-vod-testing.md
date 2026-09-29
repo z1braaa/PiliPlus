@@ -173,3 +173,14 @@ python3 -m unittest discover -s tool/tests -p 'test_*.py' -v
 下载模式按视频循环轮换，使各模式都有机会先测；首批历史初筛为华为云首尾、中间实验模式互换，需单列设计差异。不能制造或确认冷缓存。诊断中的上游正文数仅统计已观测正文，不含 TLS 和取消后未读取的数据。桥启动时间单列，应用本身没有反复启动 Dart 解释器的开销。
 
 高画质受匿名接口限制时必须标注实际画质。低画质字节供给和无画面输出的 mpv 通过，不能证明登录 1080p/4K 或 GUI 首帧、声音验收通过。
+
+
+### 5434 公平超时与新增回归
+
+原生批次可传 `--network-timeout-seconds 5`，让华为云与代理使用相同播放器网络超时；不传则沿用应用的直连 5 秒／代理 60 秒，不能直接据后者的成功率断言更可靠。`regress` 已加入 measured transport 和电池换算套件。
+
+```sh
+python3 tool/vod_native_suite.py --catalog /path/to/public-catalog.json --output /path/to/equal-timeout --library /Applications/PiliPlus.app/Contents/Frameworks/Mpv.framework/Mpv --count 8 --seconds 30 --network-timeout-seconds 5
+```
+
+[本轮实际结果](cdn-auto-evaluation-20260929.md)与[机器摘要](results/cdn-auto-evaluation-20260929.json)包含未通过样本，不能只统计输出成功的行。

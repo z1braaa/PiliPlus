@@ -274,9 +274,11 @@ def regress(args):
         ("dart", "tool/cdn_proxy_smoke_test.dart"),
         ("dart", "tool/cdn_multi_origin_test.dart"),
         ("dart", "tool/cdn_startup_test.dart"),
+        ("dart", "tool/cdn_measured_test.dart"),
         ("flutter", "test/pages/setting/parallel_cdn_settings_test.dart"),
         ("flutter", "test/utils/video_playback_routing_test.dart"),
         ("flutter", "test/utils/accounts/deleted_account_test.dart"),
+        ("flutter", "test/services/live_battery_display_test.dart"),
     ]
     for kind, target in targets:
         row = {"suite": target, "runner": kind, "status": "not_run", "passed": None,
@@ -679,6 +681,9 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
     report = dict(baseline) if baseline else base_report("native_playback_comparison")
     report["kind"] = "native_playback_comparison"
     rows = []
+    timeout_override = getattr(args, "network_timeout_seconds", None)
+    network_timeouts = {mode: timeout_override if timeout_override is not None else (
+        60 if mode in ("parallel", "smart", "auto") else 5) for mode in MODES}
     report["measurement_boundary"] = (
         "Headless native libmpv events and position progress; not PiliPlus GUI first moving frame, "
         "first audible sound, or proof of subjective smoothness. No P95 or performance benefit claim.")
@@ -686,7 +691,7 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                       "start_seconds": args.start_seconds, "duration_seconds": args.duration_seconds,
                       "seek_seconds": args.seek_seconds, "trial_deadline_seconds": args.deadline_seconds,
                       "total_budget_seconds": args.total_budget_seconds,
-                      "network_timeout_seconds_by_mode": {"base-direct": 5, "hw-direct": 5, "parallel": 60, "smart": 60, "auto": 60},
+                      "network_timeout_seconds_by_mode": network_timeouts,
                       "url_policy": "same signed URL set for all trials; no credential or URL output"}
     started = time.monotonic()
     manifest = None
@@ -768,7 +773,7 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                     raise HarnessError("trial_budget_exhausted")
                 command = [sys.executable, str(REPO / "tool/native_mpv_probe.py"), "--library", args.library,
                            "--duration-seconds", str(args.duration_seconds), "--start-seconds", str(args.start_seconds),
-                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", "60" if mode in ("parallel", "smart", "auto") else "5"]
+                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", str(network_timeouts[mode])]
                 if args.seek_seconds is not None:
                     command += ["--seek-seconds", str(args.seek_seconds)]
                 native = run_command(command, timeout=native_timeout,
