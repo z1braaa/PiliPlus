@@ -19,10 +19,12 @@ class NetworkSource extends DataSource {
   /// have been rewritten to the user's manually selected CDN.
   final List<String> originalVideoUrls;
   final List<String> originalAudioUrls;
+  final int? durationSeconds;
 
   NetworkSource({
     required super.videoSource,
     required super.audioSource,
+    this.durationSeconds,
     Iterable<String> originalVideoUrls = const [],
     Iterable<String> originalAudioUrls = const [],
   }) : originalVideoUrls = List.unmodifiable(originalVideoUrls),

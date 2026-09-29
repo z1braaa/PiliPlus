@@ -91,6 +91,8 @@ abstract final class SettingBoxKey {
       continuePlayingPart = 'continuePlayingPart',
       cdnSpeedTest = 'cdnSpeedTest',
       cdnParallelLoading = 'cdnParallelLoading',
+      cdnAutoSelect = 'cdnAutoSelect',
+      cdnAdaptive = 'cdnAdaptive',
       cdnParallelConnections = 'cdnParallelConnections',
       cdnParallelChunkSizeKiB = 'cdnParallelChunkSizeKiB',
       horizontalPreview = 'horizontalPreview',

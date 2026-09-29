@@ -27,3 +27,5 @@ P0 的真实海外网络 A/B 性能、macOS GUI 画面/声音/seek 和移动端�
 [Harness 入口](../harness/README.md)说明如何把这些资料转成可交付任务；[需求追踪表](../harness/traceability.md)列出每个 ID 的状态和验收方法。修改需求时同步更新追踪表与证据说明，避免把研究发现写入已完成功能列表。
 
 [2026-09-28 当前官方交互协议证据](research/official-live-interaction-contracts-2026-09-28.json)记录本版使用的参数与公开响应边界；所有账号写操作均未实际执行，静态协议和匿名登录错误不升级为完整在线验收。
+
+最新调整：[电池显示与实测驱动点播优化](11-measured-cdn-and-battery.md)。本轮调度要求覆盖早期严格地理优先约束。

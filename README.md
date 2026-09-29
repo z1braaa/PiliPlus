@@ -221,6 +221,10 @@
 
 本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化、[直播互动重排](docs/requirements/08-live-interaction-refresh-review.md)及[应用内小窗与临时播放列表](docs/requirements/07-mini-player-temporary-playlist.md)；[开发与验收指引](docs/harness/README.md) 区分已实现、已验证和未运行。并发 CDN V2 的已实现基线另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。应用内小窗不同于系统画中画，临时列表不同于账号“稍后再看”。
 
+2026-09-29 [实测驱动修订](docs/requirements/11-measured-cdn-and-battery.md)：金币礼物按 100 原始 gold = 1 电池显示，交易请求仍使用原始单位。新增独立的“自动选择 CDN”，可单独开启或配合并发；关闭自动选源时手选 CDN 仍生效。自适应并发默认开启，仅在并发开关开启时工作，关闭自适应后使用手动路数和分块。CDN 测速显示连续分段均速、最慢段和首包等待；固定样片不能代表当前视频。
+
+`python3 tool/vod_supply_test.py --output /tmp/pili-supply --count 40` 自动比较公开视频的双轨供给，`--new-only` 使用新投稿目录。脚本不读取应用账号；下载模拟不能代替真实首帧、声音和高画质验收，需配合原生播放器测试。
+
 [Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
 
 [首版直播整合审查稿](docs/requirements/06-live-first-build-review.md) 对应历史 `+5427` 包；[新版要求](docs/requirements/08-live-interaction-refresh-review.md) 在此基础上调整礼物、聊天与粉丝团位置，并接入小窗和临时列表。`+5430` macOS 测试包已由固定源码构建，版本、双架构、最低系统、签名与摘要见[构建记录](docs/harness/results/live-next-macos-build-5430.json)。三次 `+5429` 均为未提交工作树预览；它们及 `+5430` 的游客界面观察都不能当作真实付费成功证据。官方支付页、SC 购买、登录账号写操作、窄窗及其他平台仍需分别验收；使用方法见[实机流程](docs/harness/live-interaction-testing.md)，逐项结果与缺口见[验证记录](docs/harness/validation.md)和[未落地清单](docs/harness/remaining-work-live-l2.md)。

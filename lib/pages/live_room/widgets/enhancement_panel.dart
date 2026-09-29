@@ -312,7 +312,7 @@ class _LiveGiftActionBarState extends State<LiveGiftActionBar> {
                                             ),
                                             Text(
                                               gift.priceKnown
-                                                  ? '${gift.price} ${gift.coinLabel}'
+                                                  ? '${gift.displayPrice} ${gift.coinLabel}'
                                                   : '价格未知',
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,

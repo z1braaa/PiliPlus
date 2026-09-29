@@ -36,12 +36,12 @@ void main() {
   });
 
   test(
-    'parallel playback bypasses manual overseas CDN for both streams',
+    'auto selection bypasses manual overseas CDN for both streams',
     () async {
       final before = VideoUtils.getPlaybackCdnUrl([video, backup]);
       expect(Uri.parse(before).host, CDNService.akamai.host);
 
-      await GStorage.setting.put(SettingBoxKey.cdnParallelLoading, true);
+      await GStorage.setting.put(SettingBoxKey.cdnAutoSelect, true);
       expect(VideoUtils.getPlaybackCdnUrl([video, backup]), video);
       expect(VideoUtils.getPlaybackCdnUrl([audio], isAudio: true), audio);
 
@@ -49,10 +49,18 @@ void main() {
       // existing selection, regardless of the playback transport setting.
       expect(VideoUtils.getCdnUrl([video, backup]), before);
 
-      await GStorage.setting.put(SettingBoxKey.cdnParallelLoading, false);
+      await GStorage.setting.put(SettingBoxKey.cdnAutoSelect, false);
       expect(VideoUtils.getPlaybackCdnUrl([video, backup]), before);
     },
   );
+
+  test('parallel loading alone retains the selected manual CDN', () async {
+    await GStorage.setting.put(SettingBoxKey.cdnParallelLoading, true);
+    expect(
+      Uri.parse(VideoUtils.getPlaybackCdnUrl([video])).host,
+      CDNService.akamai.host,
+    );
+  });
 
   test(
     'a fetched source retains signed API URLs across a later toggle',
@@ -65,7 +73,7 @@ void main() {
       );
       expect(Uri.parse(source.videoSource).host, CDNService.akamai.host);
 
-      await GStorage.setting.put(SettingBoxKey.cdnParallelLoading, true);
+      await GStorage.setting.put(SettingBoxKey.cdnAutoSelect, true);
       expect(source.originalVideoSource, video);
       expect(source.originalAudioSource, audio);
       expect(source.originalVideoUrls.skip(1), [backup]);

@@ -794,6 +794,9 @@ class VideoDetailController extends GetxController
               hasDashAudio: entry.hasDashAudio,
             )
           : NetworkSource(
+              durationSeconds: data.timeLength == null
+                  ? null
+                  : data.timeLength! ~/ 1000,
               videoSource: _originalVideoUrls.isEmpty
                   ? videoUrl!
                   : VideoUtils.getPlaybackCdnUrl(_originalVideoUrls),

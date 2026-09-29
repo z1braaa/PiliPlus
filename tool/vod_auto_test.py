@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parents[1]
 # this reviewed repository, not the caller's working directory.
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
-MODES = ("base-direct", "hw-direct", "parallel")
+MODES = ("base-direct", "hw-direct", "parallel", "smart", "auto")
 DEFAULT_ORDER = ("base-direct", "hw-direct", "parallel", "parallel", "hw-direct", "base-direct")
 MEDIA_DOMAINS = ("bilivideo.com", "bilivideo.cn", "bilivideo.net", "akamaized.net")
 HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Safari/605.1.15",
@@ -542,6 +542,22 @@ class Bridge:
             self.close()
             raise
 
+    def stats(self):
+        os.write(self.process.stdin.fileno(), b"stats\n")
+        received = bytearray()
+        with selectors.DefaultSelector() as selector:
+            selector.register(self.process.stdout.fileno(), selectors.EVENT_READ)
+            deadline = time.monotonic() + 2
+            while b"\n" not in received:
+                if time.monotonic() >= deadline or not selector.select(max(0, deadline-time.monotonic())):
+                    raise HarnessError("bridge_stats_timeout")
+                block = os.read(self.process.stdout.fileno(), 4096)
+                if not block or len(received) > 65536:
+                    raise HarnessError("bridge_stats_invalid")
+                received.extend(block)
+        data = json.loads(received.split(b"\n",1)[0])
+        return {k: data[k] for k in ("observed_upstream_body_bytes", "upstream_requests", "selected_hosts", "failures", "range_failures") if k in data}
+
     def close(self):
         try:
             stop_process(self.process)
@@ -670,7 +686,7 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                       "start_seconds": args.start_seconds, "duration_seconds": args.duration_seconds,
                       "seek_seconds": args.seek_seconds, "trial_deadline_seconds": args.deadline_seconds,
                       "total_budget_seconds": args.total_budget_seconds,
-                      "network_timeout_seconds_by_mode": {"base-direct": 5, "hw-direct": 5, "parallel": 60},
+                      "network_timeout_seconds_by_mode": {"base-direct": 5, "hw-direct": 5, "parallel": 60, "smart": 60, "auto": 60},
                       "url_policy": "same signed URL set for all trials; no credential or URL output"}
     started = time.monotonic()
     manifest = None
@@ -714,7 +730,7 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
             if path.is_file():
                 report["runtime_artifacts"][label + "_sha256"] = sha256_file(path)
         args.runtime_artifacts = report["runtime_artifacts"]
-        dart = resolve_executable(args.dart, "dart") if "parallel" in args.order else None
+        dart = resolve_executable(args.dart, "dart") if any(mode in args.order for mode in ("parallel", "smart", "auto")) else None
         group = comparison_key(manifest, args)
         for index, mode in enumerate(args.order, 1):
             row = {"trial": index, "mode": mode, "comparison_key": group, "quality": manifest["quality"],
@@ -737,10 +753,12 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                 video, audio = manifest["video_urls"][0], manifest["audio_urls"][0]
                 if mode == "hw-direct":
                     video, audio = hw_url(video), hw_url(audio)
-                elif mode == "parallel":
+                elif mode in ("parallel", "smart", "auto"):
                     bridge_started = time.monotonic()
                     bridge = Bridge(dart, {"video_urls": manifest["video_urls"], "audio_urls": manifest["audio_urls"],
-                                           "concurrency": args.concurrency, "chunk_kib": args.chunk_kib}, min(15, trial_timeout))
+                                           "concurrency": args.concurrency, "chunk_kib": args.chunk_kib,
+                                           "auto_select": mode in ("smart", "auto"), "adaptive": mode == "smart",
+                                           "parallel": mode != "auto", "duration_seconds": manifest.get("view", {}).get("page_duration")}, min(15, trial_timeout))
                     video, audio = bridge.urls["video_url"], bridge.urls["audio_url"]
                     count = bridge.urls.get("candidate_count")
                     row["candidate_count"] = count if isinstance(count, int) and 0 <= count <= 100 else None
@@ -750,7 +768,7 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                     raise HarnessError("trial_budget_exhausted")
                 command = [sys.executable, str(REPO / "tool/native_mpv_probe.py"), "--library", args.library,
                            "--duration-seconds", str(args.duration_seconds), "--start-seconds", str(args.start_seconds),
-                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", "60" if mode == "parallel" else "5"]
+                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", "60" if mode in ("parallel", "smart", "auto") else "5"]
                 if args.seek_seconds is not None:
                     command += ["--seek-seconds", str(args.seek_seconds)]
                 native = run_command(command, timeout=native_timeout,

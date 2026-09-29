@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/cdn_playback_proxy.dart';
+import 'package:PiliPlus/http/cdn_origin_policy.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -861,13 +862,15 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     };
 
     final parallelPlayback =
-        Pref.cdnParallelLoading && dataSource is NetworkSource && !sourceIsLive;
+        (Pref.cdnParallelLoading || Pref.cdnAutoSelect) &&
+        dataSource is NetworkSource &&
+        !sourceIsLive;
     // Always bypass manual CDN rewriting while this feature is enabled,
     // including direct playback when a system proxy prevents local proxying.
-    final directVideo = parallelPlayback
+    final directVideo = Pref.cdnAutoSelect && parallelPlayback
         ? dataSource.originalVideoSource
         : dataSource.videoSource;
-    final directAudio = parallelPlayback
+    final directAudio = Pref.cdnAutoSelect && parallelPlayback
         ? dataSource.originalAudioSource
         : dataSource.audioSource;
     String video = directVideo;
@@ -879,7 +882,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             (audio != null && audio.isNotEmpty))) {
       try {
         nextProxy = await CdnPlaybackProxy.start(
-          concurrency: Pref.cdnParallelConnections,
+          concurrency: Pref.cdnAdaptive || !Pref.cdnParallelLoading
+              ? 8
+              : Pref.cdnParallelConnections,
+          durationSeconds: dataSource.durationSeconds?.toDouble(),
+          autoSelect: Pref.cdnAutoSelect,
+          adaptive: Pref.cdnAdaptive,
+          parallel: Pref.cdnParallelLoading,
+          originResolver: Pref.cdnAutoSelect
+              ? null
+              : (urls) => [CdnOrigin(urls.first)],
           chunkSize: Pref.cdnParallelChunkSizeKiB * 1024,
           trace: startupTrace,
         );
@@ -896,7 +908,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         };
         video = nextProxy.register(
           video,
-          alternatives: dataSource.originalVideoUrls.skip(1),
+          alternatives: Pref.cdnAutoSelect
+              ? dataSource.originalVideoUrls.skip(1)
+              : const [],
           headers: headers,
           track: CdnStartupTrack.video,
         );
@@ -909,7 +923,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (audio != null && audio.isNotEmpty) {
           audio = nextProxy.register(
             audio,
-            alternatives: dataSource.originalAudioUrls.skip(1),
+            alternatives: Pref.cdnAutoSelect
+                ? dataSource.originalAudioUrls.skip(1)
+                : const [],
             headers: headers,
             track: CdnStartupTrack.audio,
           );

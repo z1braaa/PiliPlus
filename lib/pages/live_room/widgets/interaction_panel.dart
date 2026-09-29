@@ -435,7 +435,7 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
           children: [
             if (data.wallet case final wallet?)
               _Notice(
-                '官方余额：金瓜子 ${wallet.gold ?? "未知"}；银瓜子 ${wallet.silver ?? "未知"}。币种以商品当前价格为准。',
+                '官方余额：电池 ${wallet.gold == null ? "未知" : liveBatteryAmount(wallet.gold!)}；银瓜子 ${wallet.silver ?? "未知"}。币种以商品当前价格为准。',
               ),
             const _Notice(
               '充值在官方页面办理。若页面要求登录，请返回 PiliPlus 刷新登录后重试；返回后不能凭页面关闭判断充值成功。',
@@ -481,7 +481,7 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
                         ),
                         Text(
                           gift.priceKnown
-                              ? '${gift.price} ${gift.coinLabel}'
+                              ? '${gift.displayPrice} ${gift.coinLabel}'
                               : '价格未知',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -846,7 +846,7 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
                 Text(
                   confirmation.bagItem != null
                       ? '使用背包库存，不消耗瓜子'
-                      : '合计：${confirmation.totalPrice} ${confirmation.coinLabel}',
+                      : '合计：${confirmation.displayTotalPrice} ${confirmation.coinLabel}',
                 ),
                 const SizedBox(height: 12),
                 const Text('点击确认后向官方提交一次。超时或断线会保留未知结果，只读核对不会重复扣款。'),

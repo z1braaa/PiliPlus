@@ -342,7 +342,7 @@ class AudioController extends GetxController
           (a, b) => a.id > b.id ? a : b,
         );
         _onOpenMedia(
-          VideoUtils.getPlaybackCdnUrl(audio.playUrls),
+          VideoUtils.getCdnUrl(audio.playUrls),
           volume: volume,
         );
       } else if (playInfo.hasPlayUrl()) {
@@ -354,7 +354,7 @@ class AudioController extends GetxController
         final durl = durls.first;
         position.value = 0;
         _onOpenMedia(
-          VideoUtils.getPlaybackCdnUrl(durl.playUrls),
+          VideoUtils.getCdnUrl(durl.playUrls),
           volume: volume,
         );
       }

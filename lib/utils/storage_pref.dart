@@ -448,6 +448,12 @@ abstract final class Pref {
   static bool get cdnParallelLoading =>
       _setting.get(SettingBoxKey.cdnParallelLoading, defaultValue: false);
 
+  static bool get cdnAutoSelect =>
+      _setting.get(SettingBoxKey.cdnAutoSelect, defaultValue: false);
+
+  static bool get cdnAdaptive =>
+      _setting.get(SettingBoxKey.cdnAdaptive, defaultValue: true);
+
   /// Imported settings may have an invalid type or exceed supported limits.
   static int get cdnParallelConnections =>
       switch (_setting.get(SettingBoxKey.cdnParallelConnections)) {

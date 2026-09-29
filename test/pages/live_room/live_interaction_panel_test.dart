@@ -297,7 +297,7 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, '投喂'));
       await tester.pumpAndSettle();
       expect(find.text('确认送礼'), findsOneWidget);
-      expect(find.text('合计：240 金瓜子'), findsOneWidget);
+      expect(find.text('合计：2.4 电池'), findsOneWidget);
       expect(find.text('付款账号 UID：20'), findsOneWidget);
       expect(find.text('房间：6；主播 UID：10'), findsOneWidget);
       expect(service.writes, 0);

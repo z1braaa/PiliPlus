@@ -20,6 +20,16 @@ bool? liveBool(Object? value) => switch (value) {
   _ => null,
 };
 
+/// Display conversion only; API requests and balance checks retain raw gold.
+String liveBatteryAmount(int gold) {
+  if (gold < 0) return '-${liveBatteryAmount(-gold)}';
+  final whole = gold ~/ 100;
+  final fraction = (gold % 100).toString().padLeft(2, '0');
+  return fraction == '00'
+      ? '$whole'
+      : '$whole.${fraction.replaceFirst(RegExp(r'0$'), '')}';
+}
+
 enum LiveGiftPurpose { gift, joinFanClub, lightMedal }
 
 enum LiveActionState { notSubmitted, submitting, succeeded, failed, unknown }
@@ -51,8 +61,12 @@ class LiveGift {
     this.unavailableReason,
   });
 
+  String formatPrice(int raw) =>
+      coinType == 'gold' ? liveBatteryAmount(raw) : '$raw';
+  String get displayPrice => formatPrice(price);
+
   String get coinLabel => switch (coinType) {
-    'gold' => '金瓜子',
+    'gold' => '电池',
     'silver' => '银瓜子',
     _ => coinType,
   };
@@ -239,6 +253,7 @@ class LiveGiftConfirmation {
     this.bagItem,
   });
   int get totalPrice => bagItem == null ? gift.price * quantity : 0;
+  String get displayTotalPrice => gift.formatPrice(totalPrice);
   String get coinLabel => bagItem == null ? gift.coinLabel : '背包库存';
 }
 

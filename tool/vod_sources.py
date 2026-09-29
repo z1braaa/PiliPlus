@@ -490,3 +490,32 @@ def discover_candidates(keywords="游戏,生活,科技", request_budget=3, max_c
                                   "keyword_count": len(words),
                                   "search_policy": "stop_search_family_on_access_restriction",
                                   "requested_source_order": [stage for stage, _ in specs]}}
+
+
+def discover_new_submissions(*, session=None, request_budget=3):
+    """Normal public new-submission list; no search restriction circumvention.
+
+    This is a different official catalogue, not a complete/random-site sample.
+    Stop this family on a restriction, use at most three ordinary list pages.
+    """
+    from tool.vod_catalog import extract_candidates
+    if type(request_budget) is not int or not 1 <= request_budget <= 3:
+        raise ValueError('invalid new-submission budget')
+    session = session or Session(max_requests=request_budget)
+    candidates, attempts = [], []
+    for page in range(1, request_budget + 1):
+        try:
+            data = _api_data(session.json(
+                f'https://api.bilibili.com/x/web-interface/newlist?rid=160&pn={page}&ps=40',
+                'official_api'), 'official_api')
+            records = extract_candidates(data, source='public_newlist')
+            candidates.extend(records)
+            attempts.append({'stage': 'official_api', 'source': 'public_newlist',
+                             'page': page, 'status': 'ok', 'candidates': len(records)})
+            if not records:
+                break
+        except SourceError as error:
+            attempts.append(public_error(error))
+            if error.classification in ('access_restricted', 'access_challenge', 'login_required'):
+                break
+    return {'candidates': candidates, 'attempts': attempts}

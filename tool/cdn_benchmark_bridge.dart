@@ -77,6 +77,12 @@ Future<void> main() async {
     final video = _urls(decoded, 'video_urls');
     final audio = _urls(decoded, 'audio_urls');
     proxy = await CdnPlaybackProxy.start(
+      durationSeconds: decoded['duration_seconds'] is num
+          ? (decoded['duration_seconds'] as num).toDouble()
+          : null,
+      autoSelect: decoded['auto_select'] == true,
+      adaptive: decoded['adaptive'] == true,
+      parallel: decoded['parallel'] != false,
       concurrency: _integer(decoded, 'concurrency', 8),
       chunkSize: _integer(decoded, 'chunk_kib', 1024) * 1024,
       timeout: Duration(
@@ -119,6 +125,10 @@ Future<void> main() async {
     // pipe or sending stop cancels both foreground and speculative transfers.
     while (await input.moveNext()) {
       if (input.current.trim() == 'stop') break;
+      if (input.current.trim() == 'stats') {
+        stdout.writeln(jsonEncode(proxy.diagnostics));
+        await stdout.flush();
+      }
     }
   } catch (error) {
     // Exception text/stack traces can contain a signed URL. Emit only its type.
