@@ -338,3 +338,13 @@ GUI 使用独立 bundle ID 的重签副本，账号和偏好与现有应用隔�
 macOS `2.1.5-CDN-AUTO-LIVE+5434` 已构建打包，27 个唯一 Mach-O 双架构、最低 macOS 13、ad-hoc 深度严格验签与只读挂载一致性通过；[构建清单](results/cdn-auto-macos-build-5434.json)记录包摘要。未覆盖当前安装应用；本包 GUI、Intel/其他平台和公证未运行。
 
 统一超时补充：两模式均为 5 秒、2 视频 8/8 完成；每轮播放 30 秒后 seek 45 秒，两模式缓存暂停均 0。第一次配置 seek 30 秒导致 7 轮 `seek_target_too_close`，另 1 轮华为云媒体失败，保留失败档案且不计入成功性能；脚本已修正并复测。
+
+## 2026-09-30 小窗媒体导航修复（5435）
+
+对应 MINI-01/03/04/05。用户明确所有视频切换均不触发小窗；退出至非播放页面仍沿用原小窗规则。源码修复提交 `1d41006d…`，最终打包提交 `a4ec7a83b9d205265771576fa7cc382e71f0016a`。真实 Navigator 14/14、生产服务关闭竞态 4/4 与全量 Flutter **154/154** 均通过；14 和 4 已含在 154 中，七个改动源码/测试文件分析 0 问题。[测试记录](results/mini-navigation-tests-5435.json)保留日志摘要。stop 测试使用可控原生边界替代，不证明实际音频停止；此前 CDN/Python/传输测试不计为本轮重跑。
+
+`2.1.5-CDN-AUTO-LIVE-MINIFIX+5435` macOS Release 通过，45 个唯一 Mach-O 双架构、最低 macOS 13、ad-hoc 深度严格验签及 DMG 只读挂载一致性通过；[构建清单](results/mini-navigation-macos-build-5435.json)记录 DMG SHA-256 `3c6b11de1afc1e0b06680c2481dd0871a1fd36338f7adad843ce7b9d2ae16ce1`。
+
+独立游客副本关于页显示版本与提交匹配。实际 `BV1GKaG6zEfk` → 相关 `BV1vW41187Ce`、B 返回 A 均未出现小窗；明确进度推进的播放态和主动暂停态退出至搜索均出现唯一小窗并保持状态，播放/暂停、还原与两态关闭可操作。关闭后小窗与辅助功能控件消失，未测实际音频停止。[GUI 记录](results/mini-navigation-gui-5435.json)和[修复说明](mini-navigation-fix-5435.md)分别记录观测与边界。
+
+未覆盖用户原安装环境、列表/临时队列和直播入口 GUI、起播阶段退出、播放器实例/拉流计数、双音频、系统 PiP、长时、Intel 实机、其他平台及 Apple 公证。主播放器辅助功能按钮文字可能滞后，因此不凭一次文字判断真实播放状态。

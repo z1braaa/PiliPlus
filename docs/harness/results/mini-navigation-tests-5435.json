@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-30",
+  "source_commit": "a4ec7a83b9d205265771576fa7cc382e71f0016a",
+  "requirements": [
+    "MINI-01",
+    "MINI-03",
+    "MINI-04",
+    "MINI-05"
+  ],
+  "flutter_total": {
+    "passed": 154,
+    "failed": 0
+  },
+  "navigator_regressions": {
+    "passed": 14,
+    "failed": 0,
+    "evidence": "real Flutter Navigator event order"
+  },
+  "close_race_regressions": {
+    "passed": 4,
+    "failed": 0,
+    "evidence": "production services; deterministic replacement for native stop"
+  },
+  "analysis": {
+    "files": 7,
+    "issues": 0
+  },
+  "logs": {
+    "mini-navigation-flutter-all-5435.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/mini-navigation-flutter-all-5435.log",
+      "sha256": "bca16cce948f560b16805d41b47a3cd92b179b1a2e177f9d74baa4547bcb8967"
+    },
+    "mini-navigation-target-5435.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/mini-navigation-target-5435.log",
+      "sha256": "0ca9edae92ba1765567eca270e95e4d095adc4b37a893852a8b4517891b3dbfa"
+    },
+    "mini-navigation-close-race-5435.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/mini-navigation-close-race-5435.log",
+      "sha256": "7ee5a8733484afff861aeb374cfb4c75551fbc0e75798455f0ec4c68cf9561af"
+    },
+    "mini-navigation-analyze-5435.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/mini-navigation-analyze-5435.log",
+      "sha256": "35f6940465e052ad689866c639b3e3d7ee98ca0ab11dcaf596350d44c82c8a14"
+    }
+  },
+  "gui": "isolated guest observations; see mini-navigation-gui-5435.json",
+  "limits": [
+    "No cross-platform or system PiP claim",
+    "Service stop fixture is not native playback evidence",
+    "User reproduction still requires final package retest"
+  ]
+}

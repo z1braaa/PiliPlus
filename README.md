@@ -270,3 +270,5 @@
 
 
 2026-09-29：[5434 电池单位修正、CDN 自动优化与实际测量结果](docs/harness/cdn-auto-evaluation-20260929.md)。含失败分母、原生播放器对照与高画质/长时未验边界。
+
+2026-09-30：[5435 小窗媒体切换修复与验收](docs/harness/mini-navigation-fix-5435.md)。所有视频切换不触发小窗；含 154 项 Flutter 回归、macOS 包及隔离游客相关视频复测。
