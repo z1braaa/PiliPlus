@@ -1,0 +1,595 @@
+{
+  "schema_version": 1,
+  "pipeline_phase": "P3",
+  "evidence_level": "deterministic_loopback_transport",
+  "source_commit": "f6db39a29db522ef6f97eb7dc2e257c267c07771",
+  "proxy_source_sha256": "d4ff4b52f45edbdf221954141bc7b85a07acea87e28e98692c95061621a9bd49",
+  "measured_test_sha256": "126384e9581fd935b9a44e6b02cf7937fd729bbbf9be920482747d5c51b5ded8",
+  "network_scope": "localhost_only_no_accounts_no_external_network",
+  "checks": [
+    {
+      "suite": "measured",
+      "passed": 29,
+      "total": 29,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/measured-p3-final-71.log",
+      "log_sha256": "b8635676e6dd491590e8d5071015982e8313cffae5f079cd2200c0e113ed867b"
+    },
+    {
+      "suite": "smoke",
+      "passed": 14,
+      "total": 14,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/smoke-p3-final-71.log",
+      "log_sha256": "0679e2f4aaec5970661a703851c8d06d78f80d83bbfbcb853804f15610793426"
+    },
+    {
+      "suite": "multi",
+      "passed": 15,
+      "total": 15,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/multi-p3-final-71.log",
+      "log_sha256": "4a7f89d6830117004159dd786d05db720fb774cfd76e28695911ff6993ec5796"
+    },
+    {
+      "suite": "startup",
+      "passed": 13,
+      "total": 13,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/startup-p3-final-71.log",
+      "log_sha256": "4b7cf158f0fc5f1eb4e642083715b4e2a7bc66bcb47e49abe3c2279e3615a54b"
+    }
+  ],
+  "passed": 71,
+  "total": 71,
+  "fixture_metrics": [
+    {
+      "p3_video": true,
+      "slow_prefix": false,
+      "fast_foreign": false,
+      "baseline_low": false,
+      "supply": {
+        "first_1mib_seconds": 0.336984,
+        "first_8mib_seconds": 2.451617,
+        "bytes": 8388735,
+        "elapsed_seconds": 2.494946,
+        "max_gap_seconds": 0.054625
+      },
+      "baseline_ranges": [
+        [
+          0,
+          8388735
+        ]
+      ],
+      "foreign_ranges": [],
+      "diagnostics": {
+        "observed_upstream_body_bytes": 8388735,
+        "upstream_requests": 1,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 0,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": []
+      }
+    },
+    {
+      "p3_video": true,
+      "slow_prefix": true,
+      "fast_foreign": false,
+      "baseline_low": false,
+      "supply": {
+        "first_1mib_seconds": 0.986502,
+        "first_8mib_seconds": 3.095564,
+        "bytes": 8388735,
+        "elapsed_seconds": 3.134576,
+        "max_gap_seconds": 0.706106
+      },
+      "baseline_ranges": [
+        [
+          0,
+          8388735
+        ]
+      ],
+      "foreign_ranges": [
+        [
+          0,
+          1
+        ],
+        [
+          4194367,
+          262144
+        ]
+      ],
+      "diagnostics": {
+        "observed_upstream_body_bytes": 8405120,
+        "upstream_requests": 3,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 262145,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": []
+      }
+    },
+    {
+      "p3_video": true,
+      "slow_prefix": false,
+      "fast_foreign": true,
+      "baseline_low": false,
+      "supply": {
+        "first_1mib_seconds": 1.673364,
+        "first_8mib_seconds": 3.778632,
+        "bytes": 8388735,
+        "elapsed_seconds": 3.815911,
+        "max_gap_seconds": 1.39166
+      },
+      "baseline_ranges": [
+        [
+          0,
+          8388735
+        ]
+      ],
+      "foreign_ranges": [
+        [
+          0,
+          1
+        ],
+        [
+          4194367,
+          262144
+        ],
+        [
+          0,
+          8388735
+        ]
+      ],
+      "diagnostics": {
+        "observed_upstream_body_bytes": 8650880,
+        "upstream_requests": 4,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 262145,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": []
+      }
+    },
+    {
+      "p3_video": true,
+      "slow_prefix": false,
+      "fast_foreign": false,
+      "baseline_low": true,
+      "supply": {
+        "first_1mib_seconds": 4.048091,
+        "first_8mib_seconds": 9.222208,
+        "bytes": 8388735,
+        "elapsed_seconds": 9.24274,
+        "max_gap_seconds": 0.5321860000000003
+      },
+      "baseline_ranges": [
+        [
+          0,
+          8388735
+        ],
+        [
+          0,
+          4096
+        ],
+        [
+          4194367,
+          4096
+        ],
+        [
+          1638400,
+          524288
+        ],
+        [
+          2162688,
+          524288
+        ],
+        [
+          2686976,
+          524288
+        ],
+        [
+          3211264,
+          524288
+        ],
+        [
+          3735552,
+          524288
+        ],
+        [
+          4259840,
+          524288
+        ],
+        [
+          4784128,
+          524288
+        ],
+        [
+          5308416,
+          524288
+        ],
+        [
+          5832704,
+          524288
+        ],
+        [
+          6356992,
+          524288
+        ],
+        [
+          6881280,
+          524288
+        ],
+        [
+          7405568,
+          524288
+        ],
+        [
+          7929856,
+          458879
+        ]
+      ],
+      "foreign_ranges": [
+        [
+          0,
+          4096
+        ],
+        [
+          4194367,
+          4096
+        ],
+        [
+          458752,
+          65536
+        ],
+        [
+          524288,
+          65536
+        ],
+        [
+          1114112,
+          524288
+        ],
+        [
+          589824,
+          524288
+        ],
+        [
+          1638400,
+          524288
+        ],
+        [
+          2162688,
+          524288
+        ],
+        [
+          2686976,
+          524288
+        ],
+        [
+          3211264,
+          524288
+        ],
+        [
+          3735552,
+          524288
+        ],
+        [
+          4259840,
+          524288
+        ],
+        [
+          4784128,
+          524288
+        ],
+        [
+          5308416,
+          524288
+        ],
+        [
+          5832704,
+          524288
+        ],
+        [
+          6356992,
+          524288
+        ],
+        [
+          6881280,
+          524288
+        ],
+        [
+          7405568,
+          524288
+        ],
+        [
+          7929856,
+          458879
+        ]
+      ],
+      "diagnostics": {
+        "observed_upstream_body_bytes": 8601727,
+        "upstream_requests": 35,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 2097152,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 1048576,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": []
+      }
+    },
+    {
+      "weak_qualification_fallback": {
+        "first_1mib_seconds": 2.787119,
+        "bytes": 2097279,
+        "elapsed_seconds": 3.124487,
+        "max_gap_seconds": 2.504935
+      },
+      "requests": 3
+    },
+    {
+      "known_slow_vs_metadata": {
+        "first_1mib_seconds": 3.038954,
+        "bytes": 2097279,
+        "elapsed_seconds": 3.384059,
+        "max_gap_seconds": 2.756519
+      },
+      "slow_requests": 2,
+      "healthy_requests": 3
+    },
+    {
+      "qualified_steady_supply": {
+        "first_1mib_seconds": 3.034003,
+        "first_8mib_seconds": 15.336825,
+        "bytes": 8388735,
+        "elapsed_seconds": 15.447548,
+        "max_gap_seconds": 1.391561
+      },
+      "foreign_requests": 3,
+      "baseline_requests": 1,
+      "diagnostics": {
+        "observed_upstream_body_bytes": 8650880,
+        "upstream_requests": 4,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 262145,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": [
+          "127.0.0.1"
+        ]
+      }
+    },
+    {
+      "small_range": "metadata",
+      "elapsed_seconds": 0.022682,
+      "requests": 1,
+      "bytes": 8192
+    },
+    {
+      "small_range": "suffix",
+      "elapsed_seconds": 0.021558,
+      "requests": 1,
+      "bytes": 100
+    },
+    {
+      "small_range": "tail",
+      "elapsed_seconds": 0.041812,
+      "requests": 2,
+      "bytes": 8192
+    },
+    {
+      "long_consumer_pause": {
+        "first_1mib_seconds": 2.023094,
+        "first_8mib_seconds": 2.121125,
+        "bytes": 16777343,
+        "elapsed_seconds": 2.765817,
+        "max_gap_seconds": 2.017385
+      },
+      "timeout_milliseconds": 500,
+      "pause_milliseconds": 2000,
+      "requests": 1
+    },
+    {
+      "burst": false,
+      "block_size": 16384,
+      "transition": false,
+      "corrupt": false,
+      "hedge": false,
+      "supply": {
+        "first_1mib_seconds": 4.015998,
+        "first_8mib_seconds": 6.215923,
+        "bytes": 8388735,
+        "elapsed_seconds": 6.29412,
+        "max_gap_seconds": 0.5806740000000001
+      },
+      "slow_requests": 15,
+      "backup_requests": 20,
+      "second_requests": null
+    },
+    {
+      "burst": true,
+      "block_size": 16384,
+      "transition": false,
+      "corrupt": false,
+      "hedge": false,
+      "supply": {
+        "first_1mib_seconds": 4.004882,
+        "first_8mib_seconds": 6.262446,
+        "bytes": 8388735,
+        "elapsed_seconds": 6.282974,
+        "max_gap_seconds": 0.574967
+      },
+      "slow_requests": 14,
+      "backup_requests": 19,
+      "second_requests": null
+    },
+    {
+      "burst": false,
+      "block_size": 4096,
+      "transition": false,
+      "corrupt": false,
+      "hedge": false,
+      "supply": {
+        "first_1mib_seconds": 3.806672,
+        "first_8mib_seconds": 6.023787,
+        "bytes": 8388735,
+        "elapsed_seconds": 6.105264,
+        "max_gap_seconds": 0.5913939999999993
+      },
+      "slow_requests": 15,
+      "backup_requests": 20,
+      "second_requests": null
+    },
+    {
+      "pause_seconds": 5,
+      "supply": {
+        "first_1mib_seconds": 5.391709,
+        "first_8mib_seconds": 7.284314,
+        "bytes": 12583039,
+        "elapsed_seconds": 8.480113,
+        "max_gap_seconds": 5.0042290000000005
+      },
+      "requests": 1
+    },
+    {
+      "burst": false,
+      "block_size": 16384,
+      "transition": true,
+      "corrupt": false,
+      "hedge": false,
+      "supply": {
+        "first_1mib_seconds": 4.768258,
+        "first_8mib_seconds": 6.95923,
+        "bytes": 8388735,
+        "elapsed_seconds": 7.035602,
+        "max_gap_seconds": 0.5759020000000001
+      },
+      "slow_requests": 14,
+      "backup_requests": 22,
+      "second_requests": null
+    },
+    {
+      "burst": false,
+      "block_size": 16384,
+      "transition": true,
+      "corrupt": true,
+      "hedge": false,
+      "supply": {
+        "bytes": 524415,
+        "elapsed_seconds": 8.070141,
+        "max_gap_seconds": 2.770099
+      },
+      "slow_requests": 6,
+      "backup_requests": 4,
+      "second_requests": null
+    },
+    {
+      "burst": false,
+      "block_size": 16384,
+      "transition": false,
+      "corrupt": false,
+      "hedge": true,
+      "supply": {
+        "first_1mib_seconds": 4.503757,
+        "first_8mib_seconds": 6.671111,
+        "bytes": 8388735,
+        "elapsed_seconds": 6.726985,
+        "max_gap_seconds": 0.5731499999999992
+      },
+      "slow_requests": 3,
+      "backup_requests": 19,
+      "second_requests": 15
+    }
+  ],
+  "steady_threshold_regression": {
+    "description": "Qualification sample is fast, but independent complete body supplies 600KiB/s for media with average demand about342KiB/s.",
+    "before": {
+      "proxy_source_sha256": "cba9d98268eedafff18709a3a39a4eef43872a450f6aa145bee9040265f3c357",
+      "metric": {
+        "qualified_steady_supply": {
+          "first_1mib_seconds": 3.092326,
+          "first_8mib_seconds": 10.435776,
+          "bytes": 8388735,
+          "elapsed_seconds": 10.449217,
+          "max_gap_seconds": 1.445613
+        },
+        "foreign_requests": 19,
+        "baseline_requests": 5,
+        "diagnostics": {
+          "observed_upstream_body_bytes": 8667264,
+          "upstream_requests": 24,
+          "buffered_payload_bytes": 0,
+          "peak_buffered_payload_bytes": 1048576,
+          "hedge_buffered_payload_bytes": 0,
+          "peak_hedge_buffered_payload_bytes": 524288,
+          "active_origin_requests": 0,
+          "failures": [],
+          "range_failures": [],
+          "selected_hosts": [
+            "127.0.0.1"
+          ]
+        }
+      },
+      "expected_check": "failed; adequate original body was split",
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/measured-p3-steady-before.log",
+      "log_sha256": "4e9a6e731324ae1fb6c773238c927108a6fe72258983863695d09e4f5e6ecce1"
+    },
+    "after": {
+      "metric": {
+        "qualified_steady_supply": {
+          "first_1mib_seconds": 3.034003,
+          "first_8mib_seconds": 15.336825,
+          "bytes": 8388735,
+          "elapsed_seconds": 15.447548,
+          "max_gap_seconds": 1.391561
+        },
+        "foreign_requests": 3,
+        "baseline_requests": 1,
+        "diagnostics": {
+          "observed_upstream_body_bytes": 8650880,
+          "upstream_requests": 4,
+          "buffered_payload_bytes": 0,
+          "peak_buffered_payload_bytes": 262145,
+          "hedge_buffered_payload_bytes": 0,
+          "peak_hedge_buffered_payload_bytes": 0,
+          "active_origin_requests": 0,
+          "failures": [],
+          "range_failures": [],
+          "selected_hosts": [
+            "127.0.0.1"
+          ]
+        }
+      },
+      "expected_check": "passed; two qualification samples plus one continuous body; one cancelled baseline attempt"
+    }
+  },
+  "design": [
+    "Huawei baseline starts its independent original Range immediately; usable selected stream needs no extra speed qualification.",
+    "Non-baseline video qualifies its own current-media middle or seek-local256KiB body supply before owning a long-lived stream slot; scratch bytes are discarded and counted in the shared payload reservation.",
+    "Qualified probe own total/ETag/Last-Modified must match the chosen full response. Weak fallback uses its own independent response; no probe bytes are appended.",
+    "Measured inadequate body supply ranks behind unavailable or metadata-uncertain qualifications. Weak fallback4s/2.5s gates retain250ms per-candidate staggering and a6s overall initial race bound.",
+    "Short explicit/suffix Range bypasses throughput ranking; unknown near-tail Range can use a one-byte reference without a throughput gate.",
+    "Initial qualification avg-times2/1MiB floor is distinct from selected video continuous supply avg-times1.25/256KiB floor. Rolling supply only measures upstream waiting.",
+    "Player flush/backpressure has no upstream timeout. One cancellation listener per response interrupts its current pending write; close/seek still destroy the socket.",
+    "Original strict byte/total/version admission, bounded complete pair retry, ordered hedge, shared64MiB reservations, and post-slot origin watchdog are preserved."
+  ],
+  "limitations": [
+    "These are transport byte/timing fixtures, not real video decoding or graphical acceptance.",
+    "Real authenticated Singapore media and native4MiB/16s-buffer performance validation are owned by the root run and must be reported separately.",
+    "The max_gap metric includes initial response latency and deliberate consumer pauses; it is not a native cache-pause metric.",
+    "A small qualification sample and bitrate-derived headroom do not prove cache hits, future VBR peak capacity, or global fastest CDN selection.",
+    "diagnostics.selected_hosts only describes preferred/initial stream hosts per-media, not every chunk or candidate that participated.",
+    "64MiB is the shared logical payload reservation budget, not an assertion about Dart process total heap or kernel TCP buffers; fixture peaks do not saturate this budget."
+  ]
+}

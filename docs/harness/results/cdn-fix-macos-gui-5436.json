@@ -1,0 +1,277 @@
+{
+  "created_at_utc": "2026-09-30T08:12:24.183822+00:00",
+  "status": "guest_gui_behaviour_smoke_passed",
+  "source_commit": "f6db39a29db522ef6f97eb7dc2e257c267c07771",
+  "display_version": "2.1.5-CDN-AUTO-LIVE-CDNFIX+5436",
+  "qa_preparation": {
+    "created_at_utc": "2026-09-30T08:04:12.682897+00:00",
+    "status": "isolated_guest_copy_prepared_not_launched",
+    "source_commit": "f6db39a29db522ef6f97eb7dc2e257c267c07771",
+    "display_version": "2.1.5-CDN-AUTO-LIVE-CDNFIX+5436",
+    "qa_bundle_id": "com.piliplus.codex.cdn5436",
+    "qa_app": "/Users/Admin/.cache/piliplus-tools/cdn-fix-5436/qa/PiliPlus CDN QA 5436.app",
+    "original_installation_touched": false,
+    "original_account_storage_read": false,
+    "fresh_container_verified_before_launch": true,
+    "binary_sha256": {
+      "Contents/MacOS/PiliPlus": {
+        "stage_sha256": "ff7db7b83831eceb228b561752034677c7ec90b33097eaac5eca249ecae18cc5",
+        "qa_sha256": "01a0515891b322e603dba0528bf28d9bc9aeca734b0ade23324e45560faef179",
+        "whole_file_equal": false,
+        "uuid_and_all_file_backed_sections_equal": true,
+        "architecture_sections": {
+          "16777223": {
+            "uuid": "d593e365d92b3ecb88fcbdc4e0e7d6f1",
+            "section_sha256": {
+              "__TEXT.__text": "f3b2f64b7dbed760e598decfda18b48a1577d84928da41fe591a0d3b7d5d8389",
+              "__TEXT.__stubs": "6d04ab555a58d2586c3667d4d2d82adee0b7158c9434d83a773661c1be5c0fef",
+              "__TEXT.__stub_helper": "0df1242d094e37cad1907dd57feb7cd0aa11c4c188996e6f89f3cd1de99c0aa4",
+              "__TEXT.__objc_classname": "8f6f635424bcff071585853db83e3dc8017887eeb677ffc1fb6429d3ee34e011",
+              "__TEXT.__objc_methname": "a43f5dd655f732fa3773978ca5b6f9bb29b536606376c4f634ee339ac0aa2626",
+              "__TEXT.__objc_methtype": "a4d163046c87c014550f56f367c41ed92446e8902e0c6b67c95da19ced77f917",
+              "__TEXT.__const": "59b307a88ec4cfca534a798de464c69b7bd449798e0ff0a91a31a0c355200d55",
+              "__TEXT.__constg_swiftt": "1345b9374202017b90fe17af1636f7f983d81675ea2cdf362b3da82fe30f6b2b",
+              "__TEXT.__swift5_typeref": "72fda5e7210a85e2efac8cbe42d045fb9aaf17629ab3ec844eda31e34414cecd",
+              "__TEXT.__swift5_fieldmd": "5bb7a46085ab388453b35cda49226a3a14f94a80904dfa87a7b64a9f886ac26b",
+              "__TEXT.__cstring": "9816b203d33928434267c275375f23bf5421ff933b258856145f68540f5c5af6",
+              "__TEXT.__swift5_capture": "cdc0a5294d13b59a8d6bc4f73a186c3228327cc7b669e8e20a5a6cffdfe55fe8",
+              "__TEXT.__swift5_types": "cab1471af990b182ee2d50a4acc251b317bf4f8d818b6cf9b5100b2c845dc94d",
+              "__TEXT.__swift5_entry": "317c9e6442eb5f7e55f8135344cb58c5478b41bb34facbc9600303303a906859",
+              "__TEXT.__swift5_protos": "2d7263b2940854c0c0dd7f8e6b6becd5daa2690ff08f8d939aea1382ce1e86f5",
+              "__TEXT.__swift5_proto": "d0897b495c72f2dd7326747cb6ba5e2fa0ee78fcb03eb4b825ae8edba1bc2ffb",
+              "__TEXT.__unwind_info": "6bbae3b7a33422d11b77bb36e1bf6b229de0eafe9022b9f5cd7b4810f15d5119",
+              "__TEXT.__eh_frame": "33afffde2639337f52a2c0b55fd2c0e1e9f376644d1eaafd26d9e79611eb2a90",
+              "__DATA_CONST.__const": "4c03f42f602a9f474029de4ce72ae0bb54425afb9e0a16f09322fafa2e82a0a5",
+              "__DATA_CONST.__objc_classlist": "2447f52fdcd16d5b950800258093bb5a5e883ea312881d0a3e8cac894fcdc678",
+              "__DATA_CONST.__objc_imageinfo": "7408fcdda372aaed9b8d62d262bd8e7ad4da66abeb61efb31e7c98020b1321ce",
+              "__DATA_CONST.__got": "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b",
+              "__DATA.__la_symbol_ptr": "51299a80fbfc50f5abb07381ea42da085a12489af581eebdcbd208acd841f05b",
+              "__DATA.__objc_const": "de0382c543465a74148d59fcf1eb4f1fba4eb4368e857e4ccf469250979c00e9",
+              "__DATA.__objc_selrefs": "3301e392811e43c5e479e7d3e2512c985192f0f2d186e436521f5b701ec346e2",
+              "__DATA.__objc_classrefs": "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b",
+              "__DATA.__objc_data": "13985cdf6e69507f86bffaf7f70140f7b54b5ac226b0314a47611ac7fa8c0e83",
+              "__DATA.__data": "4df2a6140ed0d4adb7056546a3925dbe8f07a973fc4f8d163d62e36a11fedf28",
+              "__DATA.__s_async_hook": "1448a7a198d3bb6ed13ca5fe7dc82c634fe4e5de95f8887cd95636593f7add19",
+              "__DATA.__swift56_hooks": "86d2cf5b090f43ee54d8f7c1dcf746a853951191457ff6dac96269a9d24860b9"
+            }
+          },
+          "16777228": {
+            "uuid": "76caf1b427473fdd82bc486608d1ebc6",
+            "section_sha256": {
+              "__TEXT.__text": "094fcdc9e776285d493c84040c2c311277703108297e2e8e42adc2f7d76295f6",
+              "__TEXT.__stubs": "230f60b601e5f8355efad92284939180606ea9001d0195d24d82ebae9cd3ffd9",
+              "__TEXT.__objc_stubs": "120bc553ede6951f1dad40478131bffae8dd4341f9890666691fc3a00716a934",
+              "__TEXT.__objc_methlist": "62dd49020f4d15d97656cf98b4d3d788ef646c0426ddf533926d7a3c52532a52",
+              "__TEXT.__const": "faa81731b713877af39e8ac60d1fac14960d282a04cbda2b5664853f50163414",
+              "__TEXT.__objc_classname": "8f6f635424bcff071585853db83e3dc8017887eeb677ffc1fb6429d3ee34e011",
+              "__TEXT.__objc_methname": "a43f5dd655f732fa3773978ca5b6f9bb29b536606376c4f634ee339ac0aa2626",
+              "__TEXT.__objc_methtype": "0b589092bdf2944ac035fbbf9cce3302e4a2e92521154e4e3b31567eebb2c34d",
+              "__TEXT.__constg_swiftt": "a68eaef9ff699a4c6e8c273eb29cbbe7608c707df10365e54fc592fe57972b21",
+              "__TEXT.__swift5_typeref": "72fda5e7210a85e2efac8cbe42d045fb9aaf17629ab3ec844eda31e34414cecd",
+              "__TEXT.__swift5_fieldmd": "5bb7a46085ab388453b35cda49226a3a14f94a80904dfa87a7b64a9f886ac26b",
+              "__TEXT.__cstring": "9816b203d33928434267c275375f23bf5421ff933b258856145f68540f5c5af6",
+              "__TEXT.__swift5_capture": "cdc0a5294d13b59a8d6bc4f73a186c3228327cc7b669e8e20a5a6cffdfe55fe8",
+              "__TEXT.__swift5_types": "cab1471af990b182ee2d50a4acc251b317bf4f8d818b6cf9b5100b2c845dc94d",
+              "__TEXT.__swift5_entry": "a30f621b064e6bcf058e0cc582c15b1c8b5330ad3a04cce31ab7003c5661aaa5",
+              "__TEXT.__swift5_protos": "2d7263b2940854c0c0dd7f8e6b6becd5daa2690ff08f8d939aea1382ce1e86f5",
+              "__TEXT.__swift5_proto": "0dfe0c92baf3f56bc62bde73cbaae58102ef406f836cd7c883207edb78d7ba31",
+              "__TEXT.__unwind_info": "b3309fbbfbc951fbfd7508fad7f4a0d17a3a7db4d362877e77598c78b0f552fe",
+              "__TEXT.__eh_frame": "2c743c0eb99860965aafb1be40ce9334ae727d31a392b3f8f79702938c4c6dcf",
+              "__DATA_CONST.__const": "ecdc83561fb4543e9e09e38a24130503ccbd4befcd34cbf908e1913b896b14d0",
+              "__DATA_CONST.__objc_classlist": "27035e69b5d9c8b501d8a92644cf942b911dcdfc6520c610dd911ea32da0f97e",
+              "__DATA_CONST.__objc_imageinfo": "7408fcdda372aaed9b8d62d262bd8e7ad4da66abeb61efb31e7c98020b1321ce",
+              "__DATA_CONST.__got": "04a1cfa1dd1934f535b35b66c3211e4991c33a4dde46e1c0d50acc7f189e23fc",
+              "__DATA.__objc_const": "9831cdfe6a98564f1214bcd456362647e4407de83c04bcd59bbd91759544f2ac",
+              "__DATA.__objc_selrefs": "f362d6a798a1119ac67f5c883f458535cbbb37e1ceb7850a432e52b8caba0fd0",
+              "__DATA.__objc_classrefs": "dae667552494ccaca816834d0c5357874c5369e95607c931d351b45c8a6267c8",
+              "__DATA.__objc_data": "38e4d6c9d2f94e3485cee24463941cdf8f0c8a7a965dc1a33d2aba5f4e46d8fd",
+              "__DATA.__data": "8af9623ca9f0ad4b73c1c8c6e7f481ac377bb5cc381325cd31160d9e37c1e95a",
+              "__DATA.__s_async_hook": "a9ac0e28a55294ffa748f4415db7b752f7f8f5e2f1fe730ac0b7d9c32bbe869d",
+              "__DATA.__swift56_hooks": "86d2cf5b090f43ee54d8f7c1dcf746a853951191457ff6dac96269a9d24860b9"
+            }
+          }
+        }
+      },
+      "Contents/Frameworks/App.framework/App": {
+        "stage_sha256": "d10bd562c2a502f48928b888f195cc88afa6387a024334b1f1420069752a4fc3",
+        "qa_sha256": "d10bd562c2a502f48928b888f195cc88afa6387a024334b1f1420069752a4fc3",
+        "whole_file_equal": true,
+        "uuid_and_all_file_backed_sections_equal": true,
+        "architecture_sections": {
+          "16777223": {
+            "uuid": "a2473331d06e37b0f77d7f616653594e",
+            "section_sha256": {
+              "__TEXT.__text": "e3ace0e816921c4a97fc2f166c8aedaef96d224c6b347fc52fda94ff7d428c0d",
+              "__TEXT.__const": "aca4b65641ed61eec95a36ee13be2f4fd260822e3d817df4cad6c4964bbd862e",
+              "__TEXT.__eh_frame": "44d2fbc4279b4e7cc1f026cca62227bfc107af8aa45cd79882c4d1bd6dddd0ba"
+            }
+          },
+          "16777228": {
+            "uuid": "c47dc743d43a0f07abede61743fca6e7",
+            "section_sha256": {
+              "__TEXT.__text": "0f14733f12c7f3a4a8ce567e80e2735dc2c3c5d0284fe2b4af725bac691035bf",
+              "__TEXT.__const": "e7e98386a17332484d693ab39cc1f927fe466cdde4090e6fc070e6fcdeaf9025",
+              "__TEXT.__unwind_info": "36292952f9f15f79a385b59625350f666701513c3acd4977aa77cf6e1a8a6753"
+            }
+          }
+        }
+      }
+    },
+    "differences_from_packaged_app": [
+      "bundle identity and display name",
+      "ad-hoc signing"
+    ]
+  },
+  "controls": {
+    "auto_cdn_select": true,
+    "parallel_cdn_loading": true,
+    "adaptive_concurrency": true,
+    "in_app_mini_player": true,
+    "autoplay": true,
+    "live_enhancement_default": false
+  },
+  "checks": [
+    {
+      "id": "about_identity",
+      "status": "passed",
+      "observed_version": "2.1.5-CDN-AUTO-LIVE-CDNFIX+5436",
+      "observed_full_commit": "f6db39a29db522ef6f97eb7dc2e257c267c07771"
+    },
+    {
+      "id": "guest_problem_video_playback",
+      "status": "passed",
+      "bvid": "BV14Fao6HEB8",
+      "quality": "1080P",
+      "observed_progress_seconds": 32,
+      "evidence": "Visible video image and accessibility control position 00:32; no first-frame or playback-performance timing claim."
+    },
+    {
+      "id": "related_video_switch",
+      "status": "passed",
+      "from_bvid": "BV14Fao6HEB8",
+      "to_bvid": "BV16saQ6fEkS",
+      "observed_new_video_progress_seconds": 18,
+      "old_mini_present": false
+    },
+    {
+      "id": "exit_active_video_mini",
+      "status": "passed",
+      "bvid": "BV14Fao6HEB8",
+      "observed_controls": [
+        "关闭小窗并停止播放",
+        "返回播放页",
+        "暂停"
+      ]
+    },
+    {
+      "id": "paused_exit_mini",
+      "status": "passed",
+      "steps": [
+        "Pause miniature player",
+        "Return to main playback page",
+        "Observe paused position 00:25",
+        "Exit main page",
+        "Observe miniature player with 播放 control"
+      ],
+      "bvid": "BV14Fao6HEB8",
+      "observed_paused_position_seconds": 25
+    },
+    {
+      "id": "close_mini",
+      "status": "passed",
+      "observed_result": "Close button removed miniature player and all three miniature controls from accessibility tree and screenshot."
+    }
+  ],
+  "additional_observation": {
+    "path": "A -> related B -> Back to intentionally stopped A -> exit without resuming A",
+    "mini_present": false,
+    "scope": "Previous stopped source route is distinct from an active paused playback session; active paused session was tested separately and entered miniature player."
+  },
+  "mpv_implementation": {
+    "whole_file_sha256": {
+      "installed_native_test_library": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c",
+      "packaged_application": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c",
+      "isolated_qa_application": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c"
+    },
+    "identical_to_native_performance_test_library": true
+  },
+  "original_application": {
+    "native_version": "5435",
+    "still_running_after_qa": true,
+    "installation_modified": false,
+    "original_profile_modified": false,
+    "original_cookie_accessed_for_gui": false
+  },
+  "qa_process_still_running_after_quit": false,
+  "screenshots": [
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/about-5436.png",
+      "sha256": "d6506989fbc4e3aa4f7f87bbb7c9be7efb7d8d66631361f6d47618f05da562b0",
+      "bytes": 258881
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/cdn-settings-enabled-5436.png",
+      "sha256": "aae65d4606a323d242f53ac784e42ad84a1a5c88b1f6609c2c2f97ebd0e70a7b",
+      "bytes": 367284
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/mini-closed-5436.png",
+      "sha256": "138f6d6eac88b90200e8cdcf7e0d235eed597e3a0fe5c864cdc772930c088b27",
+      "bytes": 142288
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/mini-exit-paused-5436.png",
+      "sha256": "9d7dafb959c4990b8eb8447247b9823b7dba9cea606c820a3549eab939640162",
+      "bytes": 205727
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/mini-exit-playing-5436.png",
+      "sha256": "d53d75a9429ba4b75f374150d3edde241247fd6471aaf8f611ef403384f7924c",
+      "bytes": 204180
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/paused-main-0025-5436.png",
+      "sha256": "49fa228cc9a25b3a83f18b8aeab523260ab1edf5997ba82d004f16045e209dc7",
+      "bytes": 542653
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/player-settings-enabled-5436.png",
+      "sha256": "dcc204d32509b13bb17ad578cdfc2924b24ccdae0f7bb061f21d3ec33bdb7e5d",
+      "bytes": 295138
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/problem-video-progress-0032-5436.png",
+      "sha256": "cb425441626b5f297fd384137cc8227168cfd1a507d563c83c77cb7ee39a4ac6",
+      "bytes": 577249
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/problem-video-start-5436.png",
+      "sha256": "d676313f1af2ff6625946b96c99c6063fde6493460a041512af9bdd719439b85",
+      "bytes": 659896
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/related-switch-no-mini-5436.png",
+      "sha256": "db6dd0acccf9d2efa73807efd16ffd545352cd708aa51f5f5df3a2d8f96bcbb1",
+      "bytes": 712406
+    }
+  ],
+  "accessibility_final_state": {
+    "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/gui/final-ax-state.txt",
+    "sha256": "ec7f98230ec16f0032486e2f30d59aa2cfad445f3ccb69706ad40d0417e4caae"
+  },
+  "limits": [
+    "Fresh isolated guest profile; no authenticated 4K GUI performance claim.",
+    "Software native-playback experiments are recorded separately.",
+    "No screenshot-based first-visible-frame or audible-output timing measurement.",
+    "Only related-video switch was exercised in GUI; playlist/queue switching remains covered by automated tests.",
+    "No live, paid interaction, Intel hardware, or other-platform GUI tests in this run."
+  ],
+  "qa_cleanup": {
+    "native_quit_requested": true,
+    "window_after_quit": "empty Flutter window",
+    "exact_isolated_process_sigterm_sent": false,
+    "original_process_signal_sent": false,
+    "final_process_not_running": true,
+    "checked_at_utc": "2026-09-30T08:14:30.216259+00:00"
+  }
+}

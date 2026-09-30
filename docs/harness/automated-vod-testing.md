@@ -191,6 +191,10 @@ python3 tool/vod_supply_test.py \
 
 不加 `--require-quality` 时记录并测试最佳实际画质，不能把 1080p 写成 4K。供给最多 100 视频，原生 suite 最多 40，主 `campaign` 仍最多 12；后者总预算现允许至 7200 秒。首窗与中窗共用同一媒体来源，使用首窗成功响应的验证总长计算两轨各自的字节偏移并裁剪长度；重复首窗的小文件标为 `not_applicable`，未取得长度或预算不足保留 `not_run`。供给预算阻止超额启动新试验，但阻塞网络读、诊断和进程清理可能带来几秒尾时，不能宣称绝对硬截止。全批按 BV／窗口／偏移／实际画质／codec／来源指纹分别核对摘要；字节中点不等于媒体时间中点。目录层标签与取源后实时播放量分层单独报告，不用旧热度冒充当前冷门。
 
+有界下载对照应把 `setup_seconds` 加回代理首段/完整目标供给的总等待，同时保留原始下载层计时，避免忽略代理启动成本。原生的 `initial_progress_seconds` 是播放器进度开始推进，代理启动单列为 `bridge_setup_seconds`；地址获取、GUI首帧与首音频不在该指标内。不同素材、签名来源、画质、起点或缓冲参数的原生样本按各自 `comparison_key` 汇总，不合并均值。JSON检查点、失败与未运行分母也必须在框架异常后保留；框架中断和生产媒体失败分别归因。
+
+代理 `selected_hosts` 只表示每轨最后记录的首选/初始连续流主机，不是所有实际分块或竞争来源。`observed_upstream_body_bytes` 是已读到的body字节，`upstream_requests` 包括采样、竞争、重定向及可能已取消的HTTP打开尝试；它们不是全部线速流量或完成的请求数。`peak_buffered_payload_bytes`/hedge计数只测代理的逻辑预留额度，64MiB限制不代表进程堆、原生缓存或内核TCP缓冲总量。资格探测也会产生上游首字节事件，因此体验判断使用有用媒体交付与原生缓存指标，不能把探测首包当成解码起播。
+
 原生问题样本可用 `playback --bvid BV14Fao6HEB8 --cookie-file … --quality-code 120 --order hw-direct,smart,smart,hw-direct --duration-seconds 90 --seek-seconds 105 --buffer-seconds 360 --buffer-mib 200 --network-timeout-seconds 5`，并传入实际 `--library`／`--dart`及输出目录。seek 105 仅适用于本轮该分 P 的 120 秒长度，其他素材需另选合法目标。上游正文和缓冲／竞争副本计数用于定位，正文不是包含 TLS 与未读取取消数据的完整网络流量，payload 预约也不是进程 RSS。
 
 
