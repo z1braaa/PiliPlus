@@ -81,10 +81,10 @@ def missing_rows(record, order, classification, *, error=None):
     return rows
 
 
-def summarize(rows, selected):
+def summarize(rows, selected, comparison_mode="parallel"):
     # Source failures have no actual quality/codec: retain their trial status,
     # while only real measurements enter within-video statistical comparisons.
-    summary = catalog.summarize_batch(rows, catalog=selected)
+    summary = catalog.summarize_batch(rows, catalog=selected, comparison_mode=comparison_mode)
     summary["planned_trials"] = len(rows)
     summary["measured_trials"] = sum(row.get("status") == "measured" for row in rows)
     summary["unmeasured_trials"] = len(rows) - summary["measured_trials"]
@@ -93,6 +93,8 @@ def summarize(rows, selected):
 
 def campaign(args):
     report = vod.base_report("stratified_vod_campaign")
+    if getattr(args, "cookie_file", None):
+        report["credentials"] = "explicit local cookie file; official acquisition only; discovery anonymous"
     rows, videos, selected = [], [], []
     began, locked_now = time.monotonic(), int(time.time())
     report["selection_clock_utc_unix"] = locked_now
@@ -107,13 +109,15 @@ def campaign(args):
                       "seek_seconds": args.seek_seconds, "total_budget_seconds": args.campaign_budget_seconds,
                       "discovery_request_budget": args.request_budget, "seed": args.seed}
     report["videos"], report["samples"] = videos, rows
+    comparison_mode = next((mode for mode in args.order if mode in ("parallel", "smart", "auto")), "parallel")
+    report["plan"]["comparison_mode"] = comparison_mode
 
     def remaining():
         return max(0, args.campaign_budget_seconds - (time.monotonic() - began))
 
     def checkpoint():
         report["elapsed_seconds"] = round(time.monotonic() - began, 3)
-        report["summary"] = summarize(rows, selected)
+        report["summary"] = summarize(rows, selected, comparison_mode)
         planned = report.get("batch_plan", {}).get("planned_trial_count", len(rows))
         report["summary"]["planned_trials"] = planned
         report["summary"]["unmeasured_trials"] = planned - report["summary"]["measured_trials"]
@@ -130,7 +134,7 @@ def campaign(args):
 
     try:
         thresholds = policy(args)
-        if args.order.count("hw-direct") < 1 or args.order.count("parallel") < 1:
+        if args.order.count("hw-direct") < 1 or not any(mode in args.order for mode in ("parallel", "smart", "auto")):
             raise vod.HarnessError("comparison_modes_required")
         # Fail early on missing native tools rather than consuming discovery
         # requests and misclassifying dependency errors as network failures.
@@ -246,6 +250,9 @@ def write_campaign_html(directory, report):
         return statistics.median(values) if values else None
     table = []
     samples = report.get("samples", [])
+    comparison_mode = report.get("plan", {}).get("comparison_mode", "parallel")
+    if comparison_mode not in ("parallel", "smart", "auto"):
+        comparison_mode = "parallel"
     for video in report.get("videos", []):
         meta = {**video["catalog"], **(video.get("verified_metadata") or {})}
         trials = [row for row in samples if row.get("bvid") == meta["bvid"]]
@@ -253,11 +260,11 @@ def write_campaign_html(directory, report):
         source = video.get("source") or {}
         if source.get("codec"):
             q += " / " + source["codec"]
-        hw, parallel = [median_metric(trials, mode, "initial_progress_seconds") for mode in ("hw-direct", "parallel")]
+        hw, parallel = [median_metric(trials, mode, "initial_progress_seconds") for mode in ("hw-direct", comparison_mode)]
         difference = (parallel - hw) if hw is not None and parallel is not None else None
-        bridge = median_metric(trials, "parallel", "bridge_setup_seconds")
-        seek = " / ".join(seconds(median_metric(trials, mode, "seek_progress_seconds")) for mode in ("hw-direct", "parallel"))
-        pauses = " / ".join(seconds(median_metric(trials, mode, "cache_pause_seconds")) for mode in ("hw-direct", "parallel"))
+        bridge = median_metric(trials, comparison_mode, "bridge_setup_seconds")
+        seek = " / ".join(seconds(median_metric(trials, mode, "seek_progress_seconds")) for mode in ("hw-direct", comparison_mode))
+        pauses = " / ".join(seconds(median_metric(trials, mode, "cache_pause_seconds")) for mode in ("hw-direct", comparison_mode))
         error = video.get("error") or {}
         status = ("测量完成" if video["status"] == "completed" else "未完成")
         if error:
@@ -266,8 +273,8 @@ def write_campaign_html(directory, report):
                 status += " (HTTP " + str(error["http_status"]) + ")"
         status += " · 华为 " + str(sum(row.get("status") == "measured" and row.get("mode") == "hw-direct" for row in trials))
         status += "/" + str(sum(row.get("mode") == "hw-direct" for row in trials))
-        status += "，并发 " + str(sum(row.get("status") == "measured" and row.get("mode") == "parallel" for row in trials))
-        status += "/" + str(sum(row.get("mode") == "parallel" for row in trials))
+        status += "，并发 " + str(sum(row.get("status") == "measured" and row.get("mode") == comparison_mode for row in trials))
+        status += "/" + str(sum(row.get("mode") == comparison_mode for row in trials))
         name = STRATUM_NAMES.get(meta["stratum"], meta["stratum"])
         # Metadata remains plain text; the only link is a validated BV identifier.
         bvid = meta["bvid"]
@@ -293,4 +300,7 @@ def write_campaign_html(directory, report):
 <p class="muted">起播表示原生播放器位置开始推进，不是界面首帧或首声音。起播计时不包含单列的并发额外准备；差值为正表示并发较慢。恢复、暂停均显示同视频两种模式的中位数，未取得信号不填零。只对相同视频、实际画质、编码与位置计算。短片段和少量样本不能证明因果关系或 CDN 未缓存。</p></section>
 <section><a href="report.json">完整 JSON</a> · <a href="samples.csv">逐次 CSV</a><details><summary>分组缺口与诊断信息</summary><pre>''' + detail + '''</pre></details></section>
 </main><script>document.getElementById('group').addEventListener('change',function(){document.querySelectorAll('tbody tr').forEach(r=>r.hidden=this.value!=='all'&&r.dataset.group!==this.value);});</script></html>'''
+    label = {"parallel": "并发", "smart": "自动选源 + 自适应并发", "auto": "仅自动选源"}[comparison_mode]
+    if comparison_mode != "parallel":
+        page = page.replace("并发", label)
     (Path(directory) / "index.html").write_text(page, encoding="utf-8")

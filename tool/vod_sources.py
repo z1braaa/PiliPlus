@@ -1,8 +1,10 @@
 """Bounded anonymous official-web VOD acquisition.
 
-Only normal public HTTPS requests are made. A new in-memory CookieJar accepts
-official response cookies; no existing account, browser or application store is
-read. Callers must isolate this module behind their wall-clock process deadline.
+Only normal official HTTPS requests are made. By default a new in-memory
+CookieJar accepts anonymous response cookies. An explicitly supplied private
+cookie file may authenticate acquisition; browser/application stores are never
+read automatically. Cookies are restricted to the exact official host allowlist
+and are never used for media CDN requests.
 Signed media addresses are returned in memory, never printed or logged here.
 The HTML globals and DASH selection follow the public website approach used by
 yt-dlp's BiliBiliIE, not its optional login or fingerprint-generation helpers.
@@ -11,6 +13,7 @@ yt-dlp's BiliBiliIE, not its optional login or fingerprint-generation helpers.
 import hashlib
 import http.cookiejar
 import json
+from pathlib import Path
 import re
 import socket
 import time
@@ -45,7 +48,8 @@ PUBLIC_CLASSIFICATIONS = frozenset((
     "official_api_unavailable", "login_required", "video_metadata_unavailable",
     "anonymous_dash_unavailable", "unsupported_media_address", "invalid_dash_metadata",
     "anonymous_wbi_unavailable", "invalid_bvid", "invalid_source_parameters",
-    "access_challenge", "video_identity_mismatch", "video_page_unavailable"))
+    "access_challenge", "video_identity_mismatch", "video_page_unavailable",
+    "invalid_cookie_file", "cookie_file_unavailable"))
 
 
 def _public_fields(classification, stage, http_status=None, api_code=None):
@@ -124,6 +128,43 @@ class _OfficialRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(request, response, code, message, headers, new_url)
 
 
+class _OfficialCookiePolicy(http.cookiejar.DefaultCookiePolicy):
+    """Even a broad .bilibili.com cookie is sent only to approved API/HTML hosts."""
+
+    def return_ok(self, cookie, request):
+        try:
+            _official_url(request.full_url, "redirect")
+        except SourceError:
+            return False
+        return super().return_ok(cookie, request)
+
+
+def load_cookie_file(path):
+    """Read an opt-in JSON name/value map; never include its path/value in errors.
+
+    Accepted format: {"SESSDATA": "...", "bili_jct": "...", ...}.
+    This function does not access application or browser storage. Callers should
+    keep the supplied file outside the repository with owner-only permissions.
+    """
+    try:
+        with Path(path).open("rb") as handle:
+            payload = handle.read(65537)
+    except (OSError, ValueError, TypeError):
+        raise SourceError("cookie_file_unavailable", "input") from None
+    try:
+        data = json.loads(payload) if len(payload) <= 65536 else None
+        if not isinstance(data, dict) or not 1 <= len(data) <= 64:
+            raise ValueError()
+        for name, value in data.items():
+            if (not isinstance(name, str) or not re.fullmatch(r"[!#$%&'*+.^_`|~A-Za-z0-9-]{1,128}", name)
+                    or not isinstance(value, str) or not 0 < len(value) <= 16384
+                    or any(ord(c) < 33 or ord(c) > 126 or c in ';,"\\' for c in value)):
+                raise ValueError()
+        return data
+    except (ValueError, TypeError, UnicodeError):
+        raise SourceError("invalid_cookie_file", "input") from None
+
+
 def _decode_body(payload, encoding, stage):
     try:
         # Some official video responses are gzip even when identity is requested.
@@ -147,13 +188,21 @@ def _decode_body(payload, encoding, stage):
 
 
 class Session:
-    def __init__(self, request_timeout=15, max_requests=12):
+    def __init__(self, request_timeout=15, max_requests=12, *, cookie_file=None):
         if not 0 < request_timeout <= 15 or not 1 <= max_requests <= 40:
             raise ValueError("invalid anonymous request budget")
         self.request_timeout = request_timeout
         self.max_requests = max_requests
         self.requests = 0
-        self.cookie_jar = http.cookiejar.CookieJar()
+        self.authenticated = cookie_file is not None
+        self.cookie_jar = http.cookiejar.CookieJar(policy=_OfficialCookiePolicy())
+        if cookie_file is not None:
+            for name, value in load_cookie_file(cookie_file).items():
+                self.cookie_jar.set_cookie(http.cookiejar.Cookie(
+                    version=0, name=name, value=value, port=None, port_specified=False,
+                    domain=".bilibili.com", domain_specified=True, domain_initial_dot=True,
+                    path="/", path_specified=True, secure=True, expires=None,
+                    discard=True, comment=None, comment_url=None, rest={}))
         self.opener = urllib.request.build_opener(
             _OfficialRedirect(), urllib.request.HTTPCookieProcessor(self.cookie_jar))
 
@@ -281,7 +330,8 @@ def select_manifest(response, requested_quality=80, preferred_codec="avc", *, st
         raise SourceError("anonymous_dash_unavailable", stage)
     actual_quality = max(v["id"] for v in videos)
     exact = [v for v in videos if v["id"] == actual_quality]
-    prefixes = {"avc": ("avc",), "hevc": ("hev", "hvc"), "av1": ("av01",)}.get(
+    prefixes = {"avc": ("avc",), "hevc": ("hev", "hvc"), "hev": ("hev", "hvc"),
+                "av1": ("av01",), "av01": ("av01",)}.get(
         preferred_codec, (preferred_codec,))
     video = next((v for v in exact if isinstance(v.get("codecs"), str)
                   and v["codecs"].startswith(prefixes)), exact[0])
@@ -338,6 +388,7 @@ def acquire(bvid, page=1, quality=80, codec="avc", *, session=None):
         raise _source_failure(SourceError("invalid_source_parameters", "input"), [])
     session = session or Session()
     attempts, metadata, embedded, html_cid = [], None, None, None
+    lower_manifest = None
     try:
         html = session.html("https://www.bilibili.com/video/" + bvid + "/?p=" + str(page), "video_html")
         state = embedded_json(html, "__INITIAL_STATE__")
@@ -374,8 +425,13 @@ def acquire(bvid, page=1, quality=80, codec="avc", *, session=None):
     if embedded and html_cid == selected["cid"]:
         try:
             manifest = select_manifest(embedded, quality, codec, stage="embedded_playurl")
-            return {**manifest, "bvid": bvid, "page": page, "view": metadata,
-                    "source_route": "official_video_html", "acquisition_attempts": attempts}
+            result = {**manifest, "bvid": bvid, "page": page, "view": metadata,
+                      "source_route": "official_video_html", "acquisition_attempts": attempts}
+            if not getattr(session, "authenticated", False) or manifest["quality"] == quality:
+                return result
+            # A logged-in page may embed its default lower quality. Ask the
+            # CID-bound official API for the requested representation first.
+            lower_manifest = result
         except SourceError as error:
             if error.classification in ("access_restricted", "login_required"):
                 raise _source_failure(error, attempts) from None
@@ -402,6 +458,8 @@ def acquire(bvid, page=1, quality=80, codec="avc", *, session=None):
             if error.classification in ("access_restricted", "access_challenge", "login_required",
                                         "request_budget_exhausted"):
                 raise _source_failure(error, attempts) from None
+    if lower_manifest is not None:
+        return {**lower_manifest, "acquisition_attempts": attempts}
     raise _source_failure(SourceError("anonymous_dash_unavailable", "playurl"), attempts)
 
 

@@ -1,0 +1,334 @@
+{
+  "kind": "public_video_metadata_snapshot",
+  "captured_utc": "2026-09-30",
+  "contains_credentials_or_media_urls": false,
+  "candidates": [
+    {
+      "bvid": "BV14Fao6HEB8",
+      "pubdate": 1790742600,
+      "view": 4183,
+      "duration": 120
+    },
+    {
+      "bvid": "BV1LFaH6vEC9",
+      "pubdate": 1790686124,
+      "view": 0,
+      "duration": 290,
+      "title_fingerprint": "b90c55ea52319e35395ebea79190b1c24b8bad96fb3755e109709814a0267a88",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1xx411c7XW",
+      "pubdate": 1345387488,
+      "view": 18894296,
+      "duration": 96,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1E6aq6pEKR",
+      "pubdate": 1790589600,
+      "view": 1742383,
+      "duration": 284,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1r4aJ6uE7d",
+      "pubdate": 1790674247,
+      "view": 43373,
+      "duration": 1187,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": null
+    },
+    {
+      "bvid": "BV1eFaH6vEee",
+      "pubdate": 1790686129,
+      "view": 0,
+      "duration": 767,
+      "title_fingerprint": "f08a73780e727b704eee60da645412e7c43f7abadae2c25b1bf182afa105c079",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1PK411L7h5",
+      "pubdate": 1585819813,
+      "view": 26205662,
+      "duration": 299,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1R2aG63EBP",
+      "pubdate": 1790652600,
+      "view": 702685,
+      "duration": 236,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1RFaH6eEAQ",
+      "pubdate": 1790686126,
+      "view": 0,
+      "duration": 120,
+      "title_fingerprint": "c7135514463da6a2549b9b7ee6fb9fde537418d01696de5d9e9762ec8bcbaf41",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1pi4y147tQ",
+      "pubdate": 1589796036,
+      "view": 68072618,
+      "duration": 99,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1kuaV6xET2",
+      "pubdate": 1790601378,
+      "view": 698571,
+      "duration": 255,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1iFaH6vEjp",
+      "pubdate": 1790686124,
+      "view": 0,
+      "duration": 113,
+      "title_fingerprint": "5f84115f2311c5f977dfb3c55abd140ed1661571a4acbc433e480d4fc703d57f",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1zp4y1U7Z5",
+      "pubdate": 1593052903,
+      "view": 17936690,
+      "duration": 984,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1zLa36yE86",
+      "pubdate": 1790590200,
+      "view": 567731,
+      "duration": 375,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV19waH6AEip",
+      "pubdate": 1790686130,
+      "view": 0,
+      "duration": 445,
+      "title_fingerprint": "925f6a07e2bc94ca4227d4413e6b4b1b8da20604a0fa01484617a3ee9c8a9a6f",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1es411D7sW",
+      "pubdate": 1430366150,
+      "view": 51844640,
+      "duration": 132,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1rsaJ6zEo9",
+      "pubdate": 1790676000,
+      "view": 143683,
+      "duration": 1371,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1wbaH61EPi",
+      "pubdate": 1790685596,
+      "view": 10,
+      "duration": 2364,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1GW411g7mc",
+      "pubdate": 1521797114,
+      "view": 63349772,
+      "duration": 151,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1tNab65ECw",
+      "pubdate": 1790499900,
+      "view": 2666023,
+      "duration": 130,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1GKad6bEHm",
+      "pubdate": 1790747087,
+      "view": 0,
+      "duration": 2115,
+      "title_fingerprint": "2a37fc10206528aaf8296f0407753fe7463e1294e7bc9f4878bb1b2270f2d2a6",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1ti4y1K7uw",
+      "pubdate": 1616142619,
+      "view": 22326593,
+      "duration": 379,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV13Uem6yEzo",
+      "pubdate": 1790568002,
+      "view": 315668,
+      "duration": 1045,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV19Pad6fEhU",
+      "pubdate": 1790747080,
+      "view": 0,
+      "duration": 61,
+      "title_fingerprint": "2b5d9dbccb053ecd486880e2810924176982fa525332ed982bbc353f2400103c",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1cy4y1k7A2",
+      "pubdate": 1604585819,
+      "view": 16371935,
+      "duration": 670,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1aJa869EaJ",
+      "pubdate": 1790507683,
+      "view": 804363,
+      "duration": 1705,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1dFaH6eEFY",
+      "pubdate": 1790686132,
+      "view": 0,
+      "duration": 84,
+      "title_fingerprint": "4bc32affef80c25b885eb5bd2f77b9100e2da5720aac1184f9bca4fab9af0907",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1Ls41127sG",
+      "pubdate": 1444452522,
+      "view": 22575127,
+      "duration": 358,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1KMaB6PERA",
+      "pubdate": 1790589600,
+      "view": 247790,
+      "duration": 1628,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1XPad6fEV4",
+      "pubdate": 1790747085,
+      "view": 0,
+      "duration": 484,
+      "title_fingerprint": "46bee722e75a2411d40146e78d95aa367396a3fdb73020a361a1c12717c6fa8a",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1Jb411U7u2",
+      "pubdate": 1550066980,
+      "view": 23068060,
+      "duration": 184,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1SYa36wEob",
+      "pubdate": 1790583096,
+      "view": 917515,
+      "duration": 72,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV19Pad6fE9p",
+      "pubdate": 1790747087,
+      "view": 0,
+      "duration": 1200,
+      "title_fingerprint": "0be43ae2494f19b01cfa8056c975da6fd65170348951dfdc76e124c9dfa07041",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1ph4y1g75E",
+      "pubdate": 1687615959,
+      "view": 36414814,
+      "duration": 843,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1dsai6CErz",
+      "pubdate": 1790551800,
+      "view": 1025506,
+      "duration": 101,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1VwaH6PEdo",
+      "pubdate": 1790686130,
+      "view": 0,
+      "duration": 72,
+      "title_fingerprint": "7560e63e9d1142e08531e908f11b2c5517fdf7c8bc88c7d45ce5c5ebf310560f",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV1Jb411W7dH",
+      "pubdate": 1554368448,
+      "view": 24914131,
+      "duration": 343,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1aza76HERk",
+      "pubdate": 1790672400,
+      "view": 226953,
+      "duration": 203,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    },
+    {
+      "bvid": "BV1RwaH6AEsk",
+      "pubdate": 1790686130,
+      "view": 0,
+      "duration": 103,
+      "title_fingerprint": "dc749ef72a4392d7843bd4fd182f59d0d22a3b7d7d5a91cea776793700a77efd",
+      "stratum": "recent-low"
+    },
+    {
+      "bvid": "BV15W411W7NJ",
+      "pubdate": 1521404348,
+      "view": 7433696,
+      "duration": 133,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "older-popular"
+    },
+    {
+      "bvid": "BV1BYh46WEtE",
+      "pubdate": 1790568000,
+      "view": 223251,
+      "duration": 313,
+      "title_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stratum": "recent-popular"
+    }
+  ],
+  "boundary": "Convenience catalog; view counts change; classify from fresh acquisition."
+}

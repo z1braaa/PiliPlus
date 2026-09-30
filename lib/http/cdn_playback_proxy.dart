@@ -28,6 +28,7 @@ final class CdnPlaybackProxy {
     this.adaptive,
     this.parallel,
     this.durationSeconds,
+    this._isBaselineOrigin,
   );
 
   static Future<CdnPlaybackProxy> start({
@@ -41,6 +42,7 @@ final class CdnPlaybackProxy {
     bool adaptive = false,
     bool parallel = true,
     double? durationSeconds,
+    bool Function(Uri)? isBaselineOrigin,
   }) async {
     if (concurrency < 1 ||
         concurrency > 32 ||
@@ -65,6 +67,7 @@ final class CdnPlaybackProxy {
       durationSeconds != null && durationSeconds.isFinite && durationSeconds > 0
           ? durationSeconds
           : null,
+      isBaselineOrigin ?? (uri) => uri.host == 'upos-sz-mirrorhw.bilivideo.com',
     );
     server.listen((request) {
       unawaited(
@@ -89,9 +92,13 @@ final class CdnPlaybackProxy {
   final bool Function(Uri) _allowOrigin;
   final CdnOriginResolver _originResolver;
   final CdnStartupTrace? _trace;
+  final bool Function(Uri) _isBaselineOrigin;
   static const _maxBufferedBytes = 64 * 1024 * 1024;
   static const _startupChunkSize = 64 * 1024;
   int _bufferedBytes = 0;
+  int _peakBufferedBytes = 0;
+  int _hedgeBufferedBytes = 0;
+  int _peakHedgeBufferedBytes = 0;
   final Map<String, _Media> _media = {};
   final Set<_Transfer> _transfers = {};
   final List<Completer<void>> _waiters = [];
@@ -130,6 +137,11 @@ final class CdnPlaybackProxy {
   Map<String, Object> get diagnostics => {
     'observed_upstream_body_bytes': _observedUpstreamBytes,
     'upstream_requests': _upstreamRequests,
+    'buffered_payload_bytes': _bufferedBytes,
+    'peak_buffered_payload_bytes': _peakBufferedBytes,
+    'hedge_buffered_payload_bytes': _hedgeBufferedBytes,
+    'peak_hedge_buffered_payload_bytes': _peakHedgeBufferedBytes,
+    'active_origin_requests': _inFlight,
     'failures': _failures,
     'range_failures': _rangeFailures,
     'selected_hosts': _media.values
@@ -331,8 +343,16 @@ final class CdnPlaybackProxy {
         await waiter.completer.future;
         reserved = waiter.granted;
       }
-      transfer.check();
-      return await action();
+      // Waiting for our own semaphore is not silence from a CDN. Start the
+      // upstream watchdog only once this request is allowed to perform I/O.
+      transfer
+        ..check()
+        ..beginOriginWork();
+      try {
+        return await action();
+      } finally {
+        transfer.endOriginWork();
+      }
     } finally {
       if (reserved) {
         _inFlight--;
@@ -388,11 +408,11 @@ final class CdnPlaybackProxy {
       track: media.track,
       requestId: transfer.requestId,
     );
-    var reply = _MediaResponse.pending(timeout);
+    var reply = _MediaResponse.pending();
     try {
       final socket = await output.detachSocket(writeHeaders: false);
       transfer.attach(socket);
-      reply = _MediaResponse(socket, timeout);
+      reply = _MediaResponse(socket, transfer);
       transfer.check();
       if ((autoSelect || adaptive) &&
           (adaptive || !parallel) &&
@@ -542,11 +562,20 @@ final class CdnPlaybackProxy {
     int end,
   ) async {
     final pending = Queue<Future<_BufferedChunk>>();
+    var smallTransitionPieces = adaptive ? 2 : 0;
     void enqueue() {
       if (next > end) return;
+      // A stream that has just slowed must not make its next useful byte wait
+      // for a whole large block. Only the transition uses these small pieces.
+      final size = smallTransitionPieces > 0
+          ? min<int>(chunkSize, _startupChunkSize)
+          : adaptive
+          ? min<int>(chunkSize, 512 * 1024)
+          : chunkSize;
+      if (smallTransitionPieces > 0) smallTransitionPieces--;
       final chunkEnd = min<int>(
         end,
-        next + (adaptive ? min<int>(chunkSize, 512 * 1024) : chunkSize) - 1,
+        next + size - 1,
       );
       pending.add(
         _buffered(
@@ -581,10 +610,12 @@ final class CdnPlaybackProxy {
           item.check();
           _ensureCurrent(transfer, plan);
           epochBytes += item.chunk!.bytes.length;
+          epoch.stop();
           reply.add(item.chunk!.bytes);
           await reply.flush();
         } finally {
           item.release();
+          epoch.start();
         }
         // A sliding window keeps other connections busy as soon as the
         // next ordered piece is consumed; no whole-batch barrier.
@@ -699,6 +730,7 @@ final class CdnPlaybackProxy {
     int end, [
     _Chunk? expected,
     bool urgent = false,
+    Duration? bodyBudget,
   ]) => _slot(transfer, () async {
     final response = await _open(
       transfer,
@@ -762,11 +794,17 @@ final class CdnPlaybackProxy {
       await response.listen((_) {}).cancel();
       throw const HttpException('CDN range length mismatch');
     }
-    final deadline = DateTime.now().add(timeout);
-    await for (final data in response.timeout(timeout)) {
+    final bodyWatch = Stopwatch()..start();
+    final deadline = DateTime.now().add(bodyBudget ?? timeout);
+    await for (final data in response.timeout(
+      bodyBudget == null
+          ? timeout
+          : (timeout < bodyBudget ? timeout : bodyBudget),
+    )) {
       _observedUpstreamBytes += data.length;
-      transfer.onProgress?.call();
-      transfer.check();
+      transfer
+        ..originProgress()
+        ..check();
       if (data.isNotEmpty && !transfer.reportedFirstByte) {
         transfer.reportedFirstByte = true;
         _trace?.mark(
@@ -786,6 +824,7 @@ final class CdnPlaybackProxy {
     if (bytes.length != length) {
       throw const HttpException('CDN range truncated');
     }
+    transfer.lastBodySeconds = bodyWatch.elapsedMicroseconds / 1e6;
     return _Chunk(
       bytes.takeBytes(),
       actualEnd,
@@ -796,6 +835,121 @@ final class CdnPlaybackProxy {
     );
   }, urgent: urgent);
 
+  double _supplyTarget(int total) => durationSeconds == null
+      ? 2 * 1024 * 1024
+      // Mean bitrate cannot describe short VBR peaks. Require useful headroom
+      // and a floor instead of treating barely-average delivery as healthy.
+      : max(1024 * 1024, total / durationSeconds! * 2);
+
+  double _playbackSupplyTarget(int total) => durationSeconds == null
+      ? 512 * 1024
+      : max(256 * 1024, total / durationSeconds! * 1.25);
+
+  static _Chunk _headerReference(_Chunk value) => _Chunk(
+    Uint8List(0),
+    value.end,
+    value.total,
+    value.contentType,
+    value.etag,
+    value.modified,
+  );
+
+  static bool _smallRange(String? value, _Media media) {
+    if (value == null) return false;
+    final explicit = RegExp(r'^bytes=(\d+)-(\d+)$').firstMatch(value);
+    if (explicit != null) {
+      final start = int.tryParse(explicit[1]!);
+      final end = int.tryParse(explicit[2]!);
+      return start != null &&
+          end != null &&
+          end >= start &&
+          end - start + 1 <= _startupChunkSize;
+    }
+    final suffix = RegExp(r'^bytes=-(\d+)$').firstMatch(value);
+    if (suffix != null) {
+      final size = int.tryParse(suffix[1]!);
+      return size != null && size > 0 && size <= _startupChunkSize;
+    }
+    final total = media.observed?.reference.total;
+    final known = total == null ? null : _range(value, total);
+    return known != null && known.$2 - known.$1 + 1 <= _startupChunkSize;
+  }
+
+  Future<(_Chunk?, bool)> _qualifySupply(
+    _Transfer parent,
+    _Media media,
+    CdnOrigin origin,
+    String? rawRange,
+  ) async {
+    // Probe before acquiring the long-lived stream slot. This also works with
+    // one shared connection; no continuous response waits for its own probe.
+    final probe = _Transfer(
+      timeout,
+      _wakeWaiters,
+      media,
+      parent.requestId,
+      originIdleTimeout: const Duration(seconds: 2),
+    );
+    parent.children.add(probe);
+    const reserved = 256 * 1024 + 1;
+    if (_bufferedBytes + reserved > _maxBufferedBytes) {
+      probe.cancel();
+      parent.children.remove(probe);
+      return (null, false);
+    }
+    _bufferedBytes += reserved;
+    _peakBufferedBytes = max(_peakBufferedBytes, _bufferedBytes);
+    var sampling = false;
+    try {
+      final prefix = await _readChunk(probe, media, origin, 0, 0, null, true);
+      final wanted = _range(rawRange, prefix.total);
+      if (wanted == null) return (null, false);
+      final span = wanted.$2 - wanted.$1 + 1;
+      if (span <= _startupChunkSize) {
+        // An initially unknown open-ended tail Range can only be identified
+        // after its total is known. There is no steady supply to score here.
+        return (_headerReference(prefix), false);
+      }
+      final offset = wanted.$1 == 0
+          ? max<int>(wanted.$1, wanted.$2 ~/ 2)
+          : wanted.$1 + min<int>(1024 * 1024, span ~/ 2);
+      final sampleStart = min<int>(
+        offset,
+        max<int>(wanted.$1, wanted.$2 - 262143),
+      );
+      final sampleEnd = min<int>(wanted.$2, sampleStart + 262143);
+      sampling = true;
+      final sample = await _readChunk(
+        probe,
+        media,
+        origin,
+        sampleStart,
+        sampleEnd,
+        prefix,
+        true,
+        const Duration(seconds: 2),
+      );
+      parent.check();
+      if (sample.bytes.length / max(.001, probe.lastBodySeconds) <
+          _supplyTarget(sample.total)) {
+        return (null, true);
+      }
+      // Do not retain scratch bytes after their reservation is released.
+      return (_headerReference(sample), false);
+    } catch (error) {
+      parent.check();
+      // Qualification does not admit cross-origin bytes or blacklist an origin.
+      // Metadata changes, slow supply, or probe failure leave a bounded single
+      // complete-response fallback, never weaker chunk identity guards.
+      return (null, sampling && (error is TimeoutException || probe.cancelled));
+    } finally {
+      _bufferedBytes -= reserved;
+      _wakeWaiters();
+      probe.cancel();
+      parent.children.remove(probe);
+    }
+  }
+
   Future<void> _serveMeasuredStream(
     _Transfer parent,
     _Media media,
@@ -803,9 +957,14 @@ final class CdnPlaybackProxy {
     _MediaResponse output,
   ) async {
     final origins = [
-      if (media.preferred != null) media.preferred!,
-      ...media.origins.where((o) => o.uri != media.preferred?.uri),
+      ...media.origins.where((o) => _isBaselineOrigin(o.uri)),
+      if (media.preferred != null && !_isBaselineOrigin(media.preferred!.uri))
+        media.preferred!,
+      ...media.origins.where(
+        (o) => !_isBaselineOrigin(o.uri) && o.uri != media.preferred?.uri,
+      ),
     ].take(6).toList();
+    final raceWatch = Stopwatch()..start();
     final winner = Completer<_StreamingOrigin>();
     final jobs = <_Transfer>[];
     var finished = 0;
@@ -816,12 +975,48 @@ final class CdnPlaybackProxy {
           await Future<void>.delayed(Duration(milliseconds: 250 * index));
         }
         if (winner.isCompleted || parent.cancelled) return;
-        final job = _Transfer(timeout, _wakeWaiters, media, parent.requestId);
+        final job = _Transfer(
+          timeout,
+          _wakeWaiters,
+          media,
+          parent.requestId,
+          originIdleTimeout: const Duration(seconds: 3),
+        );
         jobs.add(job);
         parent.children.add(job);
-        final timer = Timer(const Duration(seconds: 3), job.cancel);
         StreamIterator<List<int>>? body;
         try {
+          _Chunk? qualification;
+          if (media.track == CdnStartupTrack.video &&
+              origins.length > 1 &&
+              !_smallRange(rawRange, media) &&
+              !_isBaselineOrigin(origins[index].uri)) {
+            final result = await _qualifySupply(
+              job,
+              media,
+              origins[index],
+              rawRange,
+            );
+            qualification = result.$1;
+            // A usable but weak/unmeasurable candidate remains an independent
+            // full-stream fallback. It cannot beat a qualified or baseline
+            // stream during this bounded initial selection interval. Retain
+            // candidate order for weak fallbacks so a timed-out source's fast
+            // prefix does not restart an all-weak first-byte race.
+            // Measured inadequate body supply ranks behind unavailable
+            // measurements (e.g. a metadata transition). Both use independent
+            // complete responses; neither relaxes mixed-body identity checks.
+            final weakDeadline = (result.$2 ? 4000 : 2500) + index * 250;
+            if (qualification == null &&
+                raceWatch.elapsedMilliseconds < weakDeadline) {
+              await Future<void>.delayed(
+                Duration(
+                  milliseconds: weakDeadline - raceWatch.elapsedMilliseconds,
+                ),
+              );
+            }
+            if (winner.isCompleted || parent.cancelled) return;
+          }
           await _slot(job, () async {
             final response = await _open(
               job,
@@ -850,7 +1045,12 @@ final class CdnPlaybackProxy {
                 (response.headers.value('content-encoding') ?? 'identity') !=
                     'identity' ||
                 (response.contentLength != -1 &&
-                    response.contentLength != wanted.$2 - wanted.$1 + 1)) {
+                    response.contentLength != wanted.$2 - wanted.$1 + 1) ||
+                (qualification != null &&
+                    (total != qualification.total ||
+                        response.headers.value('etag') != qualification.etag ||
+                        response.headers.value('last-modified') !=
+                            qualification.modified))) {
               await response.listen((_) {}).cancel();
               throw const HttpException('CDN range metadata mismatch');
             }
@@ -887,7 +1087,9 @@ final class CdnPlaybackProxy {
                   response.headers.value('last-modified'),
                 ),
               );
-              timer.cancel();
+              // The ongoing stream has its own moveNext idle deadline. Its
+              // consumer may stop reading while mpv's buffer is full.
+              job.endOriginWatchdog();
               if (!winner.isCompleted) {
                 winner.complete(stream);
                 await stream.release.future;
@@ -897,11 +1099,10 @@ final class CdnPlaybackProxy {
             throw const HttpException('CDN range truncated');
           }, urgent: true);
         } catch (error) {
-          if (!winner.isCompleted) {
+          if (!winner.isCompleted && !parent.cancelled) {
             _failure(origins[index].uri, 'stream_probe', error);
           }
         } finally {
-          timer.cancel();
           await body?.cancel();
           job.finish();
           parent.children.remove(job);
@@ -965,7 +1166,8 @@ final class CdnPlaybackProxy {
         );
       }
       var next = selected.start;
-      final watch = Stopwatch()..start();
+      final supply = _OriginSupply();
+      double? warmStartedAt;
       var supplied = 0;
       var data = selected.first;
       var fallback = false;
@@ -975,7 +1177,13 @@ final class CdnPlaybackProxy {
           throw const HttpException('CDN range too long');
         }
         output.add(data);
+        final flush = Stopwatch()..start();
         await output.flush();
+        if (flush.elapsedMilliseconds >= 500) {
+          // A paused/full consumer makes older upstream samples stale. Resume
+          // with fresh I/O observations instead of judging the pre-pause rate.
+          supply.resetWindow();
+        }
         if (supplied == 0) {
           _trace?.mark(
             CdnStartupStage.proxyFirstFlush,
@@ -986,18 +1194,35 @@ final class CdnPlaybackProxy {
         next += data.length;
         supplied += data.length;
         if (next > selected.end) break;
-        final target = durationSeconds == null
+        // The initial gate asks for extra peak headroom. An already selected
+        // continuous response is judged by actual playback supply instead;
+        // adequate sustained delivery must not be split just for a probe score.
+        final target = media.track == CdnStartupTrack.video
+            ? _playbackSupplyTarget(selected.reference.total)
+            : durationSeconds == null
             ? 4 * 1024 * 1024
             : max(128 * 1024, selected.reference.total / durationSeconds! * 3);
         if (parallel &&
             adaptive &&
-            watch.elapsedMilliseconds >= 2000 &&
-            supplied / (watch.elapsedMicroseconds / 1e6) < target &&
+            supply.hasWindow &&
+            supply.rate < target &&
             _hasValidator(selected.reference)) {
-          fallback = true;
-          break;
+          // Keep useful bytes flowing while peers pass both identity samples.
+          // Closing first used to create an eight-second whole-block barrier.
+          plan.costs[selected.origin.uri] = 1 / max(1, supply.rate);
+          if (!plan.warmed) {
+            plan.warmed = true;
+            warmStartedAt = supply.totalWait;
+            _warmPeersAtTwo(parent, plan);
+          }
+          if (plan.ready.keys.any((uri) => uri != selected!.origin.uri) ||
+              supply.totalWait - (warmStartedAt ?? supply.totalWait) >= 2) {
+            fallback = true;
+            break;
+          }
         }
         try {
+          final receive = Stopwatch()..start();
           if (!await selected.body.moveNext().timeout(
             const Duration(seconds: 3),
           )) {
@@ -1005,14 +1230,22 @@ final class CdnPlaybackProxy {
             break;
           }
           data = Uint8List.fromList(selected.body.current);
+          // Measure origin I/O only. flush() and a paused/full player are not
+          // congestion at the CDN and must not force splitting a healthy stream.
+          supply.record(data.length, receive.elapsedMicroseconds / 1e6);
           _observedUpstreamBytes += data.length;
         } catch (error) {
+          _ensureCurrent(parent, plan);
           _failure(selected.origin.uri, 'stream_continuation', error);
           fallback = true;
           break;
         }
       }
       if (fallback) {
+        if (autoSelect && !plan.warmed) {
+          plan.warmed = true;
+          _warmPeersAtTwo(parent, plan);
+        }
         selected.job.cancel();
         selected.release.complete();
         // Continue from the first byte not delivered. Cross-origin fallbacks
@@ -1048,10 +1281,15 @@ final class CdnPlaybackProxy {
         await Future<void>.delayed(Duration(milliseconds: 250 * index));
       }
       if (done.isCompleted || parent.cancelled) return;
-      final job = _Transfer(timeout, _wakeWaiters, media, parent.requestId);
+      final job = _Transfer(
+        timeout,
+        _wakeWaiters,
+        media,
+        parent.requestId,
+        originIdleTimeout: const Duration(seconds: 3),
+      );
       jobs.add(job);
       parent.children.add(job);
-      final timer = Timer(const Duration(seconds: 3), job.cancel);
       try {
         final chunk = await _readChunk(
           job,
@@ -1069,7 +1307,6 @@ final class CdnPlaybackProxy {
         // Keep the runner-up available for later verified failover.
         if (!done.isCompleted && !parent.cancelled) failed.add(origin.uri);
       } finally {
-        timer.cancel();
         job.finish();
         parent.children.remove(job);
         finished++;
@@ -1312,30 +1549,43 @@ final class CdnPlaybackProxy {
     }
     final samples = await _samples(transfer, plan, urgent);
     _ensureCurrent(transfer, plan);
-    final prefix = await _readChunk(
-      transfer,
-      plan.media,
-      origin,
-      0,
-      samples[0].end,
-      null,
-      urgent,
-    );
-    if (prefix.total != plan.reference.total ||
-        !_sameBytes(prefix.bytes, samples[0].bytes)) {
-      throw const HttpException('CDN resource identity mismatch');
-    }
-    final middle = await _readChunk(
-      transfer,
-      plan.media,
-      origin,
-      plan.reference.total ~/ 2,
-      samples[1].end,
-      prefix,
-      urgent,
-    );
-    if (!_sameBytes(middle.bytes, samples[1].bytes)) {
-      throw const HttpException('CDN resource identity mismatch');
+    late _Chunk prefix;
+    for (var attempt = 0; ; attempt++) {
+      prefix = await _readChunk(
+        transfer,
+        plan.media,
+        origin,
+        0,
+        samples[0].end,
+        null,
+        urgent,
+      );
+      if (prefix.total != plan.reference.total ||
+          !_sameBytes(prefix.bytes, samples[0].bytes)) {
+        throw const HttpException('CDN resource identity mismatch');
+      }
+      try {
+        final middle = await _readChunk(
+          transfer,
+          plan.media,
+          origin,
+          plan.reference.total ~/ 2,
+          samples[1].end,
+          prefix,
+          urgent,
+        );
+        if (!_sameBytes(middle.bytes, samples[1].bytes)) {
+          throw const HttpException('CDN resource identity mismatch');
+        }
+        break;
+      } on HttpException catch (error) {
+        // A CDN may update metadata between the two admission samples. Retry
+        // the complete pair once; never accept mismatched validators or bytes.
+        _ensureCurrent(transfer, plan);
+        if (attempt != 0 || error.message != 'CDN range metadata mismatch') {
+          rethrow;
+        }
+      }
     }
     _ensureCurrent(transfer, plan);
     final activeCache = plan.media.identity;
@@ -1561,52 +1811,31 @@ final class CdnPlaybackProxy {
             .toList()
           ..sort((a, b) => plan.cost(a.uri).compareTo(plan.cost(b.uri)));
     for (final origin in available) {
-      final watch = Stopwatch()..start();
-      final job = _Transfer(
-        timeout,
-        _wakeWaiters,
-        plan.media,
-        transfer.requestId,
-      );
-      transfer.children.add(job);
-      Timer? timer;
-      void progress() {
-        timer?.cancel();
-        timer = Timer(const Duration(seconds: 3), job.cancel);
-      }
-
-      job.onProgress = progress;
-      progress();
-      plan.active[origin.uri] = (plan.active[origin.uri] ?? 0) + 1;
+      if (plan.failed.contains(origin.uri)) continue;
       try {
-        final chunk = await _readChunk(
-          job,
-          plan.media,
+        final result = await _hedgedMeasuredChunk(
+          transfer,
+          plan,
           origin,
           start,
           end,
-          plan.ready[origin.uri],
           urgent,
         );
         _ensureCurrent(transfer, plan);
-        final seconds = max(.001, watch.elapsedMicroseconds / 1e6);
-        final cost = seconds / chunk.bytes.length;
-        plan.costs[origin.uri] =
-            (plan.costs[origin.uri] ?? cost) * .5 + cost * .5;
-        if (seconds > .7 && !plan.warmed) {
+        final cost = result.seconds / result.chunk.bytes.length;
+        plan.costs[result.origin.uri] =
+            (plan.costs[result.origin.uri] ?? cost) * .5 + cost * .5;
+        if (result.seconds > .7 && !plan.warmed) {
           plan.warmed = true;
           _warmPeersAtTwo(transfer, plan);
         }
-        return chunk;
+        return result.chunk;
       } catch (error) {
-        _failure(origin.uri, 'chunk_or_admission', error);
         _ensureCurrent(transfer, plan);
+        if (!plan.failed.contains(origin.uri)) {
+          _failure(origin.uri, 'chunk_or_admission', error);
+        }
         plan.failed.add(origin.uri);
-      } finally {
-        timer?.cancel();
-        job.finish();
-        transfer.children.remove(job);
-        plan.active[origin.uri] = (plan.active[origin.uri] ?? 1) - 1;
       }
     }
     for (final origin in plan.media.origins.take(6)) {
@@ -1616,23 +1845,161 @@ final class CdnPlaybackProxy {
         _wakeWaiters,
         plan.media,
         transfer.requestId,
+        originIdleTimeout: const Duration(seconds: 3),
       );
       transfer.children.add(job);
-      final timer = Timer(const Duration(seconds: 3), job.cancel);
       try {
         await _admit(job, plan, origin, true);
         return await _measuredChunk(transfer, plan, start, end, urgent);
       } catch (error) {
-        _failure(origin.uri, 'chunk_or_admission', error);
         _ensureCurrent(transfer, plan);
+        _failure(origin.uri, 'chunk_or_admission', error);
         plan.failed.add(origin.uri);
       } finally {
-        timer.cancel();
         job.finish();
         transfer.children.remove(job);
       }
     }
     throw const HttpException('All CDN origins failed for this range');
+  }
+
+  Future<({CdnOrigin origin, _Chunk chunk, double seconds})>
+  _hedgedMeasuredChunk(
+    _Transfer parent,
+    _Plan plan,
+    CdnOrigin primary,
+    int start,
+    int end,
+    bool urgent,
+  ) async {
+    final winner =
+        Completer<({CdnOrigin origin, _Chunk chunk, double seconds})>();
+    final jobs = <Uri, _Transfer>{};
+    var active = 0;
+    var hedged = false;
+    void Function()? releaseExtra;
+    Object? lastError;
+    StackTrace? lastStack;
+    late void Function(CdnOrigin) launch;
+    bool hedge() {
+      if (hedged || !parallel || concurrency < 2 || winner.isCompleted) {
+        return false;
+      }
+      final peers =
+          plan.media.origins
+              .where(
+                (o) =>
+                    o.uri != primary.uri &&
+                    plan.ready.containsKey(o.uri) &&
+                    !plan.failed.contains(o.uri),
+              )
+              .toList()
+            ..sort((a, b) => plan.cost(a.uri).compareTo(plan.cost(b.uri)));
+      if (peers.isEmpty) return false;
+      final size = end - start + 1;
+      // Reserve the second BytesBuilder immediately or skip this hedge. Waiting
+      // for our own first piece to release memory would create a deadlock.
+      if (_bufferedBytes + size > _maxBufferedBytes) return false;
+      _bufferedBytes += size;
+      _hedgeBufferedBytes += size;
+      _peakHedgeBufferedBytes = max(
+        _peakHedgeBufferedBytes,
+        _hedgeBufferedBytes,
+      );
+      _peakBufferedBytes = max(_peakBufferedBytes, _bufferedBytes);
+      var released = false;
+      releaseExtra = () {
+        if (released) return;
+        released = true;
+        _bufferedBytes -= size;
+        _hedgeBufferedBytes -= size;
+        _wakeWaiters();
+      };
+      hedged = true;
+      launch(peers.first);
+      return true;
+    }
+
+    launch = (origin) {
+      final job = _Transfer(
+        timeout,
+        _wakeWaiters,
+        plan.media,
+        parent.requestId,
+        originIdleTimeout: const Duration(seconds: 3),
+      );
+      jobs[origin.uri] = job;
+      parent.children.add(job);
+      plan.active[origin.uri] = (plan.active[origin.uri] ?? 0) + 1;
+      active++;
+      unawaited(() async {
+        try {
+          final chunk = await _readChunk(
+            job,
+            plan.media,
+            origin,
+            start,
+            end,
+            plan.ready[origin.uri],
+            urgent,
+          );
+          _ensureCurrent(parent, plan);
+          if (!winner.isCompleted) {
+            winner.complete((
+              origin: origin,
+              chunk: chunk,
+              seconds: max(.001, job.originWatch.elapsedMicroseconds / 1e6),
+            ));
+          }
+        } catch (error, stack) {
+          if (!winner.isCompleted) {
+            lastError = error;
+            lastStack = stack;
+            try {
+              _ensureCurrent(parent, plan);
+              _failure(origin.uri, 'chunk_or_admission', error);
+              plan.failed.add(origin.uri);
+              hedge();
+            } catch (sessionError, sessionStack) {
+              winner.completeError(sessionError, sessionStack);
+            }
+          }
+        } finally {
+          job.finish();
+          parent.children.remove(job);
+          plan.active[origin.uri] = (plan.active[origin.uri] ?? 1) - 1;
+          active--;
+          if (active == 0) releaseExtra?.call();
+          if (active == 0 && !winner.isCompleted) {
+            winner.completeError(
+              lastError ?? const HttpException('CDN range truncated'),
+              lastStack,
+            );
+          }
+        }
+      }());
+    };
+    launch(primary);
+    // At most one duplicate, exclusively from an already verified origin.
+    // Queue time does not trigger the hedge; the global slot limit still holds.
+    final timer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final first = jobs[primary.uri]!;
+      if (first.activeSlots > 0 &&
+          first.originWatch.elapsedMilliseconds >= 500) {
+        hedge();
+      }
+    });
+    Uri? won;
+    try {
+      final result = await winner.future;
+      won = result.origin.uri;
+      return result;
+    } finally {
+      timer.cancel();
+      for (final entry in jobs.entries) {
+        if (entry.key != won) entry.value.cancel();
+      }
+    }
   }
 
   Future<_BufferedChunk> _buffered(
@@ -1653,6 +2020,7 @@ final class CdnPlaybackProxy {
       }
       transfer.check();
       _bufferedBytes += size;
+      _peakBufferedBytes = max(_peakBufferedBytes, _bufferedBytes);
       var released = false;
       void free() {
         if (released) return;
@@ -1711,7 +2079,7 @@ final class CdnPlaybackProxy {
       await for (final data in upstream.timeout(timeout)) {
         transfer.check();
         output.add(data);
-        await output.flush().timeout(timeout);
+        await output.flush();
       }
     }
     await output.close();
@@ -1773,6 +2141,39 @@ final class _IdentityCache {
   final List<_Chunk> samples;
   final Map<Uri, _Chunk> admitted = {};
   final DateTime expiresAt = DateTime.now().add(const Duration(seconds: 30));
+}
+
+/// Recent upstream wait and bytes. Player flush/backpressure is never sampled.
+final class _OriginSupply {
+  final Queue<(double, int)> _samples = Queue();
+  double _wait = 0;
+  double _observedWait = 0;
+  double _totalWait = 0;
+  int _bytes = 0;
+  bool get hasWindow => _observedWait >= 1.5;
+  double get rate => _bytes / max(.001, _wait);
+  double get totalWait => _totalWait;
+  void resetWindow() {
+    _samples.clear();
+    _wait = 0;
+    _observedWait = 0;
+    _bytes = 0;
+  }
+
+  void record(int bytes, double seconds) {
+    final elapsed = max(.000001, seconds);
+    _samples.add((elapsed, bytes));
+    _wait += elapsed;
+    _observedWait += elapsed;
+    _totalWait += elapsed;
+    _bytes += bytes;
+    while (_samples.length > 128 ||
+        (_samples.length > 1 && _wait - _samples.first.$1 > 2)) {
+      final removed = _samples.removeFirst();
+      _wait -= removed.$1;
+      _bytes -= removed.$2;
+    }
+  }
 }
 
 final class _Plan {
@@ -1841,6 +2242,7 @@ final class _Transfer {
     this._media,
     this.requestId, {
     this.background = false,
+    this.originIdleTimeout,
   }) : client = _media.acquire(timeout),
        track = _media.track;
   final _Media _media;
@@ -1849,14 +2251,18 @@ final class _Transfer {
   final CdnStartupTrack track;
   final int requestId;
   final bool background;
+  final Duration? originIdleTimeout;
+  final Stopwatch originWatch = Stopwatch();
+  Timer? _originIdleTimer;
   final void Function() _onCancel;
   bool _cancelled = false;
+  final cancellation = Completer<void>();
+  double lastBodySeconds = 0;
   bool _outputComplete = false;
   bool preempted = false;
   int activeSlots = 0;
   bool get cancelled => _cancelled;
   int pendingWork = 0;
-  void Function()? onProgress;
   bool reportedHeaders = false;
   bool reportedFirstByte = false;
   bool reportedIdentity = false;
@@ -1866,6 +2272,28 @@ final class _Transfer {
   final Set<_Transfer> children = {};
   Socket? _socket;
   StreamSubscription<Uint8List>? _subscription;
+  void beginOriginWork() {
+    originWatch.start();
+    originProgress();
+  }
+
+  void originProgress() {
+    final idle = originIdleTimeout;
+    if (idle == null || _cancelled) return;
+    _originIdleTimer?.cancel();
+    _originIdleTimer = Timer(idle, cancel);
+  }
+
+  void endOriginWatchdog() {
+    _originIdleTimer?.cancel();
+    _originIdleTimer = null;
+  }
+
+  void endOriginWork() {
+    originWatch.stop();
+    endOriginWatchdog();
+  }
+
   void attach(Socket socket) {
     _socket = socket;
     if (_cancelled) {
@@ -1891,6 +2319,8 @@ final class _Transfer {
   void cancel() {
     if (_cancelled) return;
     _cancelled = true;
+    cancellation.complete();
+    endOriginWork();
     for (final child in children.toList()) {
       child.cancel();
     }
@@ -1910,6 +2340,8 @@ final class _Transfer {
       return;
     }
     _cancelled = true;
+    cancellation.complete();
+    endOriginWork();
     for (final child in children.toList()) {
       child.cancel();
     }
@@ -1934,10 +2366,22 @@ final class _SlotWaiter {
 /// Known lengths are advertised for seeking; unknown fallback bodies terminate
 /// on close. HTTP parsing remains the responsibility of dart:io's HttpServer.
 final class _MediaResponse {
-  _MediaResponse(this._socket, this._timeout);
-  _MediaResponse.pending(this._timeout) : _socket = null;
+  _MediaResponse(this._socket, this._transfer) {
+    // One cancellation observer per response, rather than one retained Future
+    // listener for every data block during a long-running playback session.
+    unawaited(
+      _transfer!.cancellation.future.then((_) {
+        final pending = _pendingWrite;
+        if (pending != null && !pending.isCompleted) {
+          pending.completeError(const HttpException('CDN request cancelled'));
+        }
+      }),
+    );
+  }
+  _MediaResponse.pending() : _socket = null, _transfer = null;
   final Socket? _socket;
-  final Duration _timeout;
+  final _Transfer? _transfer;
+  Completer<void>? _pendingWrite;
   final headers = _MediaHeaders();
   int statusCode = HttpStatus.ok;
   bool started = false;
@@ -1971,14 +2415,38 @@ final class _MediaResponse {
     _socket!.add(bytes);
   }
 
+  Future<void> _waitForWrite(Future<void> Function() write) async {
+    _transfer!.check();
+    final pending = Completer<void>();
+    _pendingWrite = pending;
+    unawaited(
+      write().then(
+        (_) {
+          if (!pending.isCompleted) pending.complete();
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!pending.isCompleted) pending.completeError(error, stack);
+        },
+      ),
+    );
+    try {
+      await pending.future;
+      _transfer.check();
+    } finally {
+      if (identical(_pendingWrite, pending)) _pendingWrite = null;
+    }
+  }
+
   Future<void> flush() async {
     _commit();
-    await _socket!.flush().timeout(_timeout);
+    // A full/paused player may hold this socket longer than an upstream idle
+    // timeout. Cancellation still ends the wait and destroys the socket.
+    await _waitForWrite(() => _socket!.flush());
   }
 
   Future<void> close() async {
     await flush();
-    await _socket!.close().timeout(_timeout);
+    await _waitForWrite(() => _socket!.close().then<void>((_) {}));
   }
 }
 

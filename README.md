@@ -223,7 +223,7 @@
 
 2026-09-29 [实测驱动修订](docs/requirements/11-measured-cdn-and-battery.md)：金币礼物按 100 原始 gold = 1 电池显示，交易请求仍使用原始单位。新增独立的“自动选择 CDN”，可单独开启或配合并发；关闭自动选源时手选 CDN 仍生效。自适应并发默认开启，仅在并发开关开启时工作，关闭自适应后使用手动路数和分块。CDN 测速显示连续分段均速、最慢段和首包等待；固定样片不能代表当前视频。
 
-`python3 tool/vod_supply_test.py --output /tmp/pili-supply --count 40` 自动比较公开视频的双轨供给，`--new-only` 使用新投稿目录。脚本不读取应用账号；下载模拟不能代替真实首帧、声音和高画质验收，需配合原生播放器测试。
+`python3 tool/vod_supply_test.py --output /tmp/pili-supply --count 40` 自动比较公开视频的双轨供给，`--new-only` 使用新投稿目录。默认匿名且不自动读取应用账号；获授权后可显式传入私有 `--cookie-file`，仅用于官方只读取源。`--quality-code 120 --middle-window` 可核对实际画质并测初始／字节中段；报告保留失败与覆盖缺口。下载模拟不能代替真实首帧、声音，需配合原生播放器测试，完整参数见[自动化指南](docs/harness/automated-vod-testing.md)。
 
 [Python 自动化测试指南](docs/harness/automated-vod-testing.md) 提供回归汇总，以及原始直连、华为云和并发代理的固定素材对照；原生事件测量不能替代 GUI 画面、声音与目标网络验收。本次上游 2.1.5 合并和测试范围见[验证记录](docs/harness/validation.md)。
 

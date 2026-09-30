@@ -248,9 +248,14 @@ class NativePlayer:
         if not self.handle:
             raise ProbeFailure("player_create_failed")
 
-    def initialize(self, network_timeout_seconds: float = 5.0) -> None:
+    def initialize(self, network_timeout_seconds: float = 5.0,
+                   buffer_seconds: float = 16.0, buffer_mib: float = 4.0) -> None:
         options = dict(APP_OPTIONS)
         options["network-timeout"] = f"{network_timeout_seconds:.6f}"
+        options["cache-secs"] = f"{buffer_seconds:.6f}"
+        options["demuxer-hysteresis-secs"] = f"{buffer_seconds * 2 / 3:.6f}"
+        options["demuxer-max-bytes"] = str(round(buffer_mib * 1048576))
+        options["demuxer-max-back-bytes"] = str(round(buffer_mib * 1048576))
         for name, value in options.items():
             result = self.lib.mpv_set_option_string(self.handle, name.encode(), value.encode())
             # Bundled mobile-style builds compile Lua/JavaScript support out;
@@ -330,6 +335,7 @@ def empty_report(args) -> dict:
             "startup": {"cache_pause_count": None, "cache_pause_seconds": None},
             "seek": {"cache_pause_count": None, "cache_pause_seconds": None},
         },
+        "timeline": [],
         "checks": {
             "file_loaded": False,
             "both_tracks_present": False,
@@ -346,11 +352,12 @@ def empty_report(args) -> dict:
             "video_output": "null",
             "audio_output": "null",
             "hardware_decode": "no",
-            "cache_profile": "app_defaults_at_1x",
-            "cache_seconds": 16,
-            "demuxer_max_bytes": 4194304,
-            "demuxer_max_back_bytes": 4194304,
-            "demuxer_hysteresis_seconds": 10.667,
+            "cache_profile": ("app_defaults_at_1x" if getattr(args, "buffer_seconds", 16) == 16
+                              and getattr(args, "buffer_mib", 4) == 4 else "explicit_at_1x"),
+            "cache_seconds": getattr(args, "buffer_seconds", 16),
+            "demuxer_max_bytes": round(getattr(args, "buffer_mib", 4) * 1048576),
+            "demuxer_max_back_bytes": round(getattr(args, "buffer_mib", 4) * 1048576),
+            "demuxer_hysteresis_seconds": round(getattr(args, "buffer_seconds", 16) * 2 / 3, 3),
             "network_timeout_seconds": args.network_timeout_seconds,
             "http_header_profile": "app_browser_pc_user_agent_and_bilibili_referer",
             "mpv_version": None,
@@ -359,7 +366,7 @@ def empty_report(args) -> dict:
             "Headless position and restart event proxies; no GUI first frame or audible first sound measurement.",
             "Cache pauses are libmpv paused-for-cache observations, not all visible or audible stalls.",
             "Each process has a fresh player; remote CDN cache warmth is uncontrolled.",
-            "App cache defaults are fixed; user app preferences are not read or modified.",
+            "Cache profile is explicit; user app preferences are not read or modified by this tool.",
         ],
     }
 
@@ -376,10 +383,12 @@ def run_probe(args, video_url: str, audio_url: str, report: dict) -> None:
     seek_began = None
     seek_restart_seen = False
     seek_near_seen = False
+    next_sample = 0.0
     try:
         lib, dependencies = load_library(Path(args.library))
         player = NativePlayer(lib)
-        player.initialize(args.network_timeout_seconds)
+        player.initialize(args.network_timeout_seconds, getattr(args, "buffer_seconds", 16),
+                          getattr(args, "buffer_mib", 4))
         version = player.string("mpv-version")
         # Keep only the canonical version token; vendor build text is unnecessary.
         version_match = re.search(r"\bmpv\s+v?\d+\.\d+(?:\.\d+)?", version or "")
@@ -418,6 +427,15 @@ def run_probe(args, video_url: str, audio_url: str, report: dict) -> None:
             overall_cache.update(cache_flag, now)
             segment_cache.update(cache_flag, now)
             position = player.number("time-pos")
+            if now - began >= next_sample and len(report["timeline"]) < 1201:
+                report["timeline"].append({
+                    "elapsed_seconds": rounded(now - began),
+                    "position_seconds": rounded(position) if position is not None else None,
+                    "cache_duration_seconds": player.number("demuxer-cache-duration"),
+                    "cache_speed_bytes_s": player.number("cache-speed"),
+                    "paused_for_cache": bool(cache_flag) if cache_flag is not None else None,
+                })
+                next_sample = now - began + 0.5
             if position is None:
                 continue
             if segment == "startup":
@@ -498,6 +516,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seek-seconds", type=bounded_number)
     parser.add_argument("--timeout-seconds", type=bounded_number, default=60.0)
     parser.add_argument("--network-timeout-seconds", type=bounded_number, default=5.0)
+    parser.add_argument("--buffer-seconds", type=bounded_number, default=16.0)
+    parser.add_argument("--buffer-mib", type=bounded_number, default=4.0)
     args = parser.parse_args(argv)
     report = empty_report(args)
     try:
@@ -505,6 +525,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ProbeFailure("invalid_duration_or_timeout")
         if not 0 < args.network_timeout_seconds <= 60:
             raise ProbeFailure("invalid_network_timeout")
+        if not 0 < args.buffer_seconds <= 3600 or not 0 < args.buffer_mib <= 2048:
+            raise ProbeFailure("invalid_buffer_profile")
         # Bound input and use stdin rather than command arguments / signed URLs
         # in process listings. Never save the original payload to disk.
         line = sys.stdin.readline(131073)

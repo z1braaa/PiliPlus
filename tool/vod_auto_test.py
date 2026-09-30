@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Account-free regression and native-player comparisons; Python standard library.
+"""Bounded regression and native-player comparisons; Python standard library.
 
 Signed media addresses are passed to child processes through stdin, never argv or
 reports. Native measurements are headless mpv signals, not GUI frame/audio tests.
@@ -19,6 +19,7 @@ import re
 import selectors
 import shutil
 import signal
+import socket
 import statistics
 import subprocess
 import sys
@@ -78,7 +79,7 @@ def safe_error(error):
         kind = "timeout"
     elif isinstance(error, HTTPError):
         return {"classification": "http_error", "http_status": error.code}
-    elif isinstance(error, (TimeoutError, URLError)):
+    elif isinstance(error, (TimeoutError, socket.timeout, URLError)):
         kind = "network_error"
     elif isinstance(error, FileNotFoundError):
         kind = "dependency_missing"
@@ -425,7 +426,8 @@ def manifest_from_playurl(response, requested_quality, preferred_codec="avc"):
             raise HarnessError("requested_quality_unavailable", requested_quality=requested_quality)
         highest = max(video["id"] for video in lower)
         exact = [video for video in lower if video["id"] == highest]
-    video = next((video for video in exact if video.get("codecs", "").startswith(preferred_codec)), exact[0])
+    prefixes = {"hevc": ("hev", "hvc"), "hev": ("hev", "hvc"), "av1": ("av01",)}.get(preferred_codec, (preferred_codec,))
+    video = next((video for video in exact if video.get("codecs", "").startswith(prefixes)), exact[0])
     audio = audios[0]
     return normalize_manifest({"video_urls": stream_urls(video), "audio_urls": stream_urls(audio),
                                "quality": video.get("id"), "codec": video.get("codecs"),
@@ -438,22 +440,30 @@ def anonymous_manifest(bvid, page, quality, preferred_codec):
     return acquire(bvid, page=page, quality=quality, preferred_codec=preferred_codec)
 
 
+def official_manifest(bvid, page, quality, preferred_codec, cookie_file=None):
+    if cookie_file is None:
+        return anonymous_manifest(bvid, page, quality, preferred_codec)
+    from tool.vod_sources import Session
+    return Session(cookie_file=cookie_file).acquire(bvid, page, quality, preferred_codec)
+
+
 def acquire_anonymous_manifest(args, timeout):
     # Isolate even DNS / response-body reads behind a real wall-clock deadline.
     # This private pipe carries addresses; it is never echoed or written to disk.
     worker = (
         "import json,sys\n"
-        "from tool.vod_auto_test import anonymous_manifest,safe_error\n"
+        "from tool.vod_auto_test import official_manifest,safe_error\n"
         "try:\n"
         " p=json.load(sys.stdin)\n"
-        " r=anonymous_manifest(p['bvid'],p['page'],p['quality'],p['codec'])\n"
+        " r=official_manifest(p['bvid'],p['page'],p['quality'],p['codec'],p.get('cookie_file'))\n"
         " print(json.dumps({'manifest':r}))\n"
         "except Exception as e:\n"
         " print(json.dumps({'error':safe_error(e)}));sys.exit(1)\n"
     )
     call = run_command([sys.executable, "-c", worker], timeout=timeout,
                        payload=json.dumps({"bvid": args.bvid, "page": args.page,
-                                           "quality": args.quality_code, "codec": args.codec}))
+                                           "quality": args.quality_code, "codec": args.codec,
+                                           "cookie_file": getattr(args, "cookie_file", None)}))
     if call["timed_out"]:
         raise HarnessError("anonymous_api_deadline_exceeded")
     data = json.loads(call["stdout"])
@@ -491,6 +501,21 @@ def quality_policy(manifest, requested, allow_lower):
 def hw_url(url):
     uri = urlparse(validate_media_url(url))
     return urlunparse(uri._replace(netloc="upos-sz-mirrorhw.bilivideo.com"))
+
+
+def safe_bridge_stats(data):
+    """Keep legacy diagnostics; new memory counters accept bounded ints only."""
+    if not isinstance(data, dict):
+        raise HarnessError("invalid_bridge_stats")
+    result = {key: data[key] for key in (
+        "observed_upstream_body_bytes", "upstream_requests", "selected_hosts", "failures", "range_failures"
+    ) if key in data}
+    for key in ("buffered_payload_bytes", "peak_buffered_payload_bytes", "hedge_buffered_payload_bytes",
+                "peak_hedge_buffered_payload_bytes", "active_origin_requests"):
+        value = data.get(key)
+        if type(value) is int and 0 <= value <= 1_000_000_000_000:
+            result[key] = value
+    return result
 
 
 class Bridge:
@@ -558,7 +583,7 @@ class Bridge:
                     raise HarnessError("bridge_stats_invalid")
                 received.extend(block)
         data = json.loads(received.split(b"\n",1)[0])
-        return {k: data[k] for k in ("observed_upstream_body_bytes", "upstream_requests", "selected_hosts", "failures", "range_failures") if k in data}
+        return safe_bridge_stats(data)
 
     def close(self):
         try:
@@ -613,10 +638,27 @@ def sanitize_native_result(result):
             value = conditions.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value < 1e12:
                 safe[key] = value
-        for key in ("video_output", "audio_output", "cache_profile", "mpv_version", "http_header_profile"):
+        for key in ("video_output", "audio_output", "cache_profile", "mpv_version", "http_header_profile", "hardware_decode"):
             value = conditions.get(key)
             if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_. /()-]{1,80}", value):
                 safe[key] = value
+    timeline = result.get("timeline")
+    if isinstance(timeline, list):
+        clean = []
+        for sample in timeline[:1201]:
+            if not isinstance(sample, dict):
+                continue
+            item = {}
+            for key in ("elapsed_seconds", "position_seconds", "cache_duration_seconds", "cache_speed_bytes_s"):
+                value = sample.get(key)
+                if value is None or (isinstance(value, (int, float)) and not isinstance(value, bool)
+                                     and math.isfinite(value) and 0 <= value < 1e12):
+                    item[key] = value
+            if isinstance(sample.get("paused_for_cache"), bool):
+                item["paused_for_cache"] = sample["paused_for_cache"]
+            if item:
+                clean.append(item)
+        safe["timeline"] = clean
     return safe
 
 
@@ -652,6 +694,7 @@ def comparison_key(manifest, args):
               "codec": manifest["codec"], "width": manifest["width"], "height": manifest["height"],
               "start_seconds": args.start_seconds, "duration_seconds": args.duration_seconds,
               "seek_seconds": args.seek_seconds, "concurrency": args.concurrency, "chunk_kib": args.chunk_kib,
+              "buffer_seconds": getattr(args, "buffer_seconds", 16), "buffer_mib": getattr(args, "buffer_mib", 4),
               "runtime_artifacts": getattr(args, "runtime_artifacts", {})}
     return hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
 
@@ -680,6 +723,8 @@ def summarize_samples(samples):
 def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
     report = dict(baseline) if baseline else base_report("native_playback_comparison")
     report["kind"] = "native_playback_comparison"
+    if getattr(args, "cookie_file", None):
+        report["credentials"] = "explicit local cookie file; official acquisition only; no account writes or media cookies"
     rows = []
     timeout_override = getattr(args, "network_timeout_seconds", None)
     network_timeouts = {mode: timeout_override if timeout_override is not None else (
@@ -688,10 +733,12 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
         "Headless native libmpv events and position progress; not PiliPlus GUI first moving frame, "
         "first audible sound, or proof of subjective smoothness. No P95 or performance benefit claim.")
     report["plan"] = {"order": list(args.order), "concurrency": args.concurrency, "chunk_kib": args.chunk_kib,
+                      "preferred_codec": args.codec,
                       "start_seconds": args.start_seconds, "duration_seconds": args.duration_seconds,
                       "seek_seconds": args.seek_seconds, "trial_deadline_seconds": args.deadline_seconds,
                       "total_budget_seconds": args.total_budget_seconds,
                       "network_timeout_seconds_by_mode": network_timeouts,
+                      "buffer_seconds": getattr(args, "buffer_seconds", 16), "buffer_mib": getattr(args, "buffer_mib", 4),
                       "url_policy": "same signed URL set for all trials; no credential or URL output"}
     started = time.monotonic()
     manifest = None
@@ -706,7 +753,8 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
         else:
             manifest = acquire_anonymous_manifest(args, min(60, args.total_budget_seconds))
         report["source"] = {key: manifest[key] for key in ("quality", "quality_label", "codec", "width", "height", "manifest_fingerprint")}
-        report["source"].update(origin="provided_manifest" if args.manifest else "anonymous_official_web",
+        report["source"].update(origin=("provided_manifest" if args.manifest else
+                                      "authenticated_official_web" if getattr(args, "cookie_file", None) else "anonymous_official_web"),
                                 bvid=args.bvid, page=args.page, video_url_count=len(manifest["video_urls"]),
                                 audio_url_count=len(manifest["audio_urls"]))
         for field in ("view", "source_route", "acquisition_attempts"):
@@ -773,7 +821,9 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                     raise HarnessError("trial_budget_exhausted")
                 command = [sys.executable, str(REPO / "tool/native_mpv_probe.py"), "--library", args.library,
                            "--duration-seconds", str(args.duration_seconds), "--start-seconds", str(args.start_seconds),
-                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", str(network_timeouts[mode])]
+                           "--timeout-seconds", str(native_timeout), "--network-timeout-seconds", str(network_timeouts[mode]),
+                           "--buffer-seconds", str(getattr(args, "buffer_seconds", 16)),
+                           "--buffer-mib", str(getattr(args, "buffer_mib", 4))]
                 if args.seek_seconds is not None:
                     command += ["--seek-seconds", str(args.seek_seconds)]
                 native = run_command(command, timeout=native_timeout,
@@ -793,6 +843,10 @@ def playback(args, *, acquired_manifest=None, baseline=None, on_sample=None):
                 row.update(status="failed", **safe_error(error))
             finally:
                 if bridge:
+                    try:
+                        row["transport"] = bridge.stats()
+                    except Exception:
+                        row["transport_stats_status"] = "unavailable"
                     bridge.close()
             rows.append(row)
             if on_sample:
@@ -826,24 +880,28 @@ def parser():
     regression.add_argument("--flutter")
     regression.add_argument("--timeout-seconds", type=bounded_number(float, 1, 240), default=180)
     regression.add_argument("--output", default=str(REPO / "outputs" / ("vod-regress-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))))
-    test = commands.add_parser("playback", help="account-free, fixed-source headless native mpv comparisons")
+    test = commands.add_parser("playback", help="fixed-source headless native mpv comparisons; optional authorized acquisition")
     source = test.add_mutually_exclusive_group(required=True)
     source.add_argument("--bvid", type=lambda value: value if re.fullmatch(r"BV[A-Za-z0-9]{10}", value) else (_ for _ in ()).throw(argparse.ArgumentTypeError("requires a BV identifier")))
     source.add_argument("--manifest", help="local JSON; private media URLs remain in memory only")
     test.add_argument("--page", type=bounded_number(int, 1, 1000), default=1)
     test.add_argument("--quality-code", type=bounded_number(int, 1, 1000), default=80)
-    test.add_argument("--codec", choices=("avc", "hev", "av01"), default="avc")
+    test.add_argument("--codec", choices=("avc", "hevc", "hev", "av1", "av01"), default="avc")
+    test.add_argument("--cookie-file", help="opt-in private JSON cookie name/value map, official acquisition hosts only")
     test.add_argument("--allow-lower-quality", action="store_true", help="explicitly allow lower quality; requested quality still remains not reproduced")
     test.add_argument("--library", required=True, help="libmpv dynamic library; no app credentials are read")
     test.add_argument("--dart")
     test.add_argument("--order", type=parse_order, default=DEFAULT_ORDER)
     test.add_argument("--concurrency", type=bounded_number(int, 1, 32), default=8)
     test.add_argument("--chunk-kib", type=bounded_number(int, 64, 4096), default=1024)
-    test.add_argument("--duration-seconds", type=bounded_number(float, 1, 60), default=8)
+    test.add_argument("--duration-seconds", type=bounded_number(float, 1, 600), default=8)
     test.add_argument("--start-seconds", type=bounded_number(float, 0, 86400), default=0)
     test.add_argument("--seek-seconds", type=bounded_number(float, 0, 86400))
-    test.add_argument("--deadline-seconds", type=bounded_number(float, 5, 180), default=90)
-    test.add_argument("--total-budget-seconds", type=bounded_number(float, 5, 1800), default=600)
+    test.add_argument("--deadline-seconds", type=bounded_number(float, 5, 600), default=90)
+    test.add_argument("--network-timeout-seconds", type=bounded_number(float, 1, 60), help="use the same mpv network timeout in every mode")
+    test.add_argument("--buffer-seconds", type=bounded_number(float, .1, 3600), default=16)
+    test.add_argument("--buffer-mib", type=bounded_number(float, .1, 2048), default=4)
+    test.add_argument("--total-budget-seconds", type=bounded_number(float, 5, 7200), default=600)
     test.add_argument("--output", default=str(REPO / "outputs" / ("vod-playback-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))))
     batch = commands.add_parser("campaign", help="discover and test recent/low-view videos with matched per-video comparisons")
     batch.add_argument("--library", required=True)
@@ -858,15 +916,19 @@ def parser():
     batch.add_argument("--catalog", help="optional local JSON metadata catalog; no media URL or credential fields")
     batch.add_argument("--quality-code", type=bounded_number(int, 1, 1000), default=80)
     batch.add_argument("--require-quality", action="store_true", help="refuse anonymous quality below the requested one")
-    batch.add_argument("--codec", choices=("avc", "hev", "av01"), default="avc")
+    batch.add_argument("--codec", choices=("avc", "hevc", "hev", "av1", "av01"), default="avc")
+    batch.add_argument("--cookie-file", help="opt-in private JSON map for per-video acquisition; discovery remains anonymous")
     batch.add_argument("--order", type=parse_order, default=("hw-direct", "parallel", "parallel", "hw-direct"))
     batch.add_argument("--concurrency", type=bounded_number(int, 1, 32), default=8)
     batch.add_argument("--chunk-kib", type=bounded_number(int, 64, 4096), default=1024)
-    batch.add_argument("--duration-seconds", type=bounded_number(float, 1, 60), default=8)
+    batch.add_argument("--duration-seconds", type=bounded_number(float, 1, 600), default=8)
     batch.add_argument("--start-seconds", type=bounded_number(float, 0, 86400), default=0)
     batch.add_argument("--seek-seconds", type=bounded_number(float, 0, 86400), default=30)
-    batch.add_argument("--deadline-seconds", type=bounded_number(float, 5, 180), default=90)
-    batch.add_argument("--campaign-budget-seconds", type=bounded_number(float, 5, 1800), default=1200)
+    batch.add_argument("--deadline-seconds", type=bounded_number(float, 5, 600), default=90)
+    batch.add_argument("--network-timeout-seconds", type=bounded_number(float, 1, 60))
+    batch.add_argument("--buffer-seconds", type=bounded_number(float, .1, 3600), default=16)
+    batch.add_argument("--buffer-mib", type=bounded_number(float, .1, 2048), default=4)
+    batch.add_argument("--campaign-budget-seconds", type=bounded_number(float, 5, 7200), default=1200)
     batch.add_argument("--discovery-deadline-seconds", type=bounded_number(float, 5, 180), default=90)
     batch.add_argument("--seed", type=bounded_number(int, 0, 1_000_000), default=0)
     batch.add_argument("--output", default=str(REPO / "outputs" / ("vod-campaign-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))))

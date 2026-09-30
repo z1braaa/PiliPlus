@@ -226,7 +226,7 @@ def plan_batch(selected, order=DEFAULT_ORDER, seed=0):
     if not isinstance(seed, int) or isinstance(seed, bool) or abs(seed) >= 2**31:
         raise CatalogError("invalid_seed")
     order = tuple(order)
-    if not 1 <= len(order) <= 18 or any(mode not in ("base-direct", "hw-direct", "parallel") for mode in order) or any(order.count(mode) > 6 for mode in order):
+    if not 1 <= len(order) <= 18 or any(mode not in ("base-direct", "hw-direct", "parallel", "smart", "auto") for mode in order) or any(order.count(mode) > 6 for mode in order):
         raise CatalogError("invalid_trial_order")
     selected = list(selected)
     if len(selected) > 12 or len({video.get("bvid") for video in selected}) != len(selected):
@@ -239,8 +239,10 @@ def plan_batch(selected, order=DEFAULT_ORDER, seed=0):
             raise CatalogError("invalid_stratum")
         actual = order
         # Mirror the standard two-mode ABBA order for alternating videos.
-        if order == DEFAULT_ORDER and (index + seed) % 2:
-            actual = ("parallel", "hw-direct", "hw-direct", "parallel")
+        if (len(order) == 4 and order[0] == order[-1] == "hw-direct"
+                and order[1] == order[2] and order[1] in ("parallel", "smart", "auto")
+                and (index + seed) % 2):
+            actual = (order[1], "hw-direct", "hw-direct", order[1])
         plans.append({"bvid": normalized["bvid"], "stratum": stratum, "order": list(actual)})
         for video_trial, mode in enumerate(actual, 1):
             trials.append({"batch_trial": len(trials) + 1, "bvid": normalized["bvid"],
@@ -253,12 +255,14 @@ def _valid_metric(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0
 
 
-def summarize_batch(samples, catalog):
+def summarize_batch(samples, catalog, comparison_mode="parallel"):
     """Pair only within each selected video and its unchanged comparison key.
 
     Layer medians summarize per-video differences, giving each video one vote.
     Missing and failed measurements are neither zeros nor proof of improvement.
     """
+    if comparison_mode not in ("parallel", "smart", "auto"):
+        raise CatalogError("invalid_comparison_mode")
     catalog = list(catalog)
     if len(catalog) > 12:
         raise CatalogError("catalog_limit_exceeded")
@@ -309,7 +313,7 @@ def summarize_batch(samples, catalog):
         if len(keys) > 1 or len(baselines) > 1:
             raise CatalogError("mixed_video_baselines", bvid=bvid)
         per_mode = {}
-        for mode in ("hw-direct", "parallel"):
+        for mode in ("hw-direct", comparison_mode):
             chosen = [row for row in rows if row.get("mode") == mode]
             per_mode[mode] = {"trials": len(chosen), "measured": sum(row.get("status") == "measured" for row in chosen),
                               "failed_or_timeout": sum(row.get("status") in ("failed", "timeout") for row in chosen),
@@ -324,22 +328,22 @@ def summarize_batch(samples, catalog):
                                  and _valid_metric(row.get(metric))] for mode in per_mode}
             if all(mode_values[mode] for mode in mode_values):
                 hw = statistics.median(mode_values["hw-direct"])
-                parallel = statistics.median(mode_values["parallel"])
+                parallel = statistics.median(mode_values[comparison_mode])
                 difference = parallel - hw
-                result["metrics"][metric] = {"hw_median": hw, "parallel_median": parallel,
-                                               "parallel_minus_hw": difference,
+                result["metrics"][metric] = {"hw_median": hw, f"{comparison_mode}_median": parallel,
+                                               f"{comparison_mode}_minus_hw": difference,
                                                "relative_change_percent": 100 * difference / hw if hw else None,
                                                "hw_samples": len(mode_values["hw-direct"]),
-                                               "parallel_samples": len(mode_values["parallel"])}
+                                               f"{comparison_mode}_samples": len(mode_values[comparison_mode])}
                 layer_differences[entry["stratum"]][metric].append(difference)
         videos.append(result)
     for stratum in STRATA:
         for metric, differences in layer_differences[stratum].items():
             if differences:
                 layers[stratum]["metrics"][metric] = {"paired_videos": len(differences),
-                                                       "median_parallel_minus_hw": statistics.median(differences),
-                                                       "min_parallel_minus_hw": min(differences),
-                                                       "max_parallel_minus_hw": max(differences)}
-    return {"videos": videos, "strata": layers,
-            "interpretation": "Native proxy metrics only; positive difference means parallel is slower/more paused. "
+                                                       f"median_{comparison_mode}_minus_hw": statistics.median(differences),
+                                                       f"min_{comparison_mode}_minus_hw": min(differences),
+                                                       f"max_{comparison_mode}_minus_hw": max(differences)}
+    return {"videos": videos, "strata": layers, "comparison_mode": comparison_mode,
+            "interpretation": f"Native proxy metrics only; positive difference means {comparison_mode} is slower/more paused. "
                               "No P95, causal claim, or proof that any CDN lacked a cached copy."}
