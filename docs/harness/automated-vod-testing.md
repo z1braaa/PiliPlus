@@ -1,6 +1,6 @@
 # Python 点播自动化测试
 
-本工具既有交付对应 `AUTO-01/02/03`，匿名取源与批量筛选对应 `AUTO-04/05`，授权高画质与连续供给复核对应 `AUTO-06`，当前执行状态见[需求追踪表](traceability.md)与[验收记录](validation.md)。它为 `NET-01/02/03/04/05/06/07/12` 提供回归与测量辅助，并为 `NET-11` 提供原生播放器 seek 信号。它不会修改客户端偏好、自动读取应用／浏览器账号库、断开本机网络或购买任何服务；显式私有 Cookie 文件是[需求 11](../requirements/11-measured-cdn-and-battery.md)中获授权的只读取源扩展。它不能代替 [手动测试](manual-vod-testing.md) 中的 GUI 首画面、首声音、真实用户操作及断网恢复验收。
+本工具既有交付对应 `AUTO-01/02/03`，匿名取源与批量筛选对应 `AUTO-04/05`，授权高画质与连续供给复核对应 `AUTO-06`，持续卡顿与因素消融对应 `AUTO-07`，当前执行状态见[需求追踪表](traceability.md)与[验收记录](validation.md)。它为 `NET-01/02/03/04/05/06/07/12` 提供回归与测量辅助，并为 `NET-11` 提供原生播放器 seek 信号。它不会修改客户端偏好、自动读取应用／浏览器账号库、断开本机网络或购买任何服务；显式私有 Cookie 文件是[需求 11](../requirements/11-measured-cdn-and-battery.md)中获授权的只读取源扩展。它不能代替 [手动测试](manual-vod-testing.md) 中的 GUI 首画面、首声音、真实用户操作及断网恢复验收。
 
 入口为 `tool/vod_auto_test.py`，仅依赖 Python 标准库；本轮实际使用 Python 3.9.6，建议使用 3.10 或更新版本。原生播放探针另需兼容的 `libmpv` 动态库；并发模式还需 Dart SDK，当前桥接工具支持 macOS/Linux，Windows 会明确返回 `bridge_platform_unsupported`，不能宣称 Windows 并发测量通过。既有工具报告有 JSON 与 CSV 两种文件，本轮批量流程追加本地可视报告；签名媒体地址只在内存及子进程私有管道中传递，不进入报告、命令参数或公开错误信息。
 
@@ -207,3 +207,30 @@ python3 tool/vod_native_suite.py --catalog /path/to/public-catalog.json --output
 ```
 
 [本轮实际结果](cdn-auto-evaluation-20260929.md)与[机器摘要](results/cdn-auto-evaluation-20260929.json)包含未通过样本，不能只统计输出成功的行。
+
+
+## 最高实际画质的卡顿诊断与消融（AUTO-07）
+
+新入口 `tool/cdn_ablation_test.py` 用同一私有素材快照运行原生双轨，额外记录主demux缓存范围、CPU区间、可用丢帧指标、请求与有序交付时间线。它不读取账号库、不自动取Cookie，也不修改应用设置。素材由已授权的既有官方GET取源函数准备；默认匿名取源不能代表登录4K。私有manifest需包含真实bvid/page及view.page_duration，权限应为600，目录700；运行后清理签名地址。本轮实际取源、发行库与对照证据见[三视频报告](cdn-three-diagnostic-20260930.md)。
+
+```sh
+python3 tool/cdn_ablation_test.py run \
+  --manifest BV1ikaZ6rELU=/path/to/private/BV1ikaZ6rELU.json \
+  --actual-quality BV1ikaZ6rELU=120 \
+  --case BV1ikaZ6rELU=35:none \
+  --library /path/to/PiliPlus.app/Contents/Frameworks/Mpv.framework/Mpv \
+  --dart /path/to/flutter/bin/dart \
+  --buffer-seconds 360 --buffer-mib 200 --chunk-kib 512 --concurrency 8 \
+  --timeout-profile equal --equal-network-timeout 60 \
+  --trial-deadline-seconds 240 --total-budget-seconds 4200 \
+  --runtime-label diagnostic-factorial --reference-source SOURCE_COMMIT \
+  --output /path/to/public-results
+```
+
+示例画质代码120必须与该快照的实际最高条目一致；工具不能因请求129而声称实际是8K。每BV各给一组manifest、actual-quality和case，可重复三个参数覆盖多个视频。`35:none`表示从0推进到35秒且不seek；`150:none`覆盖90～150秒；`15:1200`先推进到15秒，再跳1200并推进至目标+15秒。观察依据媒体位置，停顿会延长墙钟时间。无seek指标为N/A；缺信号、短素材、超时和未运行分别保留。
+
+默认五模式正序再反向，关闭/开启分块并发分别采用严格华为或正常候选池；四个代理模式保留相同auto/adaptive算法，华为直连另外对照。关闭分块并发不代表整个音视频系统只有一个TCP连接：每轨主响应及有界资格探测仍存在。`equal`统一mpv超时60秒；`app`复现H5/S60，两情景不能合并统计。代理上游超时仍10秒。诊断默认由此测试入口显式开启，客户端代理默认关闭；`--no-diagnostics`可作扰动检查，原生缓存/CPU观察仍会运行。
+
+每轮原子保存JSON/CSV，预算和源码/库/素材SHA冻结防止混入不同程序；正式比较需新输出目录、独立进程、禁止其他性能测试同时占网络。预编译桥可传`--bridge-executable`，必须与记录的源码对应。固定华为还须核域名计数之和等于总请求、dropped=0，不能只看首个主机。日志满额及丢弃数量保留，不把缺失当0。
+
+起播、seek restart、目标后1秒进度和目标+15秒完成分别记录；main范围外不证明音频/OS/CDN缓存未命中。CPU是进程多线程用量，null输出的frame-drop不等于GUI掉帧。旧版本passthrough流量计数遗漏须与诊断读取量分开，峰值和mpv速率读数不可取代实际连续交付与缓存耗尽证据。每模式仅两次不计算可靠P95或宣称全站有效。

@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "name": "diagnostics",
+      "exit_code": 0,
+      "seconds": 3.649,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/baseline-fixtures/diagnostics.log",
+      "sha256": "ffd5769fa79dd66aafbf329f4ece59a374e272f5f05a1789fa80eff64bcc5575"
+    },
+    {
+      "name": "python",
+      "exit_code": 0,
+      "seconds": 2.943,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/baseline-fixtures/python.log",
+      "sha256": "667de6603d3e2991a49c8867a171356204e8f334e594b5d0932c9dc923301dc4"
+    },
+    {
+      "name": "analyze",
+      "exit_code": 0,
+      "seconds": 0.336,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/baseline-fixtures/analyze.log",
+      "sha256": "ffb5e21f2b5223569a1745f5e9422337debba360a086660fc66c0ef6670cbbad"
+    }
+  ],
+  "counts": {
+    "diagnostics_passed": 7,
+    "python_run": 150,
+    "python_passed": 149,
+    "python_skipped": 1,
+    "analyzer_issues": 0
+  },
+  "source_identity": {
+    "lib/http/cdn_playback_proxy.dart": "391f454bb01d91ae92b373494c3b513fc910ecc0e34843c529c2e70dbb2e437e",
+    "tool/cdn_benchmark_bridge.dart": "957323e0ca8923cc8a4f90b6a93cc943fba5078354cd8cfc65bbdab8b953ef0e",
+    "tool/cdn_ablation_test.py": "3cede98632baf591a04bc1684eba11227f1cb15542fa3fa2d92114956833188d",
+    "tool/cdn_diagnostics_test.dart": "8b19addca6911bfdf04843868e3ab8fcf4f9abeb0b4a952661f924f51918cbc9"
+  }
+}

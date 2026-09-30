@@ -43,7 +43,28 @@ int _integer(Map<String, dynamic> data, String key, int fallback) {
   return value;
 }
 
-Map<String, int> _counts(List<String> urls) {
+const benchmarkHuaweiHost = 'upos-sz-mirrorhw.bilivideo.com';
+
+/// A strict host-level experimental control; this does not identify the actual
+/// server geography/IP. Rewrite the base URI too, so passthrough remains Huawei.
+List<String> benchmarkFixedHuaweiUrls(List<String> urls) => [
+  Uri.parse(urls.first)
+      .replace(
+        host: benchmarkHuaweiHost,
+        port: Uri.parse(urls.first).scheme == 'https' ? 443 : 80,
+      )
+      .toString(),
+];
+
+List<CdnOrigin> benchmarkFixedHuaweiOrigins(List<Uri> originals) => [
+  if (originals.isNotEmpty && benchmarkAllowFixedHuawei(originals.first))
+    CdnOrigin(originals.first, mainland: true),
+];
+
+bool benchmarkAllowFixedHuawei(Uri uri) =>
+    CdnOriginPolicy.isMedia(uri) && uri.host == benchmarkHuaweiHost;
+
+Map<String, int> _counts(List<String> urls, CdnOriginResolver resolver) {
   final originals = <Uri>[];
   for (final value in urls) {
     final uri = Uri.parse(value);
@@ -53,7 +74,7 @@ Map<String, int> _counts(List<String> urls) {
     }
     if (originals.length == 4) break;
   }
-  final candidates = CdnOriginPolicy.resolve(originals).take(40).toList();
+  final candidates = resolver(originals).take(40).toList();
   final mainland = candidates.where((origin) => origin.mainland).length;
   return {'total': candidates.length, 'mainland': mainland};
 }
@@ -74,13 +95,29 @@ Future<void> main() async {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('invalid_input');
     }
-    final video = _urls(decoded, 'video_urls');
-    final audio = _urls(decoded, 'audio_urls');
+    final fixedHuawei = decoded['fixed_huawei'] == true;
+    final autoSelect = decoded['auto_select'] == true;
+    final originalVideo = _urls(decoded, 'video_urls');
+    final originalAudio = _urls(decoded, 'audio_urls');
+    final video = fixedHuawei
+        ? benchmarkFixedHuaweiUrls(originalVideo)
+        : originalVideo;
+    final audio = fixedHuawei
+        ? benchmarkFixedHuaweiUrls(originalAudio)
+        : originalAudio;
+    final resolver = fixedHuawei
+        ? benchmarkFixedHuaweiOrigins
+        : autoSelect
+        ? CdnOriginPolicy.measured
+        : CdnOriginPolicy.resolve;
     proxy = await CdnPlaybackProxy.start(
       durationSeconds: decoded['duration_seconds'] is num
           ? (decoded['duration_seconds'] as num).toDouble()
           : null,
-      autoSelect: decoded['auto_select'] == true,
+      autoSelect: autoSelect,
+      originResolver: resolver,
+      allowOrigin: fixedHuawei ? benchmarkAllowFixedHuawei : null,
+      enableDiagnostics: decoded['diagnostics'] == true,
       adaptive: decoded['adaptive'] == true,
       parallel: decoded['parallel'] != false,
       concurrency: _integer(decoded, 'concurrency', 8),
@@ -109,8 +146,8 @@ Future<void> main() async {
     if (!local(videoUrl) || !local(audioUrl)) {
       throw StateError('proxy_bypassed');
     }
-    final videoCounts = _counts(video);
-    final audioCounts = _counts(audio);
+    final videoCounts = _counts(video, resolver);
+    final audioCounts = _counts(audio, resolver);
     stdout.writeln(
       jsonEncode({
         'status': 'ready',
@@ -118,6 +155,10 @@ Future<void> main() async {
         'audio_url': audioUrl,
         'candidate_count': videoCounts['total']! + audioCounts['total']!,
         'candidate_counts': {'video': videoCounts, 'audio': audioCounts},
+        'fixed_huawei': fixedHuawei,
+        'diagnostics_enabled': decoded['diagnostics'] == true,
+        if (decoded['diagnostics'] == true)
+          'clock_origin_unix_ms': proxy.diagnostics['clock_origin_unix_ms'],
       }),
     );
     await stdout.flush();

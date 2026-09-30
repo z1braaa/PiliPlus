@@ -43,12 +43,16 @@ final class CdnPlaybackProxy {
     bool parallel = true,
     double? durationSeconds,
     bool Function(Uri)? isBaselineOrigin,
+    bool enableDiagnostics = false,
+    int diagnosticEventLimit = 12000,
   }) async {
     if (concurrency < 1 ||
         concurrency > 32 ||
         chunkSize < 64 * 1024 ||
         chunkSize > 4 * 1024 * 1024 ||
-        timeout <= Duration.zero) {
+        timeout <= Duration.zero ||
+        diagnosticEventLimit < 1 ||
+        diagnosticEventLimit > 12000) {
       throw ArgumentError('Invalid CDN transport limits');
     }
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -69,6 +73,16 @@ final class CdnPlaybackProxy {
           : null,
       isBaselineOrigin ?? (uri) => uri.host == 'upos-sz-mirrorhw.bilivideo.com',
     );
+    if (enableDiagnostics) {
+      proxy._requestDiagnostics = _RequestDiagnostics(
+        diagnosticEventLimit,
+        () => {
+          'active_origin_requests': proxy._inFlight,
+          'buffered_payload_bytes': proxy._bufferedBytes,
+          'hedge_buffered_payload_bytes': proxy._hedgeBufferedBytes,
+        },
+      );
+    }
     server.listen((request) {
       unawaited(
         proxy._handle(request).catchError((Object _) {
@@ -93,6 +107,7 @@ final class CdnPlaybackProxy {
   final CdnOriginResolver _originResolver;
   final CdnStartupTrace? _trace;
   final bool Function(Uri) _isBaselineOrigin;
+  _RequestDiagnostics? _requestDiagnostics;
   static const _maxBufferedBytes = 64 * 1024 * 1024;
   static const _startupChunkSize = 64 * 1024;
   int _bufferedBytes = 0;
@@ -134,6 +149,22 @@ final class CdnPlaybackProxy {
     });
   }
 
+  void _originInvalidated(
+    _Transfer transfer,
+    CdnOrigin origin,
+    String phase,
+    Object error,
+  ) => _requestDiagnostics?.event(
+    'origin_invalidated',
+    transfer: transfer,
+    domain: origin.uri.host,
+    originId:
+        transfer.media.origins.indexWhere((value) => value.uri == origin.uri) +
+        1,
+    phase: phase,
+    kind: _RequestDiagnostic.errorKind(error),
+  );
+
   Map<String, Object> get diagnostics => {
     'observed_upstream_body_bytes': _observedUpstreamBytes,
     'upstream_requests': _upstreamRequests,
@@ -149,6 +180,8 @@ final class CdnPlaybackProxy {
         .whereType<String>()
         .toSet()
         .toList(),
+    'diagnostics_enabled': _requestDiagnostics != null,
+    if (_requestDiagnostics case final diagnostic?) ...diagnostic.snapshot,
   };
 
   /// Retains the exact signed origin URL in memory; it is never exposed through
@@ -203,6 +236,7 @@ final class CdnPlaybackProxy {
       safeHeaders,
       orderedOrigins,
       track,
+      _requestDiagnostics,
     );
     return 'http://127.0.0.1:${_server.port}/$token';
   }
@@ -211,10 +245,10 @@ final class CdnPlaybackProxy {
     if (_closed) return;
     _closed = true;
     for (final transfer in _transfers.toList()) {
-      transfer.cancel();
+      transfer.cancel(reason: 'proxy_closed');
     }
     for (final transfer in _backgroundTransfers.toList()) {
-      transfer.cancel();
+      transfer.cancel(reason: 'proxy_closed');
     }
     for (final media in _media.values) {
       media.close();
@@ -295,6 +329,7 @@ final class CdnPlaybackProxy {
     _Transfer transfer,
     Future<T> Function() action, {
     bool urgent = false,
+    _RequestDiagnostic? diagnostic,
   }) async {
     transfer.pendingWork++;
     var reserved = false;
@@ -319,6 +354,7 @@ final class CdnPlaybackProxy {
           );
         }
       } else {
+        diagnostic?.event('queued');
         final waiter = _SlotWaiter(transfer, urgent);
         (urgent
                 ? _urgentWaiters
@@ -348,8 +384,12 @@ final class CdnPlaybackProxy {
       transfer
         ..check()
         ..beginOriginWork();
+      diagnostic?.event('slot_granted');
       try {
         return await action();
+      } catch (error) {
+        diagnostic?.fail(error);
+        rethrow;
       } finally {
         transfer.endOriginWork();
       }
@@ -361,6 +401,11 @@ final class CdnPlaybackProxy {
         _wakeWaiters();
       }
       transfer.pendingWork--;
+      diagnostic?.event(
+        'request_released',
+        kind: reserved ? 'slot_released' : 'not_granted',
+      );
+      transfer.diagnosticRequests.remove(diagnostic);
     }
   }
 
@@ -403,6 +448,11 @@ final class CdnPlaybackProxy {
     final media = _media[request.uri.path]!;
     final transfer = _Transfer(timeout, _wakeWaiters, media, ++_nextRequestId);
     _transfers.add(transfer);
+    _requestDiagnostics?.event(
+      'proxy_request',
+      transfer: transfer,
+      range: rawRange,
+    );
     _trace?.mark(
       CdnStartupStage.proxyRequest,
       track: media.track,
@@ -437,7 +487,7 @@ final class CdnPlaybackProxy {
           track: media.track,
           requestId: transfer.requestId,
         );
-      } catch (_) {
+      } catch (error) {
         transfer.check();
         // No response body has been sent: reissue the player's original request
         // as one stream. Never append a full response to partially emitted data.
@@ -594,6 +644,7 @@ final class CdnPlaybackProxy {
       parallel ? (adaptive ? 1 : concurrency) : 1,
       max(1, _maxBufferedBytes ~/ 2 ~/ chunkSize),
     );
+    _requestDiagnostics?.event('window', transfer: transfer, window: window);
     for (var i = 0; i < window; i++) {
       enqueue();
     }
@@ -621,6 +672,7 @@ final class CdnPlaybackProxy {
         // next ordered piece is consumed; no whole-batch barrier.
         completed++;
         if (adaptive && parallel && completed >= window * 2) {
+          final precedingWindow = window;
           final rate = epochBytes / max(0.001, epoch.elapsedMicroseconds / 1e6);
           // Trial increases must earn their extra sockets in ordered useful
           // output. Plateau/loss returns to the preceding smaller window.
@@ -638,6 +690,14 @@ final class CdnPlaybackProxy {
             window = min(min(concurrency, 8), window * 2);
           }
           lastRate = rate;
+          if (window != precedingWindow) {
+            _requestDiagnostics?.event(
+              'window',
+              transfer: transfer,
+              window: window,
+              rateBytesPerSecond: rate.toInt(),
+            );
+          }
           epochBytes = 0;
           completed = 0;
           epoch.reset();
@@ -680,11 +740,13 @@ final class CdnPlaybackProxy {
     String? range, {
     Uri? origin,
     bool mainland = false,
+    _RequestDiagnostic? diagnostic,
   }) async {
     var uri = origin ?? media.uri;
     for (var redirects = 0; redirects <= 3; redirects++) {
       transfer.check();
       _upstreamRequests++;
+      diagnostic?.open(uri, redirects);
       final request = await transfer.client
           .openUrl(method, uri)
           .timeout(timeout);
@@ -699,6 +761,25 @@ final class CdnPlaybackProxy {
           throw TimeoutException('CDN response timed out');
         },
       );
+      if (diagnostic != null) {
+        final observedRange = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$').firstMatch(
+          response.headers.value(HttpHeaders.contentRangeHeader) ?? '',
+        );
+        diagnostic.event(
+          'headers',
+          http: response.statusCode,
+          actualStart: observedRange == null
+              ? null
+              : int.tryParse(observedRange[1]!),
+          actualEnd: observedRange == null
+              ? null
+              : int.tryParse(observedRange[2]!),
+          total: observedRange == null ? null : int.tryParse(observedRange[3]!),
+          contentLength: response.contentLength >= 0
+              ? response.contentLength
+              : null,
+        );
+      }
       if (!const [301, 302, 303, 307, 308].contains(response.statusCode)) {
         return response;
       }
@@ -708,6 +789,7 @@ final class CdnPlaybackProxy {
         throw const HttpException('Invalid CDN redirect');
       }
       uri = uri.resolve(location);
+      diagnostic?.event('redirect');
       if (!_allowOrigin(uri) ||
           (mainland &&
               !media.origins.any(
@@ -731,109 +813,155 @@ final class CdnPlaybackProxy {
     _Chunk? expected,
     bool urgent = false,
     Duration? bodyBudget,
-  ]) => _slot(transfer, () async {
-    final response = await _open(
+    String phase = 'chunk',
+  ]) {
+    final diagnostic = _requestDiagnostics?.request(
       transfer,
-      media,
-      'GET',
+      origin.uri,
       'bytes=$start-$end',
-      origin: origin.uri,
-      mainland: origin.mainland,
+      phase,
+      urgent,
     );
-    if (!transfer.reportedHeaders) {
-      transfer.reportedHeaders = true;
-      _trace?.mark(
-        CdnStartupStage.originHeaders,
-        track: media.track,
-        requestId: transfer.requestId,
-      );
-    }
-    final contentRange =
-        response.headers.value(HttpHeaders.contentRangeHeader) ?? '';
-    final match = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$').firstMatch(contentRange);
-    final actualStart = match == null ? null : int.tryParse(match[1]!);
-    final actualEnd = match == null ? null : int.tryParse(match[2]!);
-    final total = match == null ? null : int.tryParse(match[3]!);
-    final encoding = response.headers.value(HttpHeaders.contentEncodingHeader);
-    final etag = response.headers.value(HttpHeaders.etagHeader);
-    final modified = response.headers.value(HttpHeaders.lastModifiedHeader);
-    if (response.statusCode != HttpStatus.partialContent ||
-        actualStart != start ||
-        (actualEnd != end &&
-            !(expected == null &&
-                actualEnd == (total ?? 0) - 1 &&
-                actualEnd! < end)) ||
-        total == null ||
-        total <= (actualEnd ?? end) ||
-        (encoding != null && encoding != 'identity') ||
-        (expected != null &&
-            (total != expected.total ||
-                etag != expected.etag ||
-                modified != expected.modified))) {
-      if (_rangeFailures.length < 12) {
-        _rangeFailures.add({
-          'host': origin.uri.host,
-          'http': response.statusCode,
-          'start': start,
-          'end': end,
-          'actual_start': actualStart,
-          'actual_end': actualEnd,
-          'total': total,
-          'expected_total': expected?.total,
-          'etag_equal': expected == null || etag == expected.etag,
-          'modified_equal': expected == null || modified == expected.modified,
-          'encoding_identity': encoding == null || encoding == 'identity',
-        });
-      }
-      await response.listen((_) {}).cancel();
-      throw const HttpException('CDN range metadata mismatch');
-    }
-    final bytes = BytesBuilder(copy: false);
-    final length = actualEnd! - start + 1;
-    if (response.contentLength != -1 && response.contentLength != length) {
-      await response.listen((_) {}).cancel();
-      throw const HttpException('CDN range length mismatch');
-    }
-    final bodyWatch = Stopwatch()..start();
-    final deadline = DateTime.now().add(bodyBudget ?? timeout);
-    await for (final data in response.timeout(
-      bodyBudget == null
-          ? timeout
-          : (timeout < bodyBudget ? timeout : bodyBudget),
-    )) {
-      _observedUpstreamBytes += data.length;
-      transfer
-        ..originProgress()
-        ..check();
-      if (data.isNotEmpty && !transfer.reportedFirstByte) {
-        transfer.reportedFirstByte = true;
-        _trace?.mark(
-          CdnStartupStage.originFirstByte,
-          track: media.track,
-          requestId: transfer.requestId,
+    return _slot(
+      transfer,
+      () async {
+        final response = await _open(
+          transfer,
+          media,
+          'GET',
+          'bytes=$start-$end',
+          origin: origin.uri,
+          mainland: origin.mainland,
+          diagnostic: diagnostic,
         );
-      }
-      if (DateTime.now().isAfter(deadline)) {
-        throw TimeoutException('CDN chunk timed out');
-      }
-      if (bytes.length + data.length > length) {
-        throw const HttpException('CDN range too long');
-      }
-      bytes.add(data);
-    }
-    if (bytes.length != length) {
-      throw const HttpException('CDN range truncated');
-    }
-    transfer.lastBodySeconds = bodyWatch.elapsedMicroseconds / 1e6;
-    return _Chunk(
-      bytes.takeBytes(),
-      actualEnd,
-      total,
-      response.headers.value(HttpHeaders.contentTypeHeader),
-      etag,
-      modified,
+        if (!transfer.reportedHeaders) {
+          transfer.reportedHeaders = true;
+          _trace?.mark(
+            CdnStartupStage.originHeaders,
+            track: media.track,
+            requestId: transfer.requestId,
+          );
+        }
+        final contentRange =
+            response.headers.value(HttpHeaders.contentRangeHeader) ?? '';
+        final match = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$')
+            .firstMatch(contentRange);
+        final actualStart = match == null ? null : int.tryParse(match[1]!);
+        final actualEnd = match == null ? null : int.tryParse(match[2]!);
+        final total = match == null ? null : int.tryParse(match[3]!);
+        final encoding = response.headers.value(
+          HttpHeaders.contentEncodingHeader,
+        );
+        final etag = response.headers.value(HttpHeaders.etagHeader);
+        final modified = response.headers.value(HttpHeaders.lastModifiedHeader);
+        if (response.statusCode != HttpStatus.partialContent ||
+            actualStart != start ||
+            (actualEnd != end &&
+                !(expected == null &&
+                    actualEnd == (total ?? 0) - 1 &&
+                    actualEnd! < end)) ||
+            total == null ||
+            total <= (actualEnd ?? end) ||
+            (encoding != null && encoding != 'identity') ||
+            (expected != null &&
+                (total != expected.total ||
+                    etag != expected.etag ||
+                    modified != expected.modified))) {
+          diagnostic?.validation(
+            false,
+            'range_metadata',
+            expected: expected,
+            etag: etag,
+            modified: modified,
+            encoding: encoding,
+          );
+          if (_rangeFailures.length < 12) {
+            _rangeFailures.add({
+              'host': origin.uri.host,
+              'http': response.statusCode,
+              'start': start,
+              'end': end,
+              'actual_start': actualStart,
+              'actual_end': actualEnd,
+              'total': total,
+              'expected_total': expected?.total,
+              'etag_equal': expected == null || etag == expected.etag,
+              'modified_equal':
+                  expected == null || modified == expected.modified,
+              'encoding_identity': encoding == null || encoding == 'identity',
+            });
+          }
+          await response.listen((_) {}).cancel();
+          throw const HttpException('CDN range metadata mismatch');
+        }
+        final bytes = BytesBuilder(copy: false);
+        final length = actualEnd! - start + 1;
+        if (response.contentLength != -1 && response.contentLength != length) {
+          diagnostic?.validation(
+            false,
+            'range_length',
+            expected: expected,
+            etag: etag,
+            modified: modified,
+            encoding: encoding,
+          );
+          await response.listen((_) {}).cancel();
+          throw const HttpException('CDN range length mismatch');
+        }
+        diagnostic?.validation(
+          true,
+          'range_metadata',
+          expected: expected,
+          etag: etag,
+          modified: modified,
+          encoding: encoding,
+        );
+        final bodyWatch = Stopwatch()..start();
+        final deadline = DateTime.now().add(bodyBudget ?? timeout);
+        await for (final data in response.timeout(
+          bodyBudget == null
+              ? timeout
+              : (timeout < bodyBudget ? timeout : bodyBudget),
+        )) {
+          _observedUpstreamBytes += data.length;
+          diagnostic?.progress(data.length);
+          transfer
+            ..originProgress()
+            ..check();
+          if (data.isNotEmpty && !transfer.reportedFirstByte) {
+            transfer.reportedFirstByte = true;
+            _trace?.mark(
+              CdnStartupStage.originFirstByte,
+              track: media.track,
+              requestId: transfer.requestId,
+            );
+          }
+          if (DateTime.now().isAfter(deadline)) {
+            throw TimeoutException('CDN chunk timed out');
+          }
+          if (bytes.length + data.length > length) {
+            throw const HttpException('CDN range too long');
+          }
+          bytes.add(data);
+        }
+        if (bytes.length != length) {
+          throw const HttpException('CDN range truncated');
+        }
+        transfer.lastBodySeconds = bodyWatch.elapsedMicroseconds / 1e6;
+        diagnostic?.end('body_complete');
+        return _Chunk(
+          bytes.takeBytes(),
+          actualEnd,
+          total,
+          response.headers.value(HttpHeaders.contentTypeHeader),
+          etag,
+          modified,
+        );
+      },
+      urgent: urgent,
+      diagnostic: diagnostic,
     );
-  }, urgent: urgent);
+  }
 
   double _supplyTarget(int total) => durationSeconds == null
       ? 2 * 1024 * 1024
@@ -901,7 +1029,17 @@ final class CdnPlaybackProxy {
     _peakBufferedBytes = max(_peakBufferedBytes, _bufferedBytes);
     var sampling = false;
     try {
-      final prefix = await _readChunk(probe, media, origin, 0, 0, null, true);
+      final prefix = await _readChunk(
+        probe,
+        media,
+        origin,
+        0,
+        0,
+        null,
+        true,
+        null,
+        'qualification_prefix',
+      );
       final wanted = _range(rawRange, prefix.total);
       if (wanted == null) return (null, false);
       final span = wanted.$2 - wanted.$1 + 1;
@@ -928,12 +1066,27 @@ final class CdnPlaybackProxy {
         prefix,
         true,
         const Duration(seconds: 2),
+        'qualification_sample',
       );
       parent.check();
       if (sample.bytes.length / max(.001, probe.lastBodySeconds) <
           _supplyTarget(sample.total)) {
+        _requestDiagnostics?.event(
+          'admission',
+          transfer: probe,
+          domain: origin.uri.host,
+          phase: 'qualification',
+          kind: 'weak_supply',
+        );
         return (null, true);
       }
+      _requestDiagnostics?.event(
+        'admission',
+        transfer: probe,
+        domain: origin.uri.host,
+        phase: 'qualification',
+        kind: 'qualified',
+      );
       // Do not retain scratch bytes after their reservation is released.
       return (_headerReference(sample), false);
     } catch (error) {
@@ -1017,87 +1170,119 @@ final class CdnPlaybackProxy {
             }
             if (winner.isCompleted || parent.cancelled) return;
           }
-          await _slot(job, () async {
-            final response = await _open(
-              job,
-              media,
-              'GET',
-              rawRange ?? 'bytes=0-',
-              origin: origins[index].uri,
-            );
-            if (!parent.reportedHeaders) {
-              parent.reportedHeaders = true;
-              _trace?.mark(
-                CdnStartupStage.originHeaders,
-                track: media.track,
-                requestId: parent.requestId,
+          final diagnostic = _requestDiagnostics?.request(
+            job,
+            origins[index].uri,
+            rawRange ?? 'bytes=0-',
+            'stream',
+            true,
+          );
+          await _slot(
+            job,
+            () async {
+              final response = await _open(
+                job,
+                media,
+                'GET',
+                rawRange ?? 'bytes=0-',
+                origin: origins[index].uri,
+                diagnostic: diagnostic,
               );
-            }
-            final match = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$')
-                .firstMatch(response.headers.value('content-range') ?? '');
-            final total = match == null ? 0 : int.parse(match[3]!);
-            final wanted = _range(rawRange, total);
-            if (response.statusCode != 206 ||
-                match == null ||
-                wanted == null ||
-                wanted.$1 != int.parse(match[1]!) ||
-                wanted.$2 != int.parse(match[2]!) ||
-                (response.headers.value('content-encoding') ?? 'identity') !=
-                    'identity' ||
-                (response.contentLength != -1 &&
-                    response.contentLength != wanted.$2 - wanted.$1 + 1) ||
-                (qualification != null &&
-                    (total != qualification.total ||
-                        response.headers.value('etag') != qualification.etag ||
-                        response.headers.value('last-modified') !=
-                            qualification.modified))) {
-              await response.listen((_) {}).cancel();
-              throw const HttpException('CDN range metadata mismatch');
-            }
-            body = StreamIterator(response);
-            while (await body!.moveNext()) {
-              job.check();
-              if (body!.current.isEmpty) continue;
-              if (!parent.reportedFirstByte) {
-                parent.reportedFirstByte = true;
+              if (!parent.reportedHeaders) {
+                parent.reportedHeaders = true;
                 _trace?.mark(
-                  CdnStartupStage.originFirstByte,
+                  CdnStartupStage.originHeaders,
                   track: media.track,
                   requestId: parent.requestId,
                 );
               }
-              final first = Uint8List.fromList(body!.current);
-              _observedUpstreamBytes += first.length;
-              if (first.length > wanted.$2 - wanted.$1 + 1) {
-                throw const HttpException('CDN range too long');
+              final match = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$')
+                  .firstMatch(response.headers.value('content-range') ?? '');
+              final total = match == null ? 0 : int.parse(match[3]!);
+              final wanted = _range(rawRange, total);
+              if (response.statusCode != 206 ||
+                  match == null ||
+                  wanted == null ||
+                  wanted.$1 != int.parse(match[1]!) ||
+                  wanted.$2 != int.parse(match[2]!) ||
+                  (response.headers.value('content-encoding') ?? 'identity') !=
+                      'identity' ||
+                  (response.contentLength != -1 &&
+                      response.contentLength != wanted.$2 - wanted.$1 + 1) ||
+                  (qualification != null &&
+                      (total != qualification.total ||
+                          response.headers.value('etag') !=
+                              qualification.etag ||
+                          response.headers.value('last-modified') !=
+                              qualification.modified))) {
+                diagnostic?.validation(
+                  false,
+                  'range_metadata',
+                  expected: qualification,
+                  etag: response.headers.value('etag'),
+                  modified: response.headers.value('last-modified'),
+                  encoding: response.headers.value('content-encoding'),
+                );
+                await response.listen((_) {}).cancel();
+                throw const HttpException('CDN range metadata mismatch');
               }
-              final stream = _StreamingOrigin(
-                job,
-                origins[index],
-                body!,
-                first,
-                wanted.$1,
-                wanted.$2,
-                _Chunk(
-                  first,
-                  wanted.$1 + first.length - 1,
-                  total,
-                  response.headers.value('content-type'),
-                  response.headers.value('etag'),
-                  response.headers.value('last-modified'),
-                ),
+              diagnostic?.validation(
+                true,
+                'range_metadata',
+                expected: qualification,
+                etag: response.headers.value('etag'),
+                modified: response.headers.value('last-modified'),
+                encoding: response.headers.value('content-encoding'),
               );
-              // The ongoing stream has its own moveNext idle deadline. Its
-              // consumer may stop reading while mpv's buffer is full.
-              job.endOriginWatchdog();
-              if (!winner.isCompleted) {
-                winner.complete(stream);
-                await stream.release.future;
+              body = StreamIterator(response);
+              while (await body!.moveNext()) {
+                job.check();
+                if (body!.current.isEmpty) continue;
+                if (!parent.reportedFirstByte) {
+                  parent.reportedFirstByte = true;
+                  _trace?.mark(
+                    CdnStartupStage.originFirstByte,
+                    track: media.track,
+                    requestId: parent.requestId,
+                  );
+                }
+                final first = Uint8List.fromList(body!.current);
+                _observedUpstreamBytes += first.length;
+                diagnostic?.progress(first.length);
+                if (first.length > wanted.$2 - wanted.$1 + 1) {
+                  throw const HttpException('CDN range too long');
+                }
+                final stream = _StreamingOrigin(
+                  job,
+                  origins[index],
+                  body!,
+                  first,
+                  wanted.$1,
+                  wanted.$2,
+                  _Chunk(
+                    first,
+                    wanted.$1 + first.length - 1,
+                    total,
+                    response.headers.value('content-type'),
+                    response.headers.value('etag'),
+                    response.headers.value('last-modified'),
+                  ),
+                  diagnostic,
+                );
+                // The ongoing stream has its own moveNext idle deadline. Its
+                // consumer may stop reading while mpv's buffer is full.
+                job.endOriginWatchdog();
+                if (!winner.isCompleted) {
+                  winner.complete(stream);
+                  await stream.release.future;
+                }
+                return;
               }
-              return;
-            }
-            throw const HttpException('CDN range truncated');
-          }, urgent: true);
+              throw const HttpException('CDN range truncated');
+            },
+            urgent: true,
+            diagnostic: diagnostic,
+          );
         } catch (error) {
           if (!winner.isCompleted && !parent.cancelled) {
             _failure(origins[index].uri, 'stream_probe', error);
@@ -1120,12 +1305,23 @@ final class CdnPlaybackProxy {
       selected = await winner.future.timeout(const Duration(seconds: 6));
       parent.check();
       for (final job in jobs) {
-        if (!identical(job, selected.job)) job.cancel();
+        if (!identical(job, selected.job)) job.cancel(reason: 'lost_race');
       }
+      selected.diagnostic?.event('selected');
       final previous = media.observed;
       if (previous != null &&
           (previous.anchor.uri != selected.origin.uri ||
               !_sameObservedVersion(previous.reference, selected.reference))) {
+        _requestDiagnostics?.event(
+          'resource_changed',
+          transfer: parent,
+          domain: selected.origin.uri.host,
+          etagEqual: previous.reference.etag == selected.reference.etag,
+          modifiedEqual:
+              previous.reference.modified == selected.reference.modified,
+          expectedTotal: previous.reference.total,
+          total: selected.reference.total,
+        );
         media.identityEpoch++;
         media.identity = null;
       }
@@ -1171,6 +1367,7 @@ final class CdnPlaybackProxy {
       var supplied = 0;
       var data = selected.first;
       var fallback = false;
+      var fallbackKind = 'unknown';
       while (true) {
         _ensureCurrent(parent, plan);
         if (next + data.length > selected.end + 1) {
@@ -1193,7 +1390,10 @@ final class CdnPlaybackProxy {
         }
         next += data.length;
         supplied += data.length;
-        if (next > selected.end) break;
+        if (next > selected.end) {
+          selected.diagnostic?.end('body_complete');
+          break;
+        }
         // The initial gate asks for extra peak headroom. An already selected
         // continuous response is judged by actual playback supply instead;
         // adequate sustained delivery must not be split just for a probe score.
@@ -1218,6 +1418,7 @@ final class CdnPlaybackProxy {
           if (plan.ready.keys.any((uri) => uri != selected!.origin.uri) ||
               supply.totalWait - (warmStartedAt ?? supply.totalWait) >= 2) {
             fallback = true;
+            fallbackKind = 'low_supply';
             break;
           }
         }
@@ -1227,6 +1428,7 @@ final class CdnPlaybackProxy {
             const Duration(seconds: 3),
           )) {
             fallback = true;
+            fallbackKind = 'stream_eof';
             break;
           }
           data = Uint8List.fromList(selected.body.current);
@@ -1234,19 +1436,30 @@ final class CdnPlaybackProxy {
           // congestion at the CDN and must not force splitting a healthy stream.
           supply.record(data.length, receive.elapsedMicroseconds / 1e6);
           _observedUpstreamBytes += data.length;
+          selected.diagnostic?.progress(data.length);
         } catch (error) {
           _ensureCurrent(parent, plan);
           _failure(selected.origin.uri, 'stream_continuation', error);
+          selected.diagnostic?.fail(error);
           fallback = true;
+          fallbackKind = _RequestDiagnostic.errorKind(error);
           break;
         }
       }
       if (fallback) {
+        _requestDiagnostics?.event(
+          'stream_to_chunks',
+          transfer: parent,
+          domain: selected.origin.uri.host,
+          range: 'bytes=$next-${selected.end}',
+          kind: fallbackKind,
+          rateBytesPerSecond: supply.rate.toInt(),
+        );
         if (autoSelect && !plan.warmed) {
           plan.warmed = true;
           _warmPeersAtTwo(parent, plan);
         }
-        selected.job.cancel();
+        selected.job.cancel(reason: 'stream_to_chunks');
         selected.release.complete();
         // Continue from the first byte not delivered. Cross-origin fallbacks
         // still pass the original two-sample identity checks.
@@ -1299,13 +1512,18 @@ final class CdnPlaybackProxy {
           _startupChunkSize - 1,
           null,
           true,
+          null,
+          'startup_probe',
         );
         parent.check();
         if (!done.isCompleted) done.complete((origin, chunk));
-      } catch (_) {
+      } catch (error) {
         // Losing a startup race is cancellation, not an unavailable CDN.
         // Keep the runner-up available for later verified failover.
-        if (!done.isCompleted && !parent.cancelled) failed.add(origin.uri);
+        if (!done.isCompleted && !parent.cancelled) {
+          _originInvalidated(job, origin, 'startup_probe', error);
+          failed.add(origin.uri);
+        }
       } finally {
         job.finish();
         parent.children.remove(job);
@@ -1328,6 +1546,15 @@ final class CdnPlaybackProxy {
       if (previous != null &&
           (previous.anchor.uri != anchor.uri ||
               !_sameObservedVersion(previous.reference, reference))) {
+        _requestDiagnostics?.event(
+          'resource_changed',
+          transfer: parent,
+          domain: anchor.uri.host,
+          etagEqual: previous.reference.etag == reference.etag,
+          modifiedEqual: previous.reference.modified == reference.modified,
+          expectedTotal: previous.reference.total,
+          total: reference.total,
+        );
         media.identityEpoch++;
         media.identity = null;
       }
@@ -1342,6 +1569,13 @@ final class CdnPlaybackProxy {
               _sameVersion(cache.reference, reference)
           ? cache
           : null;
+      _requestDiagnostics?.event(
+        'admission',
+        transfer: parent,
+        domain: anchor.uri.host,
+        phase: 'identity_cache',
+        kind: validCache == null ? 'cache_miss' : 'cache_hit',
+      );
       return _Plan(
         media,
         anchor,
@@ -1375,8 +1609,19 @@ final class CdnPlaybackProxy {
       var nextProbe = 0;
       Future<_Chunk?> probe(CdnOrigin origin, {required bool urgent}) async {
         try {
-          return await _readChunk(transfer, media, origin, 0, 0, null, urgent);
-        } catch (_) {
+          return await _readChunk(
+            transfer,
+            media,
+            origin,
+            0,
+            0,
+            null,
+            urgent,
+            null,
+            'metadata',
+          );
+        } catch (error) {
+          _originInvalidated(transfer, origin, 'metadata', error);
           failed.add(origin.uri);
           return null;
         }
@@ -1410,6 +1655,15 @@ final class CdnPlaybackProxy {
         if (observed != null &&
             (observed.anchor.uri != tier[index].uri ||
                 !_sameObservedVersion(observed.reference, reference))) {
+          _requestDiagnostics?.event(
+            'resource_changed',
+            transfer: transfer,
+            domain: tier[index].uri.host,
+            etagEqual: observed.reference.etag == reference.etag,
+            modifiedEqual: observed.reference.modified == reference.modified,
+            expectedTotal: observed.reference.total,
+            total: reference.total,
+          );
           media.identityEpoch++;
           media.identity = null;
           for (final job in _backgroundTransfers.toList()) {
@@ -1426,6 +1680,13 @@ final class CdnPlaybackProxy {
             ? previous
             : null;
         if (cached == null) media.identity = null;
+        _requestDiagnostics?.event(
+          'admission',
+          transfer: transfer,
+          domain: tier[index].uri.host,
+          phase: 'identity_cache',
+          kind: cached == null ? 'cache_miss' : 'cache_hit',
+        );
         // The anchor may serve immediately. Other origins still need both
         // samples before they are allowed to contribute media bytes.
         return _Plan(
@@ -1476,7 +1737,23 @@ final class CdnPlaybackProxy {
     bool urgent,
   ) async {
     _ensureCurrent(transfer, plan);
-    if (plan.cached case final cached?) return cached.samples;
+    if (plan.cached case final cached?) {
+      _requestDiagnostics?.event(
+        'admission',
+        transfer: transfer,
+        domain: plan.anchor.uri.host,
+        phase: 'identity_anchor',
+        kind: 'cache_hit',
+      );
+      return cached.samples;
+    }
+    _requestDiagnostics?.event(
+      'admission',
+      transfer: transfer,
+      domain: plan.anchor.uri.host,
+      phase: 'identity_anchor',
+      kind: 'cache_miss',
+    );
     final total = plan.reference.total;
     final prefix = await _readChunk(
       transfer,
@@ -1486,6 +1763,8 @@ final class CdnPlaybackProxy {
       min(4095, total - 1),
       plan.reference,
       urgent,
+      null,
+      'identity_anchor_prefix',
     );
     final middleStart = total ~/ 2;
     final middle = await _readChunk(
@@ -1496,6 +1775,8 @@ final class CdnPlaybackProxy {
       min(middleStart + 4095, total - 1),
       plan.reference,
       urgent,
+      null,
+      'identity_anchor_middle',
     );
     final samples = [prefix, middle];
     _ensureCurrent(transfer, plan);
@@ -1525,8 +1806,22 @@ final class CdnPlaybackProxy {
     CdnOrigin origin,
     bool urgent,
   ) async {
+    _requestDiagnostics?.event(
+      'admission',
+      transfer: transfer,
+      domain: origin.uri.host,
+      phase: 'identity',
+      kind: 'started',
+    );
     _ensureCurrent(transfer, plan);
     final cached = plan.cached?.admitted[origin.uri];
+    _requestDiagnostics?.event(
+      'admission',
+      transfer: transfer,
+      domain: origin.uri.host,
+      phase: 'identity_peer_cache',
+      kind: cached == null ? 'cache_miss' : 'cache_hit',
+    );
     if (cached != null && _hasValidator(cached)) {
       try {
         final current = await _readChunk(
@@ -1537,10 +1832,19 @@ final class CdnPlaybackProxy {
           0,
           null,
           urgent,
+          null,
+          'identity_cached_validator',
         );
         _ensureCurrent(transfer, plan);
         if (_sameVersion(cached, current)) {
           plan.ready[origin.uri] = cached;
+          _requestDiagnostics?.event(
+            'admission',
+            transfer: transfer,
+            domain: origin.uri.host,
+            phase: 'identity',
+            kind: 'cached_validated',
+          );
           return cached;
         }
       } catch (_) {
@@ -1559,6 +1863,8 @@ final class CdnPlaybackProxy {
         samples[0].end,
         null,
         urgent,
+        null,
+        'identity_prefix',
       );
       if (prefix.total != plan.reference.total ||
           !_sameBytes(prefix.bytes, samples[0].bytes)) {
@@ -1573,6 +1879,8 @@ final class CdnPlaybackProxy {
           samples[1].end,
           prefix,
           urgent,
+          null,
+          'identity_middle',
         );
         if (!_sameBytes(middle.bytes, samples[1].bytes)) {
           throw const HttpException('CDN resource identity mismatch');
@@ -1585,6 +1893,13 @@ final class CdnPlaybackProxy {
         if (attempt != 0 || error.message != 'CDN range metadata mismatch') {
           rethrow;
         }
+        _requestDiagnostics?.event(
+          'retry',
+          transfer: transfer,
+          domain: origin.uri.host,
+          phase: 'identity',
+          kind: 'metadata_changed',
+        );
       }
     }
     _ensureCurrent(transfer, plan);
@@ -1596,6 +1911,13 @@ final class CdnPlaybackProxy {
       activeCache.admitted[origin.uri] = prefix;
     }
     plan.ready[origin.uri] = prefix;
+    _requestDiagnostics?.event(
+      'admission',
+      transfer: transfer,
+      domain: origin.uri.host,
+      phase: 'identity',
+      kind: 'validated',
+    );
     if (!transfer.reportedIdentity) {
       transfer.reportedIdentity = true;
       _trace?.mark(
@@ -1637,9 +1959,10 @@ final class CdnPlaybackProxy {
           final origin = peers.removeFirst();
           try {
             await _admit(transfer, plan, origin);
-          } catch (_) {
+          } catch (error) {
             if (!transfer.cancelled &&
                 plan.media.identityEpoch == plan.identityEpoch) {
+              _originInvalidated(transfer, origin, 'identity', error);
               plan.failed.add(origin.uri);
             }
           }
@@ -1677,11 +2000,12 @@ final class CdnPlaybackProxy {
           var retry = false;
           try {
             await _verifyPeer(job, plan, origin, false);
-          } catch (_) {
+          } catch (error) {
             retry = job.preempted && !parent.cancelled;
             if (!retry &&
                 !parent.cancelled &&
                 plan.media.identityEpoch == plan.identityEpoch) {
+              _originInvalidated(job, origin, 'identity', error);
               plan.failed.add(origin.uri);
             }
           } finally {
@@ -1758,8 +2082,9 @@ final class CdnPlaybackProxy {
           );
           _ensureCurrent(transfer, plan);
           return chunk;
-        } catch (_) {
+        } catch (error) {
           _ensureCurrent(transfer, plan);
+          _originInvalidated(transfer, origin, 'chunk', error);
           plan.failed.add(origin.uri);
         }
       }
@@ -1786,8 +2111,9 @@ final class CdnPlaybackProxy {
           );
           _ensureCurrent(transfer, plan);
           return chunk;
-        } catch (_) {
+        } catch (error) {
           _ensureCurrent(transfer, plan);
+          _originInvalidated(transfer, origin, 'chunk_or_admission', error);
           plan.failed.add(origin.uri);
         }
       }
@@ -1835,6 +2161,7 @@ final class CdnPlaybackProxy {
         if (!plan.failed.contains(origin.uri)) {
           _failure(origin.uri, 'chunk_or_admission', error);
         }
+        _originInvalidated(transfer, origin, 'chunk_or_admission', error);
         plan.failed.add(origin.uri);
       }
     }
@@ -1854,6 +2181,7 @@ final class CdnPlaybackProxy {
       } catch (error) {
         _ensureCurrent(transfer, plan);
         _failure(origin.uri, 'chunk_or_admission', error);
+        _originInvalidated(job, origin, 'chunk_or_admission', error);
         plan.failed.add(origin.uri);
       } finally {
         job.finish();
@@ -1958,6 +2286,7 @@ final class CdnPlaybackProxy {
             try {
               _ensureCurrent(parent, plan);
               _failure(origin.uri, 'chunk_or_admission', error);
+              _originInvalidated(job, origin, 'chunk', error);
               plan.failed.add(origin.uri);
               hedge();
             } catch (sessionError, sessionStack) {
@@ -2047,51 +2376,329 @@ final class CdnPlaybackProxy {
     _Media media,
     HttpRequest request,
     _MediaResponse output,
-  ) => _slot(transfer, () async {
-    _trace?.mark(
-      CdnStartupStage.fallback,
-      track: media.track,
-      requestId: transfer.requestId,
-    );
-    final upstream = await _open(
+  ) {
+    final diagnostic = _requestDiagnostics?.request(
       transfer,
-      media,
-      request.method,
+      media.uri,
       request.headers.value(HttpHeaders.rangeHeader),
+      'fallback',
+      true,
     );
-    output.statusCode = upstream.statusCode;
-    for (final name in const [
-      HttpHeaders.contentTypeHeader,
-      HttpHeaders.contentRangeHeader,
-      HttpHeaders.acceptRangesHeader,
-      HttpHeaders.contentEncodingHeader,
-      HttpHeaders.etagHeader,
-      HttpHeaders.lastModifiedHeader,
-    ]) {
-      final value = upstream.headers.value(name);
-      if (value != null) output.headers.set(name, value);
+    return _slot(
+      transfer,
+      () async {
+        _trace?.mark(
+          CdnStartupStage.fallback,
+          track: media.track,
+          requestId: transfer.requestId,
+        );
+        final upstream = await _open(
+          transfer,
+          media,
+          request.method,
+          request.headers.value(HttpHeaders.rangeHeader),
+          diagnostic: diagnostic,
+        );
+        output.statusCode = upstream.statusCode;
+        for (final name in const [
+          HttpHeaders.contentTypeHeader,
+          HttpHeaders.contentRangeHeader,
+          HttpHeaders.acceptRangesHeader,
+          HttpHeaders.contentEncodingHeader,
+          HttpHeaders.etagHeader,
+          HttpHeaders.lastModifiedHeader,
+        ]) {
+          final value = upstream.headers.value(name);
+          if (value != null) output.headers.set(name, value);
+        }
+        output.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+        output.contentLength = upstream.contentLength;
+        if (request.method == 'HEAD') {
+          await upstream.listen((_) {}).cancel();
+        } else {
+          await for (final data in upstream.timeout(timeout)) {
+            transfer.check();
+            diagnostic?.progress(data.length);
+            output.add(data);
+            await output.flush();
+          }
+        }
+        diagnostic?.end('body_complete');
+        await output.close();
+      },
+      urgent: true,
+      diagnostic: diagnostic,
+    );
+  }
+}
+
+/// Opt-in, bounded observations only. Never retain URLs, headers, validators,
+/// payloads, exception text, or account data. No I/O is performed by observers.
+final class _RequestDiagnostics {
+  _RequestDiagnostics(this.limit, this.state);
+  final int limit;
+  final Map<String, int> Function() state;
+  final Stopwatch clock = Stopwatch()..start();
+  final int clockOriginUnixMs = DateTime.now().millisecondsSinceEpoch;
+  final List<Map<String, Object>> events = [];
+  final Map<String, int> hostRequests = {};
+  final Map<String, int> trackFlushedBytes = {};
+  int dropped = 0;
+  int nextRequestId = 0;
+  int nextTransferId = 0;
+  int observedBodyBytes = 0;
+  int hostRequestsDropped = 0;
+  static const hostCountsLimit = 128;
+
+  Map<String, Object> get snapshot => {
+    'event_clock': 'proxy_monotonic',
+    'clock_origin_unix_ms': clockOriginUnixMs,
+    'elapsed_ms': clock.elapsedMilliseconds,
+    'request_events_limit': limit,
+    'request_events_dropped': dropped,
+    'request_events': List<Map<String, Object>>.of(events),
+    'host_request_counts': Map<String, int>.of(hostRequests),
+    'host_request_counts_limit': hostCountsLimit,
+    'host_request_counts_dropped': hostRequestsDropped,
+    // Counts bytes accepted by a successful socket flush, not decoded media.
+    'track_flushed_body_bytes': Map<String, int>.of(trackFlushedBytes),
+    'diagnostic_upstream_body_bytes': observedBodyBytes,
+  };
+
+  _RequestDiagnostic request(
+    _Transfer transfer,
+    Uri uri,
+    String? range,
+    String phase,
+    bool urgent,
+  ) {
+    final value = _RequestDiagnostic(
+      this,
+      transfer,
+      ++nextRequestId,
+      uri.host,
+      transfer.media.origins.indexWhere((value) => value.uri == uri) + 1,
+      range,
+      phase,
+      urgent
+          ? 'urgent'
+          : transfer.background
+          ? 'background'
+          : 'normal',
+    );
+    transfer.diagnosticRequests.add(value);
+    value.event('request_created');
+    return value;
+  }
+
+  void event(
+    String name, {
+    required _Transfer transfer,
+    _RequestDiagnostic? request,
+    String? domain,
+    String? range,
+    String? phase,
+    String? kind,
+    int? http,
+    int? window,
+    int? rateBytesPerSecond,
+    int? targetBytesPerSecond,
+    int? flushedBytes,
+    int? actualStart,
+    int? actualEnd,
+    int? total,
+    int? contentLength,
+    int? originId,
+    bool? accepted,
+    bool? validatorChecked,
+    bool? etagEqual,
+    bool? modifiedEqual,
+    bool? encodingIdentity,
+    int? expectedTotal,
+  }) {
+    if (events.length >= limit) {
+      dropped++;
+      return;
     }
-    output.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-    output.contentLength = upstream.contentLength;
-    if (request.method == 'HEAD') {
-      await upstream.listen((_) {}).cancel();
+    // Range text is accepted only by the numeric grammar; no raw string escapes.
+    final parsed = RegExp(r'^bytes=(\d*)-(\d*)$').firstMatch(
+      range ?? request?.range ?? '',
+    );
+    final start = parsed == null ? null : int.tryParse(parsed[1]!);
+    final end = parsed == null ? null : int.tryParse(parsed[2]!);
+    events.add({
+      't_ms': clock.elapsedMilliseconds,
+      'event': name,
+      'parent_id': transfer.requestId,
+      'transfer_id': transfer.diagnosticId,
+      'track': transfer.track.name,
+      if (request != null) 'request_id': request.id,
+      if (request != null) 'attempt': request.attempt,
+      if (request != null) 'priority': request.priority,
+      if (request != null || originId != null)
+        'origin_id': originId ?? request!.originId,
+      if (domain != null || request != null)
+        'domain': domain ?? request!.domain,
+      if (phase != null || request != null) 'phase': phase ?? request!.phase,
+      'kind': ?kind,
+      'http': ?http,
+      'range_start': ?start,
+      if (end != null && start != null) 'range_end': end,
+      if (end != null && start == null) 'range_suffix': end,
+      if (request != null) 'upstream_bytes': request.bytes,
+      'flushed_body_bytes': ?flushedBytes,
+      'window': ?window,
+      'rate_bytes_per_second': ?rateBytesPerSecond,
+      'target_bytes_per_second': ?targetBytesPerSecond,
+      'actual_range_start': ?actualStart,
+      'actual_range_end': ?actualEnd,
+      'resource_total': ?total,
+      'content_length': ?contentLength,
+      'accepted': ?accepted,
+      'validator_checked': ?validatorChecked,
+      'etag_equal': ?etagEqual,
+      'modified_equal': ?modifiedEqual,
+      'encoding_identity': ?encodingIdentity,
+      'expected_resource_total': ?expectedTotal,
+      ...state(),
+    });
+  }
+}
+
+final class _RequestDiagnostic {
+  _RequestDiagnostic(
+    this.owner,
+    this.transfer,
+    this.id,
+    this.domain,
+    this.originId,
+    this.range,
+    this.phase,
+    this.priority,
+  );
+  final _RequestDiagnostics owner;
+  final _Transfer transfer;
+  final int id;
+  String domain;
+  final String? range;
+  final String phase;
+  final String priority;
+  final int originId;
+  int attempt = 0;
+  int bytes = 0;
+  int lastBytes = 0;
+  int lastMs = 0;
+  bool ended = false;
+  bool first = true;
+
+  void event(
+    String name, {
+    int? http,
+    String? kind,
+    int? actualStart,
+    int? actualEnd,
+    int? total,
+    int? contentLength,
+  }) => owner.event(
+    name,
+    transfer: transfer,
+    request: this,
+    http: http,
+    kind: kind,
+    actualStart: actualStart,
+    actualEnd: actualEnd,
+    total: total,
+    contentLength: contentLength,
+  );
+
+  void open(Uri uri, int number) {
+    domain = uri.host;
+    attempt = number;
+    if (owner.hostRequests.containsKey(domain)) {
+      owner.hostRequests[domain] = owner.hostRequests[domain]! + 1;
+    } else if (owner.hostRequests.length <
+        _RequestDiagnostics.hostCountsLimit) {
+      owner.hostRequests[domain] = 1;
     } else {
-      await for (final data in upstream.timeout(timeout)) {
-        transfer.check();
-        output.add(data);
-        await output.flush();
-      }
+      owner.hostRequestsDropped++;
     }
-    await output.close();
-  }, urgent: true);
+    event('request_open');
+  }
+
+  void progress(int count) {
+    bytes += count;
+    owner.observedBodyBytes += count;
+    final now = owner.clock.elapsedMilliseconds;
+    if (first && count > 0) {
+      first = false;
+      lastMs = now;
+      lastBytes = bytes;
+      event('body_first');
+    } else if (now - lastMs >= 500 &&
+        (bytes - lastBytes >= 256 * 1024 || now - lastMs >= 1000)) {
+      lastMs = now;
+      lastBytes = bytes;
+      event('body_progress');
+    }
+  }
+
+  void validation(
+    bool accepted,
+    String kind, {
+    required _Chunk? expected,
+    required String? etag,
+    required String? modified,
+    required String? encoding,
+  }) => owner.event(
+    'range_validation',
+    transfer: transfer,
+    request: this,
+    kind: kind,
+    accepted: accepted,
+    validatorChecked: expected != null,
+    etagEqual: expected == null ? null : etag == expected.etag,
+    modifiedEqual: expected == null ? null : modified == expected.modified,
+    encodingIdentity: encoding == null || encoding == 'identity',
+    expectedTotal: expected?.total,
+  );
+
+  static String errorKind(Object error) {
+    if (error is TimeoutException) return 'timeout';
+    if (error is SocketException) return 'socket';
+    if (error is HttpException) {
+      return switch (error.message) {
+        'CDN request cancelled' => 'cancelled',
+        'CDN range metadata mismatch' => 'range_metadata',
+        'CDN range length mismatch' => 'range_length',
+        'CDN range truncated' => 'truncated',
+        'CDN range too long' => 'range_overflow',
+        'CDN resource identity mismatch' => 'identity',
+        'CDN resource version changed' => 'resource_changed',
+        'Invalid CDN redirect' ||
+        'Unsupported CDN redirect' ||
+        'Too many CDN redirects' => 'redirect',
+        _ => 'http',
+      };
+    }
+    return 'other';
+  }
+
+  void fail(Object error) => end('failure', kind: errorKind(error));
+
+  void end(String name, {String? kind}) {
+    if (ended) return;
+    ended = true;
+    event(name, kind: kind);
+  }
 }
 
 final class _Media {
-  _Media(this.uri, this.headers, this.origins, this.track);
+  _Media(this.uri, this.headers, this.origins, this.track, this.diagnostics);
   final Uri uri;
   final Map<String, String> headers;
   final List<CdnOrigin> origins;
   final CdnStartupTrack track;
+  final _RequestDiagnostics? diagnostics;
   final Queue<HttpClient> _idleClients = Queue();
   CdnOrigin? preferred;
   _IdentityCache? identity;
@@ -2244,12 +2851,17 @@ final class _Transfer {
     this.background = false,
     this.originIdleTimeout,
   }) : client = _media.acquire(timeout),
-       track = _media.track;
+       track = _media.track,
+       diagnosticId = _media.diagnostics == null
+           ? 0
+           : ++_media.diagnostics!.nextTransferId;
   final _Media _media;
   _Media get media => _media;
   final HttpClient client;
   final CdnStartupTrack track;
   final int requestId;
+  final int diagnosticId;
+  final List<_RequestDiagnostic> diagnosticRequests = [];
   final bool background;
   final Duration? originIdleTimeout;
   final Stopwatch originWatch = Stopwatch();
@@ -2281,7 +2893,10 @@ final class _Transfer {
     final idle = originIdleTimeout;
     if (idle == null || _cancelled) return;
     _originIdleTimer?.cancel();
-    _originIdleTimer = Timer(idle, cancel);
+    _originIdleTimer = Timer(
+      idle,
+      () => cancel(reason: 'origin_idle_timeout'),
+    );
   }
 
   void endOriginWatchdog() {
@@ -2303,11 +2918,16 @@ final class _Transfer {
     _subscription = socket.listen(
       (_) {},
       onDone: () {
-        if (!_outputComplete) cancel();
+        if (!_outputComplete) cancel(reason: 'downstream_closed');
       },
-      onError: (Object _) => cancel(),
+      onError: (Object _) => cancel(reason: 'downstream_error'),
     );
-    unawaited(socket.done.then<void>((_) {}, onError: (Object _) => cancel()));
+    unawaited(
+      socket.done.then<void>(
+        (_) {},
+        onError: (Object _) => cancel(reason: 'downstream_error'),
+      ),
+    );
   }
 
   void check() {
@@ -2316,13 +2936,18 @@ final class _Transfer {
 
   void markOutputComplete() => _outputComplete = true;
 
-  void cancel() {
+  void cancel({String reason = 'cancelled'}) {
     if (_cancelled) return;
+    if (preempted && reason == 'cancelled') reason = 'preempted';
+    _media.diagnostics?.event('cancel', transfer: this, kind: reason);
+    for (final request in diagnosticRequests) {
+      request.end('cancel', kind: reason);
+    }
     _cancelled = true;
     cancellation.complete();
     endOriginWork();
     for (final child in children.toList()) {
-      child.cancel();
+      child.cancel(reason: 'parent_cancelled');
     }
     client.close(force: true);
     for (final release in buffers.toList()) {
@@ -2336,14 +2961,15 @@ final class _Transfer {
   void finish() {
     if (_cancelled) return;
     if (pendingWork != 0) {
-      cancel();
+      cancel(reason: 'unfinished_work');
       return;
     }
+    _media.diagnostics?.event('transfer_complete', transfer: this);
     _cancelled = true;
     cancellation.complete();
     endOriginWork();
     for (final child in children.toList()) {
-      child.cancel();
+      child.cancel(reason: 'parent_finished');
     }
     for (final release in buffers.toList()) {
       release();
@@ -2381,6 +3007,10 @@ final class _MediaResponse {
   _MediaResponse.pending() : _socket = null, _transfer = null;
   final Socket? _socket;
   final _Transfer? _transfer;
+  int _pendingBodyBytes = 0;
+  int _flushedBodyBytes = 0;
+  int _lastDiagnosticMs = 0;
+  int _lastDiagnosticBytes = 0;
   Completer<void>? _pendingWrite;
   final headers = _MediaHeaders();
   int statusCode = HttpStatus.ok;
@@ -2413,6 +3043,7 @@ final class _MediaResponse {
   void add(List<int> bytes) {
     _commit();
     _socket!.add(bytes);
+    if (_transfer?.media.diagnostics != null) _pendingBodyBytes += bytes.length;
   }
 
   Future<void> _waitForWrite(Future<void> Function() write) async {
@@ -2442,11 +3073,40 @@ final class _MediaResponse {
     // A full/paused player may hold this socket longer than an upstream idle
     // timeout. Cancellation still ends the wait and destroys the socket.
     await _waitForWrite(() => _socket!.flush());
+    final diagnostic = _transfer?.media.diagnostics;
+    if (diagnostic != null && _pendingBodyBytes > 0) {
+      final first = _flushedBodyBytes == 0;
+      _flushedBodyBytes += _pendingBodyBytes;
+      diagnostic.trackFlushedBytes.update(
+        _transfer!.track.name,
+        (count) => count + _pendingBodyBytes,
+        ifAbsent: () => _pendingBodyBytes,
+      );
+      _pendingBodyBytes = 0;
+      final now = diagnostic.clock.elapsedMilliseconds;
+      if (first ||
+          (now - _lastDiagnosticMs >= 500 &&
+              (_flushedBodyBytes - _lastDiagnosticBytes >= 256 * 1024 ||
+                  now - _lastDiagnosticMs >= 1000))) {
+        _lastDiagnosticMs = now;
+        _lastDiagnosticBytes = _flushedBodyBytes;
+        diagnostic.event(
+          'output_progress',
+          transfer: _transfer,
+          flushedBytes: _flushedBodyBytes,
+        );
+      }
+    }
   }
 
   Future<void> close() async {
     await flush();
     await _waitForWrite(() => _socket!.close().then<void>((_) {}));
+    _transfer?.media.diagnostics?.event(
+      'output_complete',
+      transfer: _transfer,
+      flushedBytes: _flushedBodyBytes,
+    );
   }
 }
 
@@ -2464,6 +3124,7 @@ final class _StreamingOrigin {
     this.start,
     this.end,
     this.reference,
+    this.diagnostic,
   );
   final _Transfer job;
   final CdnOrigin origin;
@@ -2472,5 +3133,6 @@ final class _StreamingOrigin {
   final int start;
   final int end;
   final _Chunk reference;
+  final _RequestDiagnostic? diagnostic;
   final release = Completer<void>();
 }
