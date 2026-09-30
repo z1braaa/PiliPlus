@@ -404,7 +404,8 @@ def native_safe(raw):
     for key in ('post_seek_observation_completed_seconds',):
         value = raw.get('metrics', {}).get(key)
         result[key] = value if value is None or number(value) else None
-    result['post_seek_observation_completed'] = raw.get('checks', {}).get('post_seek_observation_completed') is True
+    post_seek_completed = raw.get('checks', {}).get('post_seek_observation_completed')
+    result['post_seek_observation_completed'] = post_seek_completed if type(post_seek_completed) is bool else None
     def safe_cpu(value):
         return {key: value.get(key) if number(value.get(key)) else None
                 for key in ('wall_seconds', 'user_cpu_seconds', 'system_cpu_seconds', 'cpu_percent', 'peak_rss_bytes')} if isinstance(value, dict) else {'status': 'unknown'}

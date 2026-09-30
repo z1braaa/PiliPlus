@@ -151,6 +151,20 @@ class EvidenceAndPrivacy(unittest.TestCase):
         self.assertEqual(stats['cache_unknown_measured'], 1)
         self.assertIsNone(stats['initial_progress_seconds']['median'])
 
+    def test_unrequested_or_unknown_postseek_is_not_false(self):
+        for checks in ({'post_seek_observation_completed': None}, {},
+                       {'post_seek_observation_completed': 1}):
+            with self.subTest(checks=checks):
+                result = ablation.native_safe({'status': 'passed', 'metrics': {}, 'checks': checks})
+                self.assertIsNone(result['post_seek_observation_completed'])
+
+    def test_requested_postseek_boolean_result_is_preserved(self):
+        for completed in (True, False):
+            with self.subTest(completed=completed):
+                result = ablation.native_safe({'status': 'passed', 'metrics': {},
+                    'checks': {'post_seek_observation_completed': completed}})
+                self.assertIs(result['post_seek_observation_completed'], completed)
+
     def test_cpu_interval_is_distinct_and_can_exceed_one_core(self):
         result = ablation.cpu_delta({'wall': 1, 'user': 0, 'system': 0, 'peak_rss_bytes': 0},
                                    {'wall': 1.5, 'user': 1, 'system': 0.2, 'peak_rss_bytes': 100})

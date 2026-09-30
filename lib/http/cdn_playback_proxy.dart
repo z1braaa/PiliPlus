@@ -269,11 +269,7 @@ final class CdnPlaybackProxy {
   int get _normalLimit => max(1, concurrency - 1);
 
   void _drainSlotWaiters() {
-    for (final queue in [
-      _urgentWaiters,
-      _normalWaiters,
-      _backgroundWaiters,
-    ]) {
+    for (final queue in [_urgentWaiters, _normalWaiters, _backgroundWaiters]) {
       final count = queue.length;
       for (var index = 0; index < count; index++) {
         final waiter = queue.removeFirst();
@@ -623,10 +619,7 @@ final class CdnPlaybackProxy {
           ? min<int>(chunkSize, 512 * 1024)
           : chunkSize;
       if (smallTransitionPieces > 0) smallTransitionPieces--;
-      final chunkEnd = min<int>(
-        end,
-        next + size - 1,
-      );
+      final chunkEnd = min<int>(end, next + size - 1);
       pending.add(
         _buffered(
           transfer,
@@ -733,6 +726,80 @@ final class CdnPlaybackProxy {
     return (start, min(requestedEnd, total - 1));
   }
 
+  /// Observe the original I/O future even after cancellation/timeout so late
+  /// request/response objects are disposed and late errors remain handled.
+  /// Removable callbacks avoid one retained cancellation listener per chunk.
+  Future<T> _originIo<T>(
+    _Transfer transfer,
+    Future<T> pending, {
+    required void Function(T) discard,
+    void Function()? interrupt,
+    String timeoutMessage = 'CDN request timed out',
+  }) {
+    final completed = Completer<T>();
+    var settled = false;
+    Timer? timer;
+    late void Function() cancel;
+    void cleanup(T value) {
+      try {
+        discard(value);
+      } catch (_) {}
+    }
+
+    void reject(Object error) {
+      if (settled) return;
+      settled = true;
+      timer?.cancel();
+      transfer.originIoCancels.remove(cancel);
+      try {
+        interrupt?.call();
+      } catch (_) {}
+      completed.completeError(error);
+    }
+
+    cancel = () => reject(const HttpException('CDN request cancelled'));
+    transfer.originIoCancels.add(cancel);
+    unawaited(
+      pending.then<void>(
+        (value) {
+          if (settled || transfer.cancelled) {
+            cleanup(value);
+            cancel();
+            return;
+          }
+          settled = true;
+          timer?.cancel();
+          transfer.originIoCancels.remove(cancel);
+          completed.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          if (settled) return;
+          settled = true;
+          timer?.cancel();
+          transfer.originIoCancels.remove(cancel);
+          completed.completeError(error, stack);
+        },
+      ),
+    );
+    if (transfer.cancelled) {
+      cancel();
+    } else {
+      timer = Timer(timeout, () => reject(TimeoutException(timeoutMessage)));
+    }
+    return completed.future;
+  }
+
+  static void _discardOriginResponse(HttpClientResponse response) {
+    try {
+      unawaited(
+        response
+            .listen((_) {}, onError: (Object _) {})
+            .cancel()
+            .catchError((Object _) {}),
+      );
+    } catch (_) {}
+  }
+
   Future<HttpClientResponse> _open(
     _Transfer transfer,
     _Media media,
@@ -747,20 +814,35 @@ final class CdnPlaybackProxy {
       transfer.check();
       _upstreamRequests++;
       diagnostic?.open(uri, redirects);
-      final request = await transfer.client
-          .openUrl(method, uri)
-          .timeout(timeout);
-      request.followRedirects = false;
-      media.headers.forEach(request.headers.set);
-      request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
-      if (range != null) request.headers.set(HttpHeaders.rangeHeader, range);
-      final response = await request.close().timeout(
-        timeout,
-        onTimeout: () {
-          request.abort();
-          throw TimeoutException('CDN response timed out');
-        },
+      final request = await _originIo(
+        transfer,
+        transfer.client.openUrl(method, uri),
+        discard: (request) => request.abort(),
       );
+      HttpClientResponse? received;
+      late HttpClientResponse response;
+      try {
+        transfer.check();
+        request.followRedirects = false;
+        media.headers.forEach(request.headers.set);
+        request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+        if (range != null) request.headers.set(HttpHeaders.rangeHeader, range);
+        response = await _originIo<HttpClientResponse>(
+          transfer,
+          request.close(),
+          interrupt: request.abort,
+          discard: _discardOriginResponse,
+          timeoutMessage: 'CDN response timed out',
+        );
+        received = response;
+        transfer.check();
+      } catch (_) {
+        try {
+          request.abort();
+        } catch (_) {}
+        if (received != null) _discardOriginResponse(received);
+        rethrow;
+      }
       if (diagnostic != null) {
         final observedRange = RegExp(r'^bytes (\d+)-(\d+)/(\d+)$').firstMatch(
           response.headers.value(HttpHeaders.contentRangeHeader) ?? '',
@@ -1402,7 +1484,8 @@ final class CdnPlaybackProxy {
             : durationSeconds == null
             ? 4 * 1024 * 1024
             : max(128 * 1024, selected.reference.total / durationSeconds! * 3);
-        if (parallel &&
+        if ((parallel ||
+                (autoSelect && media.track == CdnStartupTrack.video)) &&
             adaptive &&
             supply.hasWindow &&
             supply.rate < target &&
@@ -2418,6 +2501,7 @@ final class CdnPlaybackProxy {
         } else {
           await for (final data in upstream.timeout(timeout)) {
             transfer.check();
+            _observedUpstreamBytes += data.length;
             diagnostic?.progress(data.length);
             output.add(data);
             await output.flush();
@@ -2521,9 +2605,8 @@ final class _RequestDiagnostics {
       return;
     }
     // Range text is accepted only by the numeric grammar; no raw string escapes.
-    final parsed = RegExp(r'^bytes=(\d*)-(\d*)$').firstMatch(
-      range ?? request?.range ?? '',
-    );
+    final parsed = RegExp(r'^bytes=(\d*)-(\d*)$')
+        .firstMatch(range ?? request?.range ?? '');
     final start = parsed == null ? null : int.tryParse(parsed[1]!);
     final end = parsed == null ? null : int.tryParse(parsed[2]!);
     events.add({
@@ -2882,6 +2965,7 @@ final class _Transfer {
   bool reportedSlot = false;
   final Set<void Function()> buffers = {};
   final Set<_Transfer> children = {};
+  final Set<void Function()> originIoCancels = {};
   Socket? _socket;
   StreamSubscription<Uint8List>? _subscription;
   void beginOriginWork() {
@@ -2893,10 +2977,7 @@ final class _Transfer {
     final idle = originIdleTimeout;
     if (idle == null || _cancelled) return;
     _originIdleTimer?.cancel();
-    _originIdleTimer = Timer(
-      idle,
-      () => cancel(reason: 'origin_idle_timeout'),
-    );
+    _originIdleTimer = Timer(idle, () => cancel(reason: 'origin_idle_timeout'));
   }
 
   void endOriginWatchdog() {
@@ -2945,6 +3026,9 @@ final class _Transfer {
     }
     _cancelled = true;
     cancellation.complete();
+    for (final cancel in originIoCancels.toList()) {
+      cancel();
+    }
     endOriginWork();
     for (final child in children.toList()) {
       child.cancel(reason: 'parent_cancelled');
@@ -2967,6 +3051,9 @@ final class _Transfer {
     _media.diagnostics?.event('transfer_complete', transfer: this);
     _cancelled = true;
     cancellation.complete();
+    for (final cancel in originIoCancels.toList()) {
+      cancel();
+    }
     endOriginWork();
     for (final child in children.toList()) {
       child.cancel(reason: 'parent_finished');
