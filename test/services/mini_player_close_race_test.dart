@@ -28,18 +28,20 @@ void main() {
   });
 
   setUp(() {
-    mini.current.value = null;
-    mini.wasClosedForOwner('first');
-    mini.wasClosedForOwner('second');
+    mini
+      ..current.value = null
+      ..wasClosedForOwner('first')
+      ..wasClosedForOwner('second');
     queue
       ..clearCurrent()
       ..clearPending();
   });
 
   tearDown(() {
-    mini.current.value = null;
-    mini.wasClosedForOwner('first');
-    mini.wasClosedForOwner('second');
+    mini
+      ..current.value = null
+      ..wasClosedForOwner('first')
+      ..wasClosedForOwner('second');
     queue.clearCurrent();
   });
 
