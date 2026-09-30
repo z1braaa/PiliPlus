@@ -1,0 +1,947 @@
+{
+  "created_at_utc": "2026-09-30T13:20:33.724939+00:00",
+  "source_commit": "cd0689c959ed07dd4558428e93d14948524820af",
+  "display_version": "2.1.5-CDN-AUTO-LIVE-RECOVERY+5437",
+  "native_build_number": 5437,
+  "macos_minimum": "13.0",
+  "dmg_path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/PiliPlus-2.1.5-CDN-AUTO-LIVE-RECOVERY+5437-macos-universal.dmg",
+  "dmg_sha256": "3446825904dd1aaef3f82433788ebe653c9a5fdb902d9f3a128b1497bcf384bd",
+  "dmg_bytes": 60145835,
+  "build_result": "macOS Release passed",
+  "build_log": "/Users/Admin/.cache/piliplus-tools/cdn-recovery-5437/build.log",
+  "flutter": {
+    "frameworkVersion": "3.47.5",
+    "channel": "[user-branch]",
+    "repositoryUrl": "https://github.com/flutter/flutter.git",
+    "frameworkRevision": "6a19cca56475dbfba1478ee68d7bd0c2ef891da1",
+    "frameworkCommitDate": "2026-09-17 14:13:22 -0400",
+    "engineRevision": "af7e796e161ae0bb1ff0758c71a7105418bd9ded",
+    "engineCommitDate": "2026-09-16 18:35:09.000Z",
+    "engineContentHash": "ab598368592da0064197e2bc15c7f5b0a2c6bb1f",
+    "engineBuildDate": "2026-09-17 03:35:21.428",
+    "dartSdkVersion": "3.13.4",
+    "devToolsVersion": "2.60.0",
+    "flutterVersion": "3.47.5",
+    "flutterRoot": "/Users/Admin/.cache/piliplus-tools/flutter"
+  },
+  "xcode": "Xcode 27.0\nBuild version 27A266a",
+  "build_environment": {
+    "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer",
+    "FLUTTER_SWIFT_PACKAGE_MANAGER": "false"
+  },
+  "signing": "ad-hoc; deep/strict verification passed; read-only mounted app matches stage",
+  "mach_o_count": 45,
+  "architectures": [
+    {
+      "path": "Contents/MacOS/PiliPlus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/App.framework/App",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Ass.framework/Ass",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avcodec.framework/Avcodec",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avfilter.framework/Avfilter",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avformat.framework/Avformat",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avutil.framework/Avutil",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Dav1d.framework/Dav1d",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Freetype.framework/Freetype",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Fribidi.framework/Fribidi",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Harfbuzz.framework/Harfbuzz",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedcrypto.framework/Mbedcrypto",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedtls.framework/Mbedtls",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedx509.framework/Mbedx509",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mpv.framework/Mpv",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/OrderedSet.framework/OrderedSet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Png16.framework/Png16",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swresample.framework/Swresample",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swscale.framework/Swscale",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Uchardet.framework/Uchardet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Xml2.framework/Xml2",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/app_links.framework/app_links",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_service.framework/audio_service",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_session.framework/audio_session",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/battery_plus.framework/battery_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/connectivity_plus.framework/connectivity_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/device_info_plus.framework/device_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/dynamic_color.framework/dynamic_color",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_picker_darwin.framework/file_picker_darwin",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_selector_macos.framework/file_selector_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_inappwebview_macos.framework/flutter_inappwebview_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_volume_controller.framework/flutter_volume_controller",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_libs_macos_video.framework/media_kit_libs_macos_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_native_event_loop.framework/media_kit_native_event_loop",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_video.framework/media_kit_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/objective_c.framework/objective_c",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/package_info_plus.framework/package_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/screen_retriever_macos.framework/screen_retriever_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/share_plus.framework/share_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/shared_preferences_foundation.framework/shared_preferences_foundation",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/tray_manager.framework/tray_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/wakelock_plus.framework/wakelock_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/window_manager.framework/window_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    }
+  ],
+  "mounted_hashes": {
+    "Contents/MacOS/PiliPlus": "ee59614b4f4153904c6b222b8bd72330cfe8d18b77dea3643c1a5f4258a45823",
+    "Contents/Info.plist": "63f7ff3aadcbe3254364880905f2354615884f15d368bdb599ee7b4839b0b6f0",
+    "Contents/Frameworks/App.framework/App": "68e91e2c7b35956d3f6838244e2e1232f2f1c9e336af48d3b2f7db3afa2cf0f0"
+  },
+  "stage_app": "/Users/Admin/.cache/piliplus-tools/cdn-recovery-5437/package-ul43rn9n/PiliPlus.app",
+  "restored_generated_macos_paths": [
+    "macos/Flutter/Flutter-Debug.xcconfig",
+    "macos/Flutter/Flutter-Release.xcconfig",
+    "macos/Podfile",
+    "macos/Podfile.lock",
+    "macos/Runner.xcodeproj/project.pbxproj",
+    "macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme",
+    "macos/Runner.xcworkspace/contents.xcworkspacedata"
+  ],
+  "tests": {
+    "created_at_utc": "2026-09-30T13:14:11.886090+00:00",
+    "kind": "cdn_recovery_test_evidence",
+    "status": "passed_with_recorded_stage_boundaries",
+    "core_sha256": "e68379d82b87492daae0f29bb58a2e1ee4bf1f49cbff934c24fef6a1d4702413",
+    "transport_final": {
+      "kind": "repository_final_transport_after_style",
+      "created_at_utc": "2026-09-30T13:00:43.720945+00:00",
+      "status": "passed",
+      "file_timeout_seconds": 180,
+      "external_network": false,
+      "real_credentials": false,
+      "source_sha256_before": {
+        "lib/http/cdn_playback_proxy.dart": "e68379d82b87492daae0f29bb58a2e1ee4bf1f49cbff934c24fef6a1d4702413",
+        "lib/http/cdn_origin_policy.dart": "75f67f073d8aac71854e9c9f754f505946494773d0cd48356eb061fcc3572d60",
+        "lib/utils/cdn_startup_trace.dart": "e68a91830b1ce01cd8a601f4bc8a19a449b4fc4d8fde732c887381342562d61e",
+        "tool/cdn_benchmark_bridge.dart": "957323e0ca8923cc8a4f90b6a93cc943fba5078354cd8cfc65bbdab8b953ef0e",
+        "tool/cdn_proxy_smoke_test.dart": "d8add43a24b01ba07f943ebe01ca1e32de32b54c5eebc429ba14d57b298edfd3",
+        "tool/cdn_multi_origin_test.dart": "3025b31580e5a8d26a75ad063be5b781ccc97881ba1918b13d05fbae69a3a0cc",
+        "tool/cdn_startup_test.dart": "cf228fa650800571d1eccec51c6b1516089ce7523ead1df5d2b971964b329c6f",
+        "tool/cdn_measured_test.dart": "126384e9581fd935b9a44e6b02cf7937fd729bbbf9be920482747d5c51b5ded8",
+        "tool/cdn_diagnostics_test.dart": "8b19addca6911bfdf04843868e3ab8fcf4f9abeb0b4a952661f924f51918cbc9",
+        "tool/cdn_origin_cancel_test.dart": "8877dbb151efcedf5a1d477811d0c00c44a90f51c94595dcc9a2209d5d5577cb",
+        "tool/cdn_auto_only_recovery_test.dart": "45ddf38efb913c65272b7f197a1edaf7c9777eced997d13f231718a6c3045711"
+      },
+      "analyzer": {
+        "status": "passed",
+        "issues": 0,
+        "errors": 0,
+        "warnings": 0,
+        "infos": 0,
+        "file": "analyze-final.log",
+        "files": [
+          "lib/http/cdn_playback_proxy.dart",
+          "lib/http/cdn_origin_policy.dart",
+          "lib/utils/cdn_startup_trace.dart",
+          "tool/cdn_benchmark_bridge.dart",
+          "tool/cdn_proxy_smoke_test.dart",
+          "tool/cdn_multi_origin_test.dart",
+          "tool/cdn_startup_test.dart",
+          "tool/cdn_measured_test.dart",
+          "tool/cdn_diagnostics_test.dart",
+          "tool/cdn_origin_cancel_test.dart",
+          "tool/cdn_auto_only_recovery_test.dart"
+        ]
+      },
+      "earlier_stage": {
+        "report": "report-before-style.json",
+        "core_sha256": "1cd8618719b872abe6b1b3af06d065d9523e9ff33731b2e953fdcdf9ad8f95a1",
+        "passed": 86,
+        "total": 86,
+        "legacy_and_diagnostics_passed": 78,
+        "legacy_and_diagnostics_total": 78,
+        "analyzer_infos": 12
+      },
+      "changes_since_earlier_stage": [
+        "Core interrupt closure changed to equivalent request.abort tearoff only.",
+        "Two new fixture import-lint annotations, braces, header cascade and leading comments only."
+      ],
+      "files": [
+        {
+          "file": "tool/cdn_origin_cancel_test.dart",
+          "log": "cdn_origin_cancel_test-after-style.log",
+          "exit_code": 0,
+          "timeout": false,
+          "elapsed_seconds": 18.241,
+          "counted_case_successes": 4,
+          "summary": {
+            "passed": 4,
+            "total": 4
+          },
+          "status": "passed"
+        },
+        {
+          "file": "tool/cdn_auto_only_recovery_test.dart",
+          "log": "cdn_auto_only_recovery_test-after-style.log",
+          "exit_code": 0,
+          "timeout": false,
+          "elapsed_seconds": 20.037,
+          "counted_case_successes": 4,
+          "summary": {
+            "passed": 4,
+            "total": 4
+          },
+          "status": "passed"
+        }
+      ],
+      "source_sha256_after": {
+        "lib/http/cdn_playback_proxy.dart": "e68379d82b87492daae0f29bb58a2e1ee4bf1f49cbff934c24fef6a1d4702413",
+        "lib/http/cdn_origin_policy.dart": "75f67f073d8aac71854e9c9f754f505946494773d0cd48356eb061fcc3572d60",
+        "lib/utils/cdn_startup_trace.dart": "e68a91830b1ce01cd8a601f4bc8a19a449b4fc4d8fde732c887381342562d61e",
+        "tool/cdn_benchmark_bridge.dart": "957323e0ca8923cc8a4f90b6a93cc943fba5078354cd8cfc65bbdab8b953ef0e",
+        "tool/cdn_proxy_smoke_test.dart": "d8add43a24b01ba07f943ebe01ca1e32de32b54c5eebc429ba14d57b298edfd3",
+        "tool/cdn_multi_origin_test.dart": "3025b31580e5a8d26a75ad063be5b781ccc97881ba1918b13d05fbae69a3a0cc",
+        "tool/cdn_startup_test.dart": "cf228fa650800571d1eccec51c6b1516089ce7523ead1df5d2b971964b329c6f",
+        "tool/cdn_measured_test.dart": "126384e9581fd935b9a44e6b02cf7937fd729bbbf9be920482747d5c51b5ded8",
+        "tool/cdn_diagnostics_test.dart": "8b19addca6911bfdf04843868e3ab8fcf4f9abeb0b4a952661f924f51918cbc9",
+        "tool/cdn_origin_cancel_test.dart": "8877dbb151efcedf5a1d477811d0c00c44a90f51c94595dcc9a2209d5d5577cb",
+        "tool/cdn_auto_only_recovery_test.dart": "45ddf38efb913c65272b7f197a1edaf7c9777eced997d13f231718a6c3045711"
+      },
+      "source_unchanged": true,
+      "passed_on_final_sources": 8,
+      "total_on_final_sources": 8,
+      "combined_case_coverage_passed": 86,
+      "combined_case_coverage_total": 86,
+      "combined_case_coverage_boundary": "78 legacy/diagnostic cases ran on the pre-style 1cd core; final style-only core re-ran the 8 new cases, not the legacy 78."
+    },
+    "python": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "python",
+          "exit_code": 0,
+          "seconds": 2.909,
+          "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/python.log",
+          "sha256": "771b6492bbbd5ebdb3b13fc7dbf9837a79924877668b0e6f3723cf0b3573093d"
+        }
+      ],
+      "counts": {
+        "ran": 152,
+        "passed": 151,
+        "skipped": 1,
+        "failed": 0
+      },
+      "ablation_tool_tests": 22
+    },
+    "flutter": {
+      "name": "flutter",
+      "exit_code": 0,
+      "seconds": 10.19,
+      "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/flutter.log",
+      "sha256": "fbd1d37f580e48f6918bd8ac73a18d4742e959e1d24e7dac8278beeb99f657d9",
+      "counts": {
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0
+      },
+      "test_lifecycle_done_events": 24
+    },
+    "original_controls_and_private_candidate_stage": {
+      "kind": "private_loopback_candidate_validation",
+      "created_at_utc": "2026-09-30T12:45:48.611385+00:00",
+      "candidate_revision": "v2-formatted-analyzer-fixes",
+      "repo_sources_modified": false,
+      "external_network": false,
+      "real_credentials": false,
+      "source_sha256": {
+        "lib/http/cdn_playback_proxy.dart": "1cd8618719b872abe6b1b3af06d065d9523e9ff33731b2e953fdcdf9ad8f95a1",
+        "lib/http/cdn_playback_proxy.cancel-only.dart": "c5b1d1eba639e490065cd06a0ec62b943fa056eb187c008802872cc42c9188c1",
+        "tool/cdn_origin_cancel_test.dart": "1f3036d406c4136eed803464f13a51e6b46f5e6de85cdc26a4f471f6e7383a58",
+        "tool/cdn_auto_only_recovery_test.dart": "ee2a2c8e2213e0632f1499800350fc4ee1308e1415eafe7691ec1c0cd53787b8",
+        "01-cancel-origin-io.patch": "5a0fff2fc608d95e7fcfd14ca7b3c2b661e56a582c6bb6ad698fba7255cee245",
+        "02-auto-only-supply-recovery.patch": "4f7a5c5ed7c9e2582c273ef72ebd97e001395a59858da5eb6bb5dc3a0a90560c"
+      },
+      "original_control_proxy_sha256": "391f454bb01d91ae92b373494c3b513fc910ecc0e34843c529c2e70dbb2e437e",
+      "validation": {
+        "analyzer_v1": {
+          "status": "compile_errors",
+          "issues": 5,
+          "log": "analyze-v1.log",
+          "resolution": "private-only explicit HttpClientResponse generic and split nullable assignment; fixture dart:io import"
+        },
+        "analyzer_v2": {
+          "status": "passed",
+          "issues": 0,
+          "log": "analyze-v2.log"
+        },
+        "candidate_cancel": {
+          "status": "passed",
+          "passed": 4,
+          "total": 4,
+          "log": "cancel-v2.log",
+          "thresholds": {
+            "response_ms_min": 2700,
+            "response_ms_max_exclusive": 3700,
+            "origin_idle_ms_min": 2700,
+            "origin_idle_ms_max_exclusive": 3300,
+            "cancel_to_release_ms_max_exclusive": 500,
+            "cancel_to_fallback_ms_max_exclusive": 500
+          }
+        },
+        "candidate_auto": {
+          "status": "passed",
+          "passed": 4,
+          "total": 4,
+          "log": "auto-v2.log",
+          "coverage": [
+            "slow_video_recovers_with_one_ordered_window",
+            "healthy_video_no_chunks",
+            "mismatched_peer_rejected",
+            "healthy_low_bitrate_audio_no_chunks"
+          ]
+        },
+        "candidate_measured": {
+          "status": "passed",
+          "passed": 29,
+          "total": 29,
+          "log": "measured-v2.log"
+        },
+        "original_cancel_control": {
+          "status": "expected_failure_reproduced",
+          "exit_code": 255,
+          "log": "control-cancel.log",
+          "passthrough_counter_checked": false,
+          "response_elapsed_ms": 4065,
+          "cancel_to_release_ms": 1005,
+          "cancel_to_fallback_ms": 1006,
+          "failure": "fallback_response_exceeds_3700ms"
+        },
+        "original_auto_control": {
+          "status": "expected_failure_reproduced",
+          "exit_code": 255,
+          "log": "control-auto.log",
+          "failure": "auto_only_missing_low_supply_recovery"
+        }
+      },
+      "boundaries": [
+        "Loopback/fake-upstream checks prove behavior and byte safety, not actual Singapore-network acceleration.",
+        "No GUI/native playback, release build, Cookie, signed media URL or official endpoint was used.",
+        "Original controls stop at first discriminating assertion failure; they are control evidence, not candidate regression failures.",
+        "Candidate remains private and unlanded; frozen repo core untouched."
+      ]
+    },
+    "evidence_files": [
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/analyze-v1.log",
+        "sha256": "bf2d9ef1132451e08b1ea2302358ab349264211e299108e878195bbf81c04445",
+        "bytes": 1124
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/analyze-v2.log",
+        "sha256": "06d6a1d61344bdecb5c379daa2c22b5edba7c181fc4571c69b60e0f7a2d5be08",
+        "bytes": 117
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/auto-v2.log",
+        "sha256": "8f0c7de8b99af93d9bce39f4230e378b8b742cd1714811c6bac35f85c0f6dd6f",
+        "bytes": 345
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/cancel-v2.log",
+        "sha256": "0bc4b05e1a74f51e8fbf92b51d09460ef4ab869bb289394ab9d6baa709630410",
+        "bytes": 941
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/control-auto.log",
+        "sha256": "ed15152b8bbc42cb1a77dacd9d225997a4d5d60710de266c23331a6885c528ed",
+        "bytes": 505
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/control-cancel.log",
+        "sha256": "9c114b46ae7758351b11b92ecca4e3b659391eced7b611172776b3af8889818f",
+        "bytes": 893
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/format-v2.log",
+        "sha256": "11fa9bef8d8fc7afff8e4deace774cc0112b0c233c7459d267f4bde20fde2361",
+        "bytes": 47
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/format.log",
+        "sha256": "0558b0b996e2d66eb17b1ac9d88772995be593dcdf27568b43029a515de98c8f",
+        "bytes": 236
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/measured-v2.log",
+        "sha256": "0c1efdc944149c1c3698d929e4c3e3468b980e27885bb8bcf74cad5a51c53831",
+        "bytes": 8213
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/repo-analyze-v1.log",
+        "sha256": "4ffad9abcb2c18048815c5aebb95de00b3f3aa1ff98636cb47c3b14170d4dc05",
+        "bytes": 2634
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/candidate-fixtures/validation-summary.json",
+        "sha256": "d062dbb905f39657e3ccc24abf1884a36cfb6f6592682021bd90e66b6df7f4cc",
+        "bytes": 3271
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/analyze-before-style.log",
+        "sha256": "4ffad9abcb2c18048815c5aebb95de00b3f3aa1ff98636cb47c3b14170d4dc05",
+        "bytes": 2634
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/analyze-final.log",
+        "sha256": "98e22f0ee7345a89ca9033a59f856623e1b275f3b74c5060c6b34987f89027cb",
+        "bytes": 321
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/analyze-fixtures-style-only.log",
+        "sha256": "d3e153fc5fc26b28ae8d0eda5c147870b2de0e4fa6fec49e19278a07167c0c8f",
+        "bytes": 467
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_auto_only_recovery_test-after-style.log",
+        "sha256": "8b454abcc5e2c52f64a9503d79d2cb354986de08fc4c92eab660153f17d0f807",
+        "bytes": 345
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_auto_only_recovery_test.log",
+        "sha256": "6de803492a70509addcb6a7435b27118ec23ca7c458e2f927814654167bb2abd",
+        "bytes": 345
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_diagnostics_test.log",
+        "sha256": "3dda85f64b2f44cd3ed769039cd754990cedec20da4492172f0c7c10430b4ffb",
+        "bytes": 434
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_measured_test.log",
+        "sha256": "81e3eb0559ec19de79c57ec6f96014b9dcdcbde37a2bc80c5625cac55b226fec",
+        "bytes": 8181
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_multi_origin_test.log",
+        "sha256": "4a7f89d6830117004159dd786d05db720fb774cfd76e28695911ff6993ec5796",
+        "bytes": 1076
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_origin_cancel_test-after-style.log",
+        "sha256": "2bfda99515f89d5f1295064eb4fcdc54d1a89c0a8fb9903e4c5738a8be500d4f",
+        "bytes": 941
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_origin_cancel_test.log",
+        "sha256": "376e629d72283ea367ac09f15431aa82fe59e370db4eb9dd7cf919220aa13335",
+        "bytes": 941
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_proxy_smoke_test.log",
+        "sha256": "2b8d95bcd722a62afc10a67973a70f7351b84a57475a23cbaeb63743dc87818f",
+        "bytes": 954
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/cdn_startup_test.log",
+        "sha256": "71f57693f3e9f67bd8bffc2dcf8050dc7756b52db0c656d76deec8b22973037e",
+        "bytes": 1074
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/flutter-report.json",
+        "sha256": "a7e7d2107f990b2b047e6b8f5c0f6b3cfe2916d07f99b0eead9183316be1e7a4",
+        "bytes": 361
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/flutter.log",
+        "sha256": "fbd1d37f580e48f6918bd8ac73a18d4742e959e1d24e7dac8278beeb99f657d9",
+        "bytes": 12132
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/new-fixtures-format.log",
+        "sha256": "43a0060b01f8d00290502db016cbde393b149f5a0971989771a4fe3fddc181e7",
+        "bytes": 47
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/python-report.json",
+        "sha256": "283c4adfeadc788dd24961279aecbf97300e64163ce1c86c602ed27090fb376b",
+        "bytes": 324
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/python.log",
+        "sha256": "771b6492bbbd5ebdb3b13fc7dbf9837a79924877668b0e6f3723cf0b3573093d",
+        "bytes": 14722
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/report-before-style.json",
+        "sha256": "1fa85031dfedafba212ed890485900ad778d3ba76b050b08afef732381bb699d",
+        "bytes": 6062
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/report-initial-as-written.json",
+        "sha256": "7b7baeccd5868b8c3f42a140fb305a38bddaee3965acfdacb4bd44aca5506376",
+        "bytes": 5855
+      },
+      {
+        "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-three-diagnostic-5436/final-fixtures/report.json",
+        "sha256": "d3926856498cd882785f57fabc97f16b182eef4bafd1636a6f3acd3c116d1563",
+        "bytes": 4769
+      }
+    ],
+    "boundary": [
+      "86 transport cases ran before an equivalent core closure-to-tearoff style change; 8 new cases re-ran on final e683 core. Final analyzer covers 11 files.",
+      "Python 152 cases includes one explicit skip; Flutter 24 are selected related regressions, not the complete application suite.",
+      "Loopback checks validate recovery/cancellation and byte safety; native network retests are separate evidence.",
+      "Initial private compile failure and initial 12 analyzer info diagnostics are retained in underlying stage reports.",
+      "New package GUI and hardware decoding are not covered by these checks."
+    ]
+  },
+  "embedded_source_hash_verified": true,
+  "tracked_macos_clean_after_build": true,
+  "limits": [
+    "not Apple-notarized",
+    "Intel hardware and other platforms not run",
+    "new package GUI CDN playback not run at packaging; recorded separately if performed"
+  ],
+  "packaged_native_library": {
+    "sha256": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c",
+    "version": "mpv 0.36.0",
+    "version_evidence": "SHA-identical to the library loaded in the native recovery trials",
+    "matches_recovery_trials": true
+  }
+}

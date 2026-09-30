@@ -221,7 +221,7 @@
 
 本仓库的 [需求索引](docs/requirements/README.md) 收录点播起播优化、[直播互动重排](docs/requirements/08-live-interaction-refresh-review.md)及[应用内小窗与临时播放列表](docs/requirements/07-mini-player-temporary-playlist.md)；[开发与验收指引](docs/harness/README.md) 区分已实现、已验证和未运行。并发 CDN V2 的已实现基线另见 [V2 文档](docs/parallel-cdn-playback-v2.md)。应用内小窗不同于系统画中画，临时列表不同于账号“稍后再看”。
 
-2026-09-29 [实测驱动修订](docs/requirements/11-measured-cdn-and-battery.md)：金币礼物按 100 原始 gold = 1 电池显示，交易请求仍使用原始单位。新增独立的“自动选择 CDN”，可单独开启或配合并发；关闭自动选源时手选 CDN 仍生效。自适应并发默认开启，仅在并发开关开启时工作，关闭自适应后使用手动路数和分块。CDN 测速显示连续分段均速、最慢段和首包等待；固定样片不能代表当前视频。
+2026-09-29 [实测驱动修订](docs/requirements/11-measured-cdn-and-battery.md)：金币礼物按 100 原始 gold = 1 电池显示，交易请求仍使用原始单位。新增独立的“自动选择 CDN”，可单独开启或配合并发；关闭自动选源时手选 CDN 仍生效。自适应默认开启，并发开启时调整路数，关闭后使用手动路数和分块；5437也为仅自动选源且自适应开启的视频补入持续低速单窗口恢复。CDN 测速显示连续分段均速、最慢段和首包等待；固定样片不能代表当前视频。
 
 `python3 tool/vod_supply_test.py --output /tmp/pili-supply --count 40` 自动比较公开视频的双轨供给，`--new-only` 使用新投稿目录。默认匿名且不自动读取应用账号；获授权后可显式传入私有 `--cookie-file`，仅用于官方只读取源。`--quality-code 120 --middle-window` 可核对实际画质并测初始／字节中段；报告保留失败与覆盖缺口。下载模拟不能代替真实首帧、声音，需配合原生播放器测试，完整参数见[自动化指南](docs/harness/automated-vod-testing.md)。
 
@@ -274,3 +274,5 @@
 2026-09-30：[5435 小窗媒体切换修复与验收](docs/harness/mini-navigation-fix-5435.md)。所有视频切换不触发小窗；含 154 项 Flutter 回归、macOS 包及隔离游客相关视频复测。
 
 2026-09-30：[5436 授权4K卡顿复查与最终修复](docs/harness/cdn-auth-evaluation-20260930.md)。包含原卡顿复现、40视频160轮供给、默认/用户缓冲与独立原生复测、全部失败及负例、macOS测试包和凭据清理；完整体验目标仍为部分完成。
+
+2026-09-30：[三视频卡顿原因与42轮消融](docs/harness/cdn-three-diagnostic-20260930.md)、[5437恢复修复和8轮复测](docs/harness/cdn-recovery-20260930.md)。新增可复用诊断脚本，分离持续供给、代理等待、原生缓存与解码证据；修复取消占槽与自动视频低速恢复。八轮大缓存/软件解码原生复测均0缓存暂停，负例与传输失败独立保留，最新GUI和全场景性能仍待验收。
