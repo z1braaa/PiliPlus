@@ -103,13 +103,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   bool get _interactionUIVisible => _enhancementSheetRoute?.isActive == true;
   String get _miniOwnerKey => 'live:${_liveRoomController.requestedRoomId}';
 
-  bool _showMiniPlayer() => InAppMiniPlayer.instance.show(
+  bool _showMiniPlayer({bool isPop = false}) => InAppMiniPlayer.instance.show(
     ownerKey: _miniOwnerKey,
     routeName: '/liveRoom',
     routeArguments: _liveRoomController.requestedRoomId,
     ownerRoute: ModalRoute.of(context),
     controller: plPlayerController,
     title: _liveRoomController.roomInfoH5.value?.roomInfo?.title,
+    isPop: isPop,
   );
 
   @override
@@ -466,7 +467,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     return popScope(
       canPop: !isFullScreen && !plPlayerController.isDesktopPip,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop && _showMiniPlayer()) return;
+        if (didPop && _showMiniPlayer(isPop: true)) return;
         plPlayerController.onPopInvokedWithResult(didPop, result);
       },
       child: player,

@@ -591,14 +591,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
-  bool _showInAppMiniPlayer() => InAppMiniPlayer.instance.show(
-    ownerKey: heroTag,
-    routeName: '/videoV',
-    routeArguments: videoDetailController.args,
-    ownerRoute: ModalRoute.of(context),
-    controller: videoDetailController.plPlayerController,
-    title: videoDetailController.args['title'] as String?,
-  );
+  bool _showInAppMiniPlayer({bool isPop = false}) =>
+      InAppMiniPlayer.instance.show(
+        ownerKey: heroTag,
+        routeName: '/videoV',
+        routeArguments: videoDetailController.args,
+        ownerRoute: ModalRoute.of(context),
+        controller: videoDetailController.plPlayerController,
+        title: videoDetailController.args['title'] as String?,
+        isPop: isPop,
+      );
 
   @override
   void didChangeDependencies() {
@@ -1359,7 +1361,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         !videoDetailController.plPlayerController.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait),
     onPopInvokedWithResult: (didPop, result) {
-      if (didPop && _showInAppMiniPlayer()) return;
+      if (didPop && _showInAppMiniPlayer(isPop: true)) return;
       videoDetailController.plPlayerController.onPopInvokedWithResult(
         didPop,
         result,

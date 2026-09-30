@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
+
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -56,7 +58,14 @@ class InAppMiniPlayer {
     required Route<dynamic>? ownerRoute,
     required PlPlayerController controller,
     String? title,
+    bool isPop = false,
   }) {
+    if (!routeObserver.canCreateMiniPlayer(
+      ownerRoute: ownerRoute,
+      isPop: isPop,
+    )) {
+      return false;
+    }
     if (_suppressedNavigations.remove(ownerKey)) return false;
     if (_pendingRestore != null ||
         _restoringOwner == ownerKey ||
@@ -131,9 +140,12 @@ class InAppMiniPlayer {
     return true;
   }
 
-  void restore() {
+  void restore([MiniPlayback? expectedSession]) {
     final session = current.value;
-    if (session == null) return;
+    if (session == null ||
+        (expectedSession != null && !identical(expectedSession, session))) {
+      return;
+    }
     // Hide before navigating. The destination may be built on a later frame;
     // leaving the overlay visible until adoption creates two video views.
     _handoff.beginRestore();
@@ -169,30 +181,36 @@ class InAppMiniPlayer {
   }
 
   /// Explicitly closing the small window stops the current media source.
-  Future<void> close() async {
+  Future<void> close([MiniPlayback? expectedSession]) async {
     final session = current.value ?? _pendingRestore;
-    if (session == null) return;
+    if (session == null ||
+        (expectedSession != null && !identical(expectedSession, session))) {
+      return;
+    }
     _stoppedOwners.add(session.ownerKey);
     _handoff.takePending();
     _restoringOwner = null;
     _hide(session);
+    // Clear this cursor before awaiting stop; a new playback route can mark
+    // its own queue item while the old native stop is still completing.
+    TemporaryQueueService.instance.clearCurrent();
     try {
       await session.controller.videoPlayerController?.stop();
     } finally {
       session.controller.releaseFromInAppMiniPlayer();
-      TemporaryQueueService.instance.clearCurrent();
     }
   }
 
   void _onStatus(PlayerStatus status) {
     if (status == PlayerStatus.completed) {
+      final session = current.value;
+      if (session == null) return;
       // Player notifies a mutable listener set. Finish after that iteration.
       scheduleMicrotask(() async {
-        final session = current.value;
-        if (session == null) return;
+        if (!identical(current.value, session)) return;
         if (shutdownTimerService.isWaiting) {
           shutdownTimerService.handleWaiting();
-          await close();
+          await close(session);
           return;
         }
         if (!session.controller.isLive &&
@@ -203,7 +221,9 @@ class InAppMiniPlayer {
         final next = session.controller.isLive
             ? null
             : TemporaryQueueService.instance.nextAfterCompletion();
-        await close();
+        final navigationRevision = routeObserver.navigationRevision;
+        await close(session);
+        if (navigationRevision != routeObserver.navigationRevision) return;
         if (next?.cid case final cid?) {
           PageUtils.toVideoPage(
             bvid: next!.bvid,
@@ -330,14 +350,20 @@ class _InAppMiniPlayerHostState extends State<InAppMiniPlayerHost> {
                   playing: snapshot.data == true,
                   title: session.title,
                   onPlayPause: () {
+                    if (!identical(
+                      InAppMiniPlayer.instance.current.value,
+                      session,
+                    )) {
+                      return;
+                    }
                     if (snapshot.data == true) {
                       session.controller.pause();
                     } else {
                       session.controller.play();
                     }
                   },
-                  onRestore: InAppMiniPlayer.instance.restore,
-                  onClose: InAppMiniPlayer.instance.close,
+                  onRestore: () => InAppMiniPlayer.instance.restore(session),
+                  onClose: () => InAppMiniPlayer.instance.close(session),
                   onMove: (details) => setState(() {
                     _topLeft = Offset(
                       x + details.delta.dx,
