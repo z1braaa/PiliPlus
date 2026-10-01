@@ -416,3 +416,15 @@ P3主默认7视频28轮为27有效/1华为media_error失败；14并发有效，�
 最终源码冻结后独立8轮实网均有已知缓存指标且0缓存暂停：BV1ika正常池auto-only两轮与smart两轮，各连续35s；BV1yra smart两轮各从0至150s；BV1TE smart两轮15s后跳到1200s，主demux范围外恢复1.3927/1.1060s，继续至目标+15s均完成。8轮为auto-only2/smart6，不能归纳为4/4，也不能把开启smart等同实际使用多路；BV1ika四轮健康视频未触发切片，auto-only低速恢复的实网路径未再次命中。传输超时、取消和frame-drop仍保留，0缓存暂停不是所有请求/画面零异常。见[恢复报告](cdn-recovery-20260930.md)。
 
 原生条件为用户360s/200MiB缓存、mpv60s网络超时/代理10s、软件解码/null输出、adaptive=true。前42轮异常不从分母移除，后8轮不与前组混合中位数；反向排列降低顺序影响，未排除时段/CDN缓存变化。默认16s/4MiB、adaptive=false手动策略、真实GUI/硬解、长时VBR、其他网络/平台与全体验性能仍待验收。5437 macOS双架构Release、签名、只读DMG和源提交身份通过，见[构建记录](results/cdn-recovery-macos-build-5437.json)；本轮凭据清理由[独立记录](results/cdn-three-diagnostic-privacy-5437.json)验收，原安装/账号保持不变。
+
+## 2026-10-01 功能源码提交官方上游（UPSTREAM-01）
+
+用户明确授权排除自动化测试部分，提交其余功能并披露Codex作者来源。对应NET-02/03/04/06/07/08/13/14/17、LIVE-UI/TX、MINI、TEMP客户端已实现范围；不提升真实交易、其他网络或平台的验收状态。
+
+新独立上游分支 `codex/upstream-playback-live-features` 基于官方 `c102a6115c7ac040f6a0c6a1653944b81b82dcb4`，从完整改版快照 `18099fc5cd516da9dbc12571d5254d31ef352757` 导出59个lib功能文件与macOS回环server权限，重新写功能README。两处手选CDN锁定说明由“关闭并发”改为实际条件“关闭自动选择CDN”；其余运行期功能保持快照字节身份，代理core仍为 `e68379d8…`。
+
+在此新树离线获取依赖，临时复制19个功能回归文件，仅本地运行。154真实Flutter用例通过、0失败/跳过；33框架生命周期事件另计。59个变化源码分析0问题；60生产文件运行前后SHA相同。临时19测试全部移除、官方原有测试保留，运行过程未改变跟踪文件。完整本地记录保留在 `/Users/Admin/.cache/piliplus-tools/upstream-submission/validation-result.json`，未加入官方PR；此轮没有读取Cookie、实网播放、GUI、新包构建或真实账户写操作。
+
+上游源码提交 `1f20ad352d3acdc1583cd834c0e0ab5b59535cbe` 共61文件、11939增加/588删除；已核对GitHub远端文件名单，只有59个lib、README和Release.entitlements，没有新增tool/test、实验报告、私人AGENTS、.gitignore例外、依赖或workflow改动。提交带 `Generated-by: OpenAI Codex`，README与PR正文也明确新增/修改代码由OpenAI Codex编写，不声称逐行人工审查。
+
+[官方PR #3145](https://github.com/bggRGjQaUbCoE/PiliPlus/pull/3145) 已建立并附到当前任务，base官方main、head为z1braaa功能分支，状态OPEN且非草稿；未合并。正文详细分列CDN/测速、直播布局/互动/官方页、SC恢复、小窗、队列和账号会话，保留SC/大航海订单缺口、Linux阻断付费页及Android/Windows清理全部WebView Cookie影响。此记录仅保存在用户fork的harness，未带入官方功能PR。
