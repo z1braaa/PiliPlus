@@ -511,10 +511,10 @@ class HeaderControlState extends State<HeaderControl>
                 if (!isFileSource)
                   StreamBuilder(
                     stream: setting.watch(
-                      key: SettingBoxKey.cdnParallelLoading,
+                      key: SettingBoxKey.cdnAutoSelect,
                     ),
                     builder: (context, snapshot) {
-                      final managed = Pref.cdnParallelLoading;
+                      final managed = Pref.cdnAutoSelect;
                       return ListTile(
                         dense: true,
                         enabled: !managed,
@@ -525,14 +525,14 @@ class HeaderControlState extends State<HeaderControl>
                         ),
                         subtitle: Text(
                           managed
-                              ? '并发 CDN 已接管视频与音频；关闭并发加载后恢复原设置'
+                              ? '自动选源 已接管视频与音频；关闭并发加载后恢复原设置'
                               : '当前：${VideoUtils.cdnService.desc}，无法播放请切换',
                           style: subTitleStyle,
                         ),
                         onTap: managed
                             ? null
                             : () async {
-                                if (!mounted || Pref.cdnParallelLoading) return;
+                                if (!mounted || Pref.cdnAutoSelect) return;
                                 Get.back();
                                 final result = await showDialog<CDNService>(
                                   context: this.context,
@@ -542,7 +542,7 @@ class HeaderControlState extends State<HeaderControl>
                                 );
                                 if (mounted &&
                                     result != null &&
-                                    !Pref.cdnParallelLoading) {
+                                    !Pref.cdnAutoSelect) {
                                   VideoUtils.cdnService = result;
                                   setting.put(
                                     SettingBoxKey.CDNService,

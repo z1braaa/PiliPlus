@@ -1,0 +1,47 @@
+{
+  "logs": {
+    "flutter-all.log": {
+      "sha256": "de0f673f7988a09a2f9abe30654290cb3cb3020c999e829d3b729aef8098300f",
+      "bytes": 40762
+    },
+    "python-final.log": {
+      "sha256": "bbad4de6176752fc3a9b1f2fc8089f1fe676b8e54ed153815434e94e436a36fd",
+      "bytes": 14655
+    },
+    "analyze.log": {
+      "sha256": "a61c0d463dbac1436d3cfca2e020f8c244262c9ad660111a76c258eb9721245d",
+      "bytes": 349
+    },
+    "smoke.log": {
+      "sha256": "37861eea1f444c361e285efab56694302a4cc6b3f6e1414579b6cdd8eed52be5",
+      "bytes": 955
+    },
+    "origin.log": {
+      "sha256": "4a7f89d6830117004159dd786d05db720fb774cfd76e28695911ff6993ec5796",
+      "bytes": 1076
+    },
+    "startup.log": {
+      "sha256": "7129fd742842a9b2f31fad6d3bc2c3398d7df8e4cf796db63daec58e56f95e1a",
+      "bytes": 1072
+    },
+    "measured-tests.log": {
+      "sha256": "4832fe11c2602c2e12f2b4a308af0d3152d56a964a7b95e4f812e53496209614",
+      "bytes": 330
+    },
+    "regress-final.log": {
+      "sha256": "ca164bac8edec2ac9c81fcefdf12b0cdffd84f94543c79072dbba095ca1c3039",
+      "bytes": 207
+    }
+  },
+  "regression_totals": {
+    "passed": 62,
+    "failed": 0,
+    "skipped": 0,
+    "framework_events": 10,
+    "framework_failures": 0,
+    "suite_failures": 0,
+    "timeouts": 0,
+    "not_run": 0
+  },
+  "boundary": "File hashes of executed test output; native network and GUI evidence separate."
+}

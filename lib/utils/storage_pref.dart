@@ -37,6 +37,7 @@ import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
+import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -447,6 +448,12 @@ abstract final class Pref {
   static bool get cdnParallelLoading =>
       _setting.get(SettingBoxKey.cdnParallelLoading, defaultValue: false);
 
+  static bool get cdnAutoSelect =>
+      _setting.get(SettingBoxKey.cdnAutoSelect, defaultValue: false);
+
+  static bool get cdnAdaptive =>
+      _setting.get(SettingBoxKey.cdnAdaptive, defaultValue: true);
+
   /// Imported settings may have an invalid type or exceed supported limits.
   static int get cdnParallelConnections =>
       switch (_setting.get(SettingBoxKey.cdnParallelConnections)) {
@@ -687,6 +694,9 @@ abstract final class Pref {
 
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+
+  static bool get inAppMiniPlayer =>
+      _setting.get(SettingBoxKey.inAppMiniPlayer, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
@@ -1001,6 +1011,9 @@ abstract final class Pref {
   static bool get enablePlayAll =>
       _setting.get(SettingBoxKey.enablePlayAll, defaultValue: true);
 
+  static bool get enableTemporaryQueue =>
+      _setting.get(SettingBoxKey.enableTemporaryQueue, defaultValue: true);
+
   static bool get enableTapDm =>
       _setting.get(SettingBoxKey.enableTapDm, defaultValue: true);
 
@@ -1015,6 +1028,11 @@ abstract final class Pref {
   static String? get imageSavePath => _setting.get(SettingBoxKey.imageSavePath);
 
   static String? get liveCdnUrl => _setting.get(SettingBoxKey.liveCdnUrl);
+
+  /// Missing and malformed restored values must never enable transactions UI.
+  static bool get liveRoomEnhancement => decodeLiveRoomEnhancement(
+    _setting.get(SettingBoxKey.liveRoomEnhancement),
+  );
 
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,

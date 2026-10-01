@@ -153,7 +153,7 @@ class RegressionTests(unittest.TestCase):
         events = [
             {"type": "testStart", "test": {"id": 0, "hidden": True}},
             {"type": "testDone", "testID": 0, "result": "success"},
-            {"type": "testStart", "test": {"id": 1, "hidden": False}},
+            {"type": "testStart", "test": {"id": 1, "hidden": False, "suiteID": []}},
             {"type": "testDone", "testID": 1, "result": "success"},
             {"type": "testStart", "test": {"id": 2, "hidden": False}},
             {"type": "testDone", "testID": 2, "result": "success", "skipped": True},
@@ -210,6 +210,28 @@ class RegressionTests(unittest.TestCase):
         counts = vod.parse_regression_output("flutter", "\n".join(map(json.dumps, events)))
         self.assertEqual(counts, {"passed": 1, "failed": 0, "skipped": 0, "count_verified": True,
                                   "framework_events": 0, "framework_failures": 0})
+
+    def test_real_flutter_failed_loader_is_not_a_failed_user_assertion(self):
+        # Recorded from Flutter 3.47.5 with a deliberately invalid method call.
+        # Unlike successful loading, its testDone has hidden=false.
+        path = "/tmp/compiler-failure-fixture_test.dart"
+        events = [
+            {"type": "suite", "suite": {"id": 0, "platform": "vm", "path": path}},
+            {"type": "testStart", "test": {"id": 1, "name": "loading " + path,
+                 "suiteID": 0, "groupIDs": [], "line": None, "url": None}},
+            {"type": "testDone", "testID": 1, "result": "error", "skipped": False, "hidden": False},
+            {"type": "testDone", "testID": 1, "result": "error", "skipped": False, "hidden": False},
+            {"type": "done", "success": False},
+        ]
+        counts = vod.parse_regression_output("flutter", "\n".join(map(json.dumps, events)))
+        self.assertEqual(counts, {"passed": 0, "failed": 0, "skipped": 0,
+            "count_verified": False, "framework_events": 1, "framework_failures": 1})
+        events.extend([
+            {"type": "testStart", "test": {"id": 2, "name": "loading " + path,
+                 "suiteID": 0, "groupIDs": [2], "line": 7, "url": "file:///tmp/user_test.dart"}},
+            {"type": "testDone", "testID": 2, "result": "error", "hidden": False},
+        ])
+        self.assertEqual(vod.parse_regression_output("flutter", "\n".join(map(json.dumps, events)))["failed"], 1)
 
     def test_real_flutter_done_hidden_marks_loading_and_suite_hooks(self):
         # Reduced real --machine output: hidden is attached to testDone.

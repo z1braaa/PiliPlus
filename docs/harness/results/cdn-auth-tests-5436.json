@@ -1,0 +1,46 @@
+{
+  "source_commit": "f6db39a29db522ef6f97eb7dc2e257c267c07771",
+  "core_sha256": "d4ff4b52f45edbdf221954141bc7b85a07acea87e28e98692c95061621a9bd49",
+  "dart": {
+    "passed": 71,
+    "total": 71,
+    "record": "docs/harness/results/cdn-final-fixtures-5436.json"
+  },
+  "flutter": {
+    "passed": 154,
+    "failed": 0,
+    "skipped": 0,
+    "count_verified": true,
+    "framework_events": 33,
+    "framework_failures": 0
+  },
+  "python": {
+    "passed": 130,
+    "failed": 0,
+    "skipped": 0,
+    "native_fixture_library_sha256": "07798b406023dc8de54d5f7f9abea57a646372df1517d7e0fb855dc5482f9c8c"
+  },
+  "analysis": {
+    "issues": 0,
+    "files": [
+      "lib/http/cdn_playback_proxy.dart",
+      "tool/cdn_measured_test.dart",
+      "tool/cdn_benchmark_bridge.dart"
+    ]
+  },
+  "logs": {
+    "python-tests-final.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/python-tests-final.log",
+      "sha256": "38835e556471112c36358ea76839c219579ac69cfacf2919c25db4593d89d369"
+    },
+    "flutter-tests-final.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/flutter-tests-final.log",
+      "sha256": "4dea15ca9378bca75a8773af02aeb93617cb3b007c08860b1ab4e323e3a14f63"
+    },
+    "analyze-final.log": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-auth-5436/analyze-final.log",
+      "sha256": "de82720eac7c4a98c2213bd9950d2f4d62894527ab7f4754c3515085f9e7537e"
+    }
+  },
+  "scope": "Deterministic local tests only; performance reports separate"
+}

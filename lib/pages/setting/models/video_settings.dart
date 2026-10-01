@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/common/widgets/flutter/list_tile.dart' as setting_tile;
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
@@ -63,9 +64,23 @@ List<SettingsModel> get videoSettings => [
     onTap: _showCDNDialog,
   ),
   const SwitchModel(
+    title: '自动选择 CDN（实验性）',
+    leading: Icon(Icons.route_outlined),
+    subtitle: '按当前视频有效数据选择来源；独立于并发，开启后暂停手选 CDN。下次播放生效',
+    setKey: SettingBoxKey.cdnAutoSelect,
+    defaultVal: false,
+  ),
+  const SwitchModel(
+    title: '自适应并发',
+    leading: Icon(Icons.auto_graph_outlined),
+    subtitle: '并发开启时从少量连接开始；仅有收益时增加，供给不再改善时回退；关闭后使用手动路数与分块',
+    setKey: SettingBoxKey.cdnAdaptive,
+    defaultVal: true,
+  ),
+  const SwitchModel(
     title: '并发 CDN 加载（实验性）',
     leading: Icon(Icons.cloud_download_outlined),
-    subtitle: '下次播放或切换片源生效；启用后由多 CDN 调度接管视频与音频，停用手动 CDN 选项；仅限 DASH 点播，启用代理时不生效',
+    subtitle: '下次播放生效；仅限 DASH 点播。可配合自动选源，也可在手选 CDN 上并发；启用系统代理时不生效',
     setKey: SettingBoxKey.cdnParallelLoading,
     defaultVal: false,
   ),
@@ -73,7 +88,7 @@ List<SettingsModel> get videoSettings => [
     title: '并发路数',
     leading: const Icon(Icons.call_split_outlined),
     getSubtitle: () =>
-        '当前：${Pref.cdnParallelConnections} 路（1–32）；下次播放或切换片源生效；更多连接可能增加流量与内存占用',
+        '手动模式：${Pref.cdnParallelConnections} 路（1–32）；自适应开启时自动调整，最多 8 路',
     onTap: (context, setState) => _showParallelValueDialog(
       context,
       setState,
@@ -90,7 +105,7 @@ List<SettingsModel> get videoSettings => [
     title: '分块大小',
     leading: const Icon(Icons.view_module_outlined),
     getSubtitle: () =>
-        '当前：${Pref.cdnParallelChunkSizeKiB} KiB（64–4096）；下次播放或切换片源生效；1 MiB = 1024 KiB',
+        '手动模式：${Pref.cdnParallelChunkSizeKiB} KiB（64–4096）；自适应先连续接收，必要时分块上限 512 KiB',
     onTap: (context, setState) => _showParallelValueDialog(
       context,
       setState,
@@ -106,13 +121,19 @@ List<SettingsModel> get videoSettings => [
   const NormalModel(
     title: '多 CDN 选择策略',
     leading: Icon(Icons.public_outlined),
-    subtitle: '按已知域名优先选择中国大陆候选组，组内轮转分块；不按速度或时延排名；大陆候选失败后才尝试未知及海外候选。域名归类不代表已核实实际节点位置或缓存命中',
+    subtitle: '自动选源以当前视频有效数据为准；华为云先尝试，响应慢时启动备用候选；跨源分块仍验证内容一致。不以域名地区或历史测速决定优先级',
   ),
   NormalModel(
     title: '直播 CDN 设置',
     leading: const Icon(MdiIcons.cloudPlusOutline),
     getSubtitle: () => '当前使用：${Pref.liveCdnUrl ?? "默认"}',
     onTap: _showLiveCDNDialog,
+  ),
+  const _LiveEnhancementSwitchModel(
+    title: '直播界面增强（实验性）',
+    subtitle: '默认关闭；显示礼物快捷条、聊天互动与粉丝团／大航海面板。独立于 CDN 与画质；付费操作需逐次确认',
+    leading: Icon(Icons.live_tv_outlined),
+    setKey: SettingBoxKey.liveRoomEnhancement,
   ),
   const _ManualCdnSwitchModel(
     title: 'CDN 测速',
@@ -227,6 +248,44 @@ List<SettingsModel> get videoSettings => [
 
 const _manualCdnDisabledSubtitle = '并发 CDN 已接管视频与音频；此项已停用，关闭并发加载后恢复原设置';
 
+/// Avoid the generic switch's unchecked dynamic-to-bool conversion on restore.
+class _LiveEnhancementSwitchModel extends SwitchModel {
+  const _LiveEnhancementSwitchModel({
+    required super.title,
+    required super.setKey,
+    super.subtitle,
+    super.leading,
+  });
+
+  @override
+  Widget get widget => StreamBuilder(
+    stream: GStorage.setting.watch(key: SettingBoxKey.liveRoomEnhancement),
+    builder: (context, _) {
+      final theme = Theme.of(context);
+      final enabled = Pref.liveRoomEnhancement;
+      return setting_tile.ListTile(
+        title: Text(title!, style: theme.textTheme.titleMedium),
+        subtitle: Text(
+          subtitle!,
+          style: theme.textTheme.labelMedium!.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+        leading: leading,
+        trailing: Transform.scale(
+          scale: 0.8,
+          alignment: Alignment.centerRight,
+          child: Switch(
+            value: enabled,
+            onChanged: (value) => GStorage.setting.put(setKey, value),
+          ),
+        ),
+        onTap: () => GStorage.setting.put(setKey, !enabled),
+      );
+    },
+  );
+}
+
 /// Rebuild only the affected rows when the parallel switch changes, including
 /// in settings search, where the rows do not share a page-level state.
 class _ManualCdnModel extends NormalModel {
@@ -239,8 +298,8 @@ class _ManualCdnModel extends NormalModel {
 
   @override
   Widget get widget => StreamBuilder(
-    stream: GStorage.setting.watch(key: SettingBoxKey.cdnParallelLoading),
-    builder: (context, snapshot) => Pref.cdnParallelLoading
+    stream: GStorage.setting.watch(key: SettingBoxKey.cdnAutoSelect),
+    builder: (context, snapshot) => Pref.cdnAutoSelect
         ? NormalModel(
             title: title,
             leading: leading,
@@ -263,8 +322,8 @@ class _ManualCdnSwitchModel extends SwitchModel {
 
   @override
   Widget get widget => StreamBuilder(
-    stream: GStorage.setting.watch(key: SettingBoxKey.cdnParallelLoading),
-    builder: (context, snapshot) => Pref.cdnParallelLoading
+    stream: GStorage.setting.watch(key: SettingBoxKey.cdnAutoSelect),
+    builder: (context, snapshot) => Pref.cdnAutoSelect
         ? NormalModel(
             title: title,
             leading: leading,
@@ -352,12 +411,12 @@ Future<void> _showParallelValueDialog(
 }
 
 Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
-  if (Pref.cdnParallelLoading) return;
+  if (Pref.cdnAutoSelect) return;
   final res = await showDialog<CDNService>(
     context: context,
     builder: (context) => const CdnSelectDialog(),
   );
-  if (res != null && !Pref.cdnParallelLoading) {
+  if (res != null && !Pref.cdnAutoSelect) {
     VideoUtils.cdnService = res;
     await GStorage.setting.put(SettingBoxKey.CDNService, res.name);
     setState();

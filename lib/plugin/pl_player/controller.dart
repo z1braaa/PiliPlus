@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/cdn_playback_proxy.dart';
+import 'package:PiliPlus/http/cdn_origin_policy.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
@@ -80,6 +81,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   static PlPlayerController? _instance;
 
   PlayerStatus playerStatus = .paused;
+  bool _hasStartedPlayback = false;
+  bool get hasStartedPlayback => _hasStartedPlayback;
 
   final Rx<DataStatus> dataStatus = Rx(.none);
 
@@ -580,6 +583,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       .._playerCount += 1;
   }
 
+  /// Keep the existing media session alive while its detail route is removed.
+  /// The mini-player owns a reference, not another Player or media source.
+  void retainForInAppMiniPlayer() => _playerCount += 1;
+
+  /// Transfer or release the mini-player's reference without resetting player
+  /// settings that a still-mounted detail page may be using.
+  void releaseFromInAppMiniPlayer() {
+    if (_playerCount > 1) {
+      _playerCount -= 1;
+    } else {
+      dispose();
+    }
+  }
+
   bool _processing = false;
   bool get processing => _processing;
 
@@ -614,6 +631,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     CdnStartupTrace? startupTrace,
   }) async {
     final sourceGeneration = ++_mediaSourceGeneration;
+    _hasStartedPlayback = false;
     startupTrace?.mark(CdnStartupStage.playerSourceQueued);
     try {
       _processing = true;
@@ -844,13 +862,15 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     };
 
     final parallelPlayback =
-        Pref.cdnParallelLoading && dataSource is NetworkSource && !sourceIsLive;
+        (Pref.cdnParallelLoading || Pref.cdnAutoSelect) &&
+        dataSource is NetworkSource &&
+        !sourceIsLive;
     // Always bypass manual CDN rewriting while this feature is enabled,
     // including direct playback when a system proxy prevents local proxying.
-    final directVideo = parallelPlayback
+    final directVideo = Pref.cdnAutoSelect && parallelPlayback
         ? dataSource.originalVideoSource
         : dataSource.videoSource;
-    final directAudio = parallelPlayback
+    final directAudio = Pref.cdnAutoSelect && parallelPlayback
         ? dataSource.originalAudioSource
         : dataSource.audioSource;
     String video = directVideo;
@@ -862,7 +882,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             (audio != null && audio.isNotEmpty))) {
       try {
         nextProxy = await CdnPlaybackProxy.start(
-          concurrency: Pref.cdnParallelConnections,
+          concurrency: Pref.cdnAdaptive || !Pref.cdnParallelLoading
+              ? 8
+              : Pref.cdnParallelConnections,
+          durationSeconds: dataSource.durationSeconds?.toDouble(),
+          autoSelect: Pref.cdnAutoSelect,
+          adaptive: Pref.cdnAdaptive,
+          parallel: Pref.cdnParallelLoading,
+          originResolver: Pref.cdnAutoSelect
+              ? null
+              : (urls) => [CdnOrigin(urls.first)],
           chunkSize: Pref.cdnParallelChunkSizeKiB * 1024,
           trace: startupTrace,
         );
@@ -879,7 +908,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         };
         video = nextProxy.register(
           video,
-          alternatives: dataSource.originalVideoUrls.skip(1),
+          alternatives: Pref.cdnAutoSelect
+              ? dataSource.originalVideoUrls.skip(1)
+              : const [],
           headers: headers,
           track: CdnStartupTrack.video,
         );
@@ -892,7 +923,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (audio != null && audio.isNotEmpty) {
           audio = nextProxy.register(
             audio,
-            alternatives: dataSource.originalAudioUrls.skip(1),
+            alternatives: Pref.cdnAutoSelect
+                ? dataSource.originalAudioUrls.skip(1)
+                : const [],
             headers: headers,
             track: CdnStartupTrack.audio,
           );
@@ -1064,6 +1097,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       stream.playing.listen((bool playing) {
         if (playing) {
           playerStatus = .playing;
+          _hasStartedPlayback = true;
           _stopWakeLockTimer();
           _updatePlaybackState();
           WakelockPlus.enable();
@@ -1718,6 +1752,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
+    _hasStartedPlayback = false;
     _mediaSourceGeneration += 1;
     _processing = false;
     _closeCdnPlaybackProxy(_cdnPlaybackProxy);

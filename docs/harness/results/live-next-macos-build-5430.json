@@ -1,0 +1,48 @@
+{
+  "created_at_utc": "2026-09-28T12:40:53Z",
+  "source_commit": "3f56ea84920f098b922dec26aa5d71d84d36b490",
+  "display_version": "2.1.5-CDN-P0-LIVE-NEXT+5430",
+  "build_defines": {
+    "pili.name": "2.1.5-CDN-P0-LIVE-NEXT",
+    "pili.code": 5430,
+    "pili.hash": "3f56ea84920f098b922dec26aa5d71d84d36b490",
+    "pili.time": 1790599033
+  },
+  "native_bundle_version": "2.1.5",
+  "native_build_number": "5430",
+  "flutter": "3.47.5",
+  "dart": "3.13.4",
+  "xcode": "27.0",
+  "build_command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer flutter build macos --release --no-pub --build-name=2.1.5 --build-number=5430 with the build_defines above",
+  "build_result": "passed; 137.7 MB app",
+  "flutter_tests": "126/126 passed after final source change",
+  "flutter_analyze": "0 errors, 0 warnings, 37 pre-existing info diagnostics in unchanged code; exit 1",
+  "target_macos": "13.0",
+  "original_flutter_bundle_minimum_macos": "12.0",
+  "packaging_adjustment": "Raised LSMinimumSystemVersion to 13.0 because objective_c.framework requires 13.0 in both slices; then ad-hoc re-signed the app.",
+  "native_architectures": {
+    "mach_o_count": 27,
+    "all_have": ["x86_64", "arm64"],
+    "non_universal": [],
+    "minimum_greater_than_13": [],
+    "unknown_minimum": []
+  },
+  "signing": "ad-hoc with macos/Runner/Release.entitlements; get-task-allow absent",
+  "codesign_deep_strict": "passed for staged app and read-only mounted DMG app",
+  "dmg_embedded_runner_matches_staged_runner": true,
+  "dmg_filename": "PiliPlus-2.1.5-CDN-P0-LIVE-NEXT+5430-macos-universal.dmg",
+  "dmg_sha256": "a17e555a2826d27694485569db4e07801143255e4472e6cfe693d2d8609d509d",
+  "dmg_bytes": 59789286,
+  "runner_sha256": "9047a51b05db0eb7059f39db5a7d7f2045c19747acc0e9bc0c0d817e2a8e4d99",
+  "dart_aot_sha256": "523dff916e0bb4cbe7ae826a66043e623640e51a8cbce0804e4720cf6143e119",
+  "info_plist_sha256": "69ad8a25b14813671df47a682ae48922edbf5b76e2e6f33e5708fb9ce6c10255",
+  "build_log_sha256": "6c2a1ce0c9fd9ddafeb16d88c7b5faf9de4b85fd640187bd2cf47b47c1c78d42",
+  "independent_guest_gui": "A copy of the final packaged app with an isolated test bundle ID launched; About displayed the version and exact source_commit, temporary queue default on, mini player and live enhancement default off, and updated live-enhancement setting text. No authenticated or paid flow was run.",
+  "apple_notarization": "not_run",
+  "limits": [
+    "Intel and macOS 13 hardware not run; architecture and deployment metadata checked only",
+    "Final package live-room and playback interaction matrix not rerun; earlier isolated guest previews are in validation.md",
+    "Actual macOS WebView account sync, gifts, fan membership, SC purchase, recharge and Guard payment not run",
+    "iOS, Android, Windows and Linux builds and device tests not run"
+  ]
+}

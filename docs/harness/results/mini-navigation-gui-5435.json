@@ -1,0 +1,85 @@
+{
+  "recorded_at_utc": "2026-09-30T04:32:04.648821+00:00",
+  "requirements": [
+    "MINI-01",
+    "MINI-03",
+    "MINI-04",
+    "MINI-05"
+  ],
+  "source_commit": "a4ec7a83b9d205265771576fa7cc382e71f0016a",
+  "display_version": "2.1.5-CDN-AUTO-LIVE-MINIFIX+5435",
+  "bundle_id": "com.piliplus.codex.mini5435",
+  "method": "cua_repl native app; AX and screenshot observations",
+  "account": "isolated guest; no login or transactions",
+  "user_installation_unchanged": true,
+  "test_preferences": {
+    "in_app_mini_player": true,
+    "auto_play": true
+  },
+  "baseline_about_version_and_commit": "matched displayed version and source commit",
+  "media": {
+    "A": "BV1GKaG6zEfk",
+    "B": "BV1vW41187Ce"
+  },
+  "observations": [
+    {
+      "case": "mini default",
+      "result": "pass",
+      "evidence": "new isolated guest preference was off"
+    },
+    {
+      "case": "A related video to B",
+      "result": "pass",
+      "evidence": "new title/BVID/duration and main frame; no mini window or controls"
+    },
+    {
+      "case": "B back to A",
+      "result": "pass",
+      "evidence": "A BVID/duration/main page returned; no mini window"
+    },
+    {
+      "case": "playing A exit to search",
+      "result": "pass",
+      "evidence": "main progress 00:07 to 00:29 and rendered frame; Escape reached search with one mini and pause button"
+    },
+    {
+      "case": "pause A restore then exit to search",
+      "result": "pass",
+      "evidence": "explicit mini pause; restore main at 00:56 with play action; Escape reached search with one paused mini and play action"
+    },
+    {
+      "case": "mini play and pause",
+      "result": "pass",
+      "evidence": "button action switched between play and pause after explicit clicks"
+    },
+    {
+      "case": "restore playing and paused",
+      "result": "pass",
+      "evidence": "mini disappeared and main route resumed; mature playing progressed, explicit paused state retained"
+    },
+    {
+      "case": "close playing mini",
+      "result": "pass_visual_only",
+      "evidence": "mini and all three controls removed from screenshot/AX"
+    },
+    {
+      "case": "close paused mini",
+      "result": "pass_visual_only",
+      "evidence": "mini and controls removed; search remained accessible"
+    }
+  ],
+  "ambiguous_early_observations": "Two immediate-autoplay observations were not counted as playback-state proof; main AX label can lag native playing events.",
+  "screenshots": "Observed in cua_repl tool outputs; not exported as local evidence files",
+  "application_exit": "Quit isolated QA application at end of test",
+  "not_run": [
+    "user installed environment retest",
+    "native audio stop measurement",
+    "player instance/request counts",
+    "list/temporary queue and live entry GUI matrix",
+    "startup-stage exit state",
+    "system PiP",
+    "long-duration playback",
+    "Intel hardware",
+    "other platforms"
+  ]
+}

@@ -21,6 +21,23 @@ abstract final class CdnOriginPolicy {
     'upos-sz-mirrorcos.bilivideo.com',
   ];
 
+  /// Startup preference only. The first useful range wins; geography is not a
+  /// requirement. Keep Huawei as the known-good baseline, then API alternatives.
+  static List<CdnOrigin> measured(List<Uri> originals) {
+    final all = resolve(originals);
+    final seen = <Uri>{};
+    return [
+      for (final origin in [
+        ...all
+            .where((o) => o.uri.host == 'upos-sz-mirrorhw.bilivideo.com')
+            .take(1),
+        ...originals.map(CdnOrigin.new),
+        ...all,
+      ])
+        if (seen.add(origin.uri)) CdnOrigin(origin.uri),
+    ];
+  }
+
   static bool isMedia(Uri uri) {
     final host = uri.host.toLowerCase();
     return (uri.scheme == 'https' || uri.scheme == 'http') &&

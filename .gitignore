@@ -155,3 +155,8 @@ test*
 !tool/tests/
 !tool/tests/test_*.py
 tool/tests/__pycache__/
+
+# Versioned Flutter acceptance tests for the native viewer.
+!test/
+!test/**/
+!test/**/*_test.dart

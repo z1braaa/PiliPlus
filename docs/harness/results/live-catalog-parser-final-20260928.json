@@ -1,0 +1,12 @@
+{
+  "kind": "current_official_catalog_parser_smoke",
+  "room_id": 6,
+  "anchor_uid": 612,
+  "credentials": "none",
+  "write_requests": 0,
+  "api_code": 0,
+  "parsed_gifts": 58,
+  "sendable_configurations": 54,
+  "unavailable_configurations": 4,
+  "scope": "Anonymous catalog fields only; account pricing/permissions/writes remain unverified"
+}

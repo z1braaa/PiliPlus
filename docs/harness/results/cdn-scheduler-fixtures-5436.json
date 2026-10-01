@@ -1,0 +1,228 @@
+{
+  "scope": "loopback deterministic P1+P2 proof",
+  "source_sha256": "3adde3672dab6c1bb9e06efcb7713b31f0aacfdccdcbdcd1ca799bcdbb736b64",
+  "test_source_sha256": "92b21dee420378ac90bf409f37f84ce135cc78b7c10be1e524e013e4ef6b2941",
+  "checks": {
+    "measured": 16,
+    "smoke": 14,
+    "multi_origin": 15,
+    "startup": 13,
+    "total": 58,
+    "analyzer_issues": 0
+  },
+  "design": {
+    "rolling_origin_wait_seconds": 2,
+    "min_observed_origin_wait_seconds": 1.5,
+    "max_rate_samples": 128,
+    "warm_wait_origin_seconds": 2,
+    "transition_pieces": 2,
+    "transition_piece_max_bytes": 65536,
+    "hedge_origin_delay_ms": 500,
+    "hedge_max_candidates_per_piece": 2,
+    "shared_reserved_payload_max_bytes": 67108864,
+    "peer_metadata_retries": 1,
+    "strict_payload_and_versions": true
+  },
+  "comparisons": [
+    {
+      "mode": "proxy_fast_single",
+      "before": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.368602,
+        "first_1mib_seconds": 0.65874,
+        "first_8mib_seconds": 2.854624,
+        "elapsed_seconds": 4.114243,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 0.368602
+      },
+      "after": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.368658,
+        "first_1mib_seconds": 0.668008,
+        "first_8mib_seconds": 3.115176,
+        "elapsed_seconds": 4.443201,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 0.368658
+      },
+      "before_requests": 1,
+      "after_requests": 1,
+      "after_transport": {
+        "observed_upstream_body_bytes": 12582912,
+        "upstream_requests": 1,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 0,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": [
+          "localhost"
+        ]
+      }
+    },
+    {
+      "mode": "proxy_slow_winner",
+      "before": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.002673,
+        "first_1mib_seconds": 18.472363,
+        "first_8mib_seconds": 20.997679,
+        "elapsed_seconds": 22.016896,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 8.348553
+      },
+      "after": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.002735,
+        "first_1mib_seconds": 4.551412,
+        "first_8mib_seconds": 6.616078,
+        "elapsed_seconds": 8.057515,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 0.5255789999999996
+      },
+      "before_requests": 29,
+      "after_requests": 49,
+      "after_transport": {
+        "observed_upstream_body_bytes": 12615680,
+        "upstream_requests": 49,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 4194304,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 2097152,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": [
+          "127.0.0.1"
+        ]
+      }
+    },
+    {
+      "mode": "proxy_burst_then_slow",
+      "before": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.054568,
+        "first_1mib_seconds": 18.683197,
+        "first_8mib_seconds": 21.297253,
+        "elapsed_seconds": 22.342587,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 8.407786
+      },
+      "after": {
+        "status": "completed",
+        "pause_ms": 0,
+        "first_byte_seconds": 0.051224,
+        "first_1mib_seconds": 4.637502,
+        "first_8mib_seconds": 6.686161,
+        "elapsed_seconds": 7.69161,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 0.543056
+      },
+      "before_requests": 29,
+      "after_requests": 46,
+      "after_transport": {
+        "observed_upstream_body_bytes": 12599296,
+        "upstream_requests": 46,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 3145728,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 1048576,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": [
+          "127.0.0.1"
+        ]
+      }
+    },
+    {
+      "mode": "proxy_fast_consumer_pause",
+      "before": {
+        "status": "completed",
+        "pause_ms": 5000,
+        "first_byte_seconds": 0.356922,
+        "pause_at_bytes": 65536,
+        "first_1mib_seconds": 5.871853,
+        "first_8mib_seconds": 8.929561,
+        "elapsed_seconds": 9.839326,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 5.004838
+      },
+      "after": {
+        "status": "completed",
+        "pause_ms": 5000,
+        "first_byte_seconds": 0.357305,
+        "pause_at_bytes": 65536,
+        "first_1mib_seconds": 5.370984,
+        "first_8mib_seconds": 7.673711,
+        "elapsed_seconds": 9.006839,
+        "bytes": 12582912,
+        "valid_bytes": true,
+        "max_gap_seconds": 5.006448
+      },
+      "before_requests": 24,
+      "after_requests": 1,
+      "after_transport": {
+        "observed_upstream_body_bytes": 12582912,
+        "upstream_requests": 1,
+        "buffered_payload_bytes": 0,
+        "peak_buffered_payload_bytes": 0,
+        "hedge_buffered_payload_bytes": 0,
+        "peak_hedge_buffered_payload_bytes": 0,
+        "active_origin_requests": 0,
+        "failures": [],
+        "range_failures": [],
+        "selected_hosts": [
+          "localhost"
+        ]
+      }
+    }
+  ],
+  "logs": {
+    "cdn_measured_test": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/cdn_measured_test-stable.log",
+      "sha256": "5a8de4b1ddbe94f9aeee8cacbc079cb489e235e9cec3c2b0b801d4a2ca206260",
+      "final_line": "16/16 checks passed."
+    },
+    "cdn_proxy_smoke_test": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/cdn_proxy_smoke_test-stable.log",
+      "sha256": "e9de0ee76b50e7dcdfac7c847805d707cdbd9e0acfbb84ff8efa21fee9651006",
+      "final_line": "14/14 checks passed."
+    },
+    "cdn_multi_origin_test": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/cdn_multi_origin_test-stable.log",
+      "sha256": "4a7f89d6830117004159dd786d05db720fb774cfd76e28695911ff6993ec5796",
+      "final_line": "15/15 checks passed."
+    },
+    "cdn_startup_test": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/cdn_startup_test-stable.log",
+      "sha256": "021445e3f99968a95be068ee123991f65ab9c39add0385bf130bb11f47cb6c9b",
+      "final_line": "13/13 checks passed."
+    },
+    "analyze": {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/cdn-cookie-5436/transport/analyze-stable.log",
+      "sha256": "74d3af927689cd21f42a29653fa1f76493bc82d2d475fe1509ae9c5668ce7a88",
+      "final_line": "No issues found!"
+    }
+  },
+  "limits": [
+    "No external network or credentials involved in these fixtures",
+    "Local improvements are not actual Bilibili/macOS mpv acceptance",
+    "The deliberate 5s consumer pause is included in wall elapsed/maxgap",
+    "After source contains exact-budget hedge reservation and release/cancellation checks;the actualpeak was4MiB,not a64MiB saturation campaign"
+  ],
+  "evaluation_phase": "p2_diagnostic_not_final_release"
+}

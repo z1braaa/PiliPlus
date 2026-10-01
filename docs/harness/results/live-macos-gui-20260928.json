@@ -1,0 +1,54 @@
+{
+  "recorded_at_utc": "2026-09-27T16:59:18.478519+00:00",
+  "method": "native accessibility and screenshots through CUA; isolated re-signed copies",
+  "final_version": "2.1.5-CDN-P0-LIVE-L2+5424",
+  "source_commit": "ae1715ee244e1563a312a4b1fc3472edcf5c3e22",
+  "final_qa_bundle_id": "com.example.piliplus.liveqa5424",
+  "host": "arm64 macOS 27.0",
+  "initial_run": {
+    "version": "2.1.5-CDN-P0-LIVE-L2+5423",
+    "source_commit": "033bbe77ff9c315b802ac51d0c3057651fd6b919",
+    "room_id": 7596842,
+    "public_anchor": "PiKaChu345",
+    "toggle_count": 20,
+    "guest_catalog_bag_fans_login_states": "observed",
+    "findings": [
+      "Known blind boxes were not restricted by special gift checks",
+      "Fullscreen interaction entry did not show drawer on immediate click; source routing corrected and final package rechecked"
+    ]
+  },
+  "final_run": {
+    "room_id": 31050497,
+    "public_anchor": "北欧的欧",
+    "about_version_commit": "matched",
+    "first_launch_enhancement": "off",
+    "guest_account": "not_logged_in",
+    "cdn_settings_before_after": "unchanged observed values",
+    "real_live_image": "observed changing public time overlay",
+    "danmaku_connection": "connected",
+    "enhancement_toggles": {
+      "count": 20,
+      "same_room_each_time": true,
+      "final_enabled": true,
+      "scope": "qualitative UI observation; no stream request/instance instrumentation"
+    },
+    "wide_sidebar": "observed",
+    "fullscreen_interaction_drawer": "opened via one button click; closed back to playback",
+    "known_blind_box_restrictions": "all three visible in catalog and drawer",
+    "restart_preference": "on after normal app-menu quit, prior process absence verified, new launch and settings inspection",
+    "system_quarter_window": "observed; still sidebar width; narrow breakpoint not reached"
+  },
+  "not_run": [
+    "authenticated private reads and account mutation",
+    "real gift, join or light transaction",
+    "actual SC delete/expiry events",
+    "forced real network outage recovery",
+    "player instance/reload counts and volume numeric capture",
+    "narrow breakpoint, PiP, audio-only, large font",
+    "extended real performance soak",
+    "Intel and other platform hardware"
+  ],
+  "real_write_requests": 0,
+  "credentials_read": false,
+  "user_installed_application_modified": false
+}

@@ -1,8 +1,8 @@
 # Python 点播自动化测试
 
-本工具既有交付对应 `AUTO-01/02/03`，本轮新增匿名取源与批量筛选对应 `AUTO-04/05`，当前执行状态见[需求追踪表](traceability.md)与[验收记录](validation.md)。它为 `NET-01/02/03/04/05/06/07/12` 提供回归与测量辅助，并为 `NET-11` 提供原生播放器 seek 信号。它不会修改客户端偏好、读取登录账号、断开本机网络或自动购买任何服务。它不能代替 [手动测试](manual-vod-testing.md) 中的 GUI 首画面、首声音、真实用户操作及断网恢复验收。
+本工具既有交付对应 `AUTO-01/02/03`，匿名取源与批量筛选对应 `AUTO-04/05`，授权高画质与连续供给复核对应 `AUTO-06`，持续卡顿与因素消融对应 `AUTO-07`，当前执行状态见[需求追踪表](traceability.md)与[验收记录](validation.md)。它为 `NET-01/02/03/04/05/06/07/12` 提供回归与测量辅助，并为 `NET-11` 提供原生播放器 seek 信号。它不会修改客户端偏好、自动读取应用／浏览器账号库、断开本机网络或购买任何服务；显式私有 Cookie 文件是[需求 11](../requirements/11-measured-cdn-and-battery.md)中获授权的只读取源扩展。它不能代替 [手动测试](manual-vod-testing.md) 中的 GUI 首画面、首声音、真实用户操作及断网恢复验收。
 
-入口为 `tool/vod_auto_test.py`，仅依赖 Python 3.10 或更新版本的标准库。原生播放探针另需兼容的 `libmpv` 动态库；并发模式还需 Dart SDK，当前桥接工具支持 macOS/Linux，Windows 会明确返回 `bridge_platform_unsupported`，不能宣称 Windows 并发测量通过。既有工具报告有 JSON 与 CSV 两种文件，本轮批量流程追加本地可视报告；签名媒体地址只在内存及子进程私有管道中传递，不进入报告、命令参数或公开错误信息。
+入口为 `tool/vod_auto_test.py`，仅依赖 Python 标准库；本轮实际使用 Python 3.9.6，建议使用 3.10 或更新版本。原生播放探针另需兼容的 `libmpv` 动态库；并发模式还需 Dart SDK，当前桥接工具支持 macOS/Linux，Windows 会明确返回 `bridge_platform_unsupported`，不能宣称 Windows 并发测量通过。既有工具报告有 JSON 与 CSV 两种文件，本轮批量流程追加本地可视报告；签名媒体地址只在内存及子进程私有管道中传递，不进入报告、命令参数或公开错误信息。
 
 ## 1. 运行已有回归测试
 
@@ -16,9 +16,9 @@ python3 tool/vod_auto_test.py regress \
   --output /path/to/private-test-results/regress
 ```
 
-SDK 已在系统路径中时，可以省略 `--dart` 和 `--flutter`。它依次执行三个 Dart 传输测试文件及三个 Flutter 测试文件，汇总成功、失败、跳过、未运行及超时数量，并记录 Git 提交、分支与工作目录是否有未提交修改。Dart 与 Flutter 的统计均从测试框架结果解析；加载、初始化和收尾等隐藏生命周期事件单列，不能当作用户用例。缺少结果摘要不被视为成功。
+SDK 已在系统路径中时，可以省略 `--dart` 和 `--flutter`。它依次执行四个 Dart 传输测试文件及四个 Flutter 测试文件，汇总成功、失败、跳过、未运行及超时数量，并记录 Git 提交、分支与工作目录是否有未提交修改。Dart 与 Flutter 的统计均从测试框架结果解析；加载、初始化和收尾等隐藏生命周期事件单列，不能当作用户用例。缺少结果摘要不被视为成功。
 
-每个测试文件有独立墙钟时间上限，默认 180 秒，允许 1–240 秒。超时或中断会关闭对应进程组。六个文件全部通过时退出状态为 0；缺少 SDK、测试失败或超时则为 1。标准输出只显示脱敏摘要，报告不保存测试程序的原始输出。
+每个测试文件有独立墙钟时间上限，默认 180 秒，允许 1–240 秒。超时或中断会关闭对应进程组。八个文件全部通过时退出状态为 0；缺少 SDK、测试失败或超时则为 1。标准输出只显示脱敏摘要，报告不保存测试程序的原始输出。
 
 ## 2. 固定素材比较三个播放路径
 
@@ -85,7 +85,7 @@ python3 tool/vod_auto_test.py playback \
 
 可加 `--seek-seconds 120`，在观察完初始播放后跳到该位置，核对恢复事件、目标位置与随后至少 1 秒的进度。目标必须在视频内且与当时位置足够远；默认观察 8 秒时，seek 到 8 秒接近无操作，不能作为恢复试验。它验证原生播放器的结果位置与进度，不能验收 PiliPlus GUI 连续 seek、暂停状态或画质切换逻辑。
 
-每次试验墙钟截止时间 `--deadline-seconds` 默认为 90 秒，范围 5–180 秒；整组总预算 `--total-budget-seconds` 默认为 600 秒，范围 5–1800 秒；观察时间范围为 1–60 秒。最多接受 18 次试验，每个模式最多 6 次。匿名取地址阶段也有真实进程截止时间，不会无限等候网络。预算耗尽的试验标为未运行，不能计为成功或零耗时；超时会清理原生播放器及代理子进程。
+每次原生试验墙钟截止时间 `--deadline-seconds` 默认为 90 秒，范围 5–600 秒；整组总预算 `--total-budget-seconds` 默认为 600 秒，范围 5–7200 秒；观察时间范围为 1–600 秒。最多接受 18 次试验，每个模式最多 6 次。取地址阶段也有进程截止时间，不会无限等候网络。预算耗尽的试验标为未运行，不能计为成功或零耗时；超时会清理原生播放器及代理子进程。
 
 ## 3. 自动筛选与批量对照
 
@@ -104,7 +104,7 @@ python3 tool/vod_auto_test.py campaign \
   --output /path/to/private-test-results/campaign
 ```
 
-`--count` 是整批视频数量上限，默认 4、最多 12 条，不是每层数量，也不是实际成功数量。默认四层各期望 1 条；8/12 条时各期望 2/3 条，缺层不硬凑。`--request-budget` 是发现请求上限，默认 8，允许 1–12；它不是每视频取源次数。发现截止 `--discovery-deadline-seconds` 默认 90 秒，允许 5–180 秒；每 trial 截止也默认 90 秒。总预算默认 1200 秒（20 分钟），允许 5–1800 秒，覆盖发现、取源和播放流程。工具顺序运行，不并发拉起多个视频来争抢测试网络。每个视频内部仍用有限路数的真实 CDN 代理；默认 8 路、1024 KiB，从 0 秒观察到 8 秒，再 seek 到 30 秒核对恢复进展。
+`--count` 是整批视频数量上限，默认 4、最多 12 条，不是每层数量，也不是实际成功数量。默认四层各期望 1 条；8/12 条时各期望 2/3 条，缺层不硬凑。`--request-budget` 是发现请求上限，默认 8，允许 1–12；它不是每视频取源次数。发现截止 `--discovery-deadline-seconds` 默认 90 秒，允许 5–180 秒；每 trial 截止也默认 90 秒。总预算默认 1200 秒（20 分钟），允许 5–7200 秒，覆盖发现、取源和播放流程。工具顺序运行，不并发拉起多个视频来争抢测试网络。每个视频内部仍用有限路数的真实 CDN 代理；默认 8 路、1024 KiB，从 0 秒观察到 8 秒，再 seek 到 30 秒核对恢复进展。
 
 | 分层 | 本例选择条件 | 用途 |
 | --- | --- | --- |
@@ -147,7 +147,7 @@ python3 tool/vod_auto_test.py campaign \
 | `start_position_verified/seek_position_verified` | 原生事件是否核对到预期位置；不是 GUI 操作验收 |
 | `bridge_setup_seconds` | 并发代理启动时间，单列记录；原生播放计时不包含它 |
 
-画面和声音输出均为 `null`，缓存配置固定采用应用默认的 4 MiB/16 秒模型并记录在报告，未读取用户设置；与实际硬件解码、窗口绘制及用户自选缓存仍有差别。媒体请求 User-Agent 与桌面 `BrowserUa.pc` 一致，官方网页发现/取源使用正常桌面浏览器请求头。直连 mpv 网络超时为应用默认的 5 秒，并发 mpv 为 60 秒，代理的每个来源请求超时为 10 秒；播放器条件进入报告。这是应用对应路径的比较，超时策略并非相同。下载速度不等于流畅度，缓存暂停也不能完全代替人工感知。原生代码运行与传输回归通过只证明相应路径可用，不能宣称 GUI 验收通过。
+画面和声音输出均为 `null`，默认缓存为 4 MiB/16 秒，可显式用 `--buffer-mib` 和 `--buffer-seconds`匹配用户配置（本轮为 200 MiB/360 秒），工具不自动读取用户设置。实际选项与每 0.5 秒的进度、缓冲余量／速率时间线进入报告；与硬件解码、窗口绘制仍有差别。媒体请求 User-Agent 与桌面 `BrowserUa.pc` 一致，官方网页发现/取源使用正常桌面浏览器请求头。比较时建议统一传 `--network-timeout-seconds 5`；不传时直连仍为 5 秒、代理为 60 秒，不能混为公平可靠性对照。代理来源请求超时为 10 秒。下载速度不等于流畅度，缓存暂停也不能完全代替人工感知。
 
 汇总只对同一指纹、实际画质、codec、分辨率、起点与试验参数的数据求中位数及范围；拒绝跨基线混算。失败、超时和未知值不作为成功耗时参与统计。少量样本不计算 P95，也不自动宣称达到 30% 改善。对海外网络性能结论仍需同素材、同质量、同网络的充分对照与手动验证。
 
@@ -160,3 +160,77 @@ python3 -m unittest discover -s tool/tests -p 'test_*.py' -v
 这些检查覆盖超时进程清理、大清单管道截止、私有媒体地址不进入报告、匿名实际画质不足、清单元信息约束、结果计数及混合试验基线拒绝。未设置动态库时，真实原生夹具会标为跳过；设置环境变量 `PILIPLUS_MPV_LIBRARY` 为实际动态库路径后，可同时运行本地合成视频/音频、非零起点及 seek 的原生检查。它们不能证明真实 CDN 的性能收益；具体执行结果须写入验证记录。
 
 `AUTO-04/05` 新增检查需覆盖有限回退与阶段错误、分层边界和缺失元信息、重复视频去重、候选不足、批量画质不足标识、失败后继续与预算耗尽、原始样本和可视报告一致、无有效媒体时的空图状态，以及签名地址脱敏。公开真实素材发现/播放另行记录；即使这些确定性检查通过，也不能把官方受限的入口、用户原 4K 或目标网络性能标为已通过。
+
+
+## AUTO-06 双轨连续供给与原生复核
+
+新增 `tool/vod_supply_test.py`，默认计划 40 个视频，每次同时请求视频 2 MiB、音频 128 KiB，单次 18 秒、总预算 2400 秒。检查 206、Range、长度和两轨摘要；记录失败、实际画质、首 64 KiB、完整供给与块间最长等待。没有媒体时间映射，不能称这些为实际播放卡顿次数。
+
+模式 `hw-direct` 为华为云直连；`smart` 为自动选源加自适应并发；`auto` 仅自动选源；`parallel` 保留旧策略作为历史对照。Python 直连与 Dart 代理的连接实现不同，不能仅据下载比例宣布应用提速。`vod_auto_test.py playback` 已支持这些模式；`vod_native_suite.py` 对公开元数据清单逐个进行同一个 mpv 的 ABBA/BAAB 起播、缓存暂停和 seek 复核。
+
+新投稿目录最多三页普通公开请求；遇到限制停止该接口族。`--new-only` 专测生活区新投稿，不能代表全站冷门视频。`--catalog` 支持可复查的公开元数据，不包含媒体签名地址或账号信息。每视频各模式共用同一组取源结果。
+
+下载模式按视频循环轮换，使各模式都有机会先测；首批历史初筛为华为云首尾、中间实验模式互换，需单列设计差异。不能制造或确认冷缓存。诊断中的上游正文数仅统计已观测正文，不含 TLS 和取消后未读取的数据。桥启动时间单列，应用本身没有反复启动 Dart 解释器的开销。
+
+高画质受匿名接口限制时必须标注实际画质。低画质字节供给和无画面输出的 mpv 通过，不能证明登录 1080p/4K 或 GUI 首帧、声音验收通过。
+
+### 授权高画质与初始／中段复测（5436）
+
+`--cookie-file /path/to/private-cookies.json` 接受平面 Cookie 名称／值 JSON 对象，例如 `{"SESSDATA":"…","bili_jct":"…"}`。仅在用户授权后使用，将文件放在仓库外、仅本人可读；用后删除。Cookie 仅可发送至 HTTPS 的 `www.bilibili.com`／`api.bilibili.com` 精确域，重定向也受此限制；不会发送至 CDN 或回环代理，不写入报告。工具不提供自动账号库抽取。官方发现仍匿名，遇限制停止对应入口，不绕过挑战。
+
+```sh
+python3 tool/vod_supply_test.py \
+  --catalog /path/to/public-catalog.json \
+  --cookie-file /path/to/private-cookies.json \
+  --count 40 --quality-code 120 --codec avc \
+  --video-mib 8 --audio-kib 256 --middle-window \
+  --modes hw-direct,smart --concurrency 8 --chunk-kib 512 \
+  --trial-seconds 30 --budget-seconds 1800 \
+  --output /path/to/test-results/supply
+```
+
+不加 `--require-quality` 时记录并测试最佳实际画质，不能把 1080p 写成 4K。供给最多 100 视频，原生 suite 最多 40，主 `campaign` 仍最多 12；后者总预算现允许至 7200 秒。首窗与中窗共用同一媒体来源，使用首窗成功响应的验证总长计算两轨各自的字节偏移并裁剪长度；重复首窗的小文件标为 `not_applicable`，未取得长度或预算不足保留 `not_run`。供给预算阻止超额启动新试验，但阻塞网络读、诊断和进程清理可能带来几秒尾时，不能宣称绝对硬截止。全批按 BV／窗口／偏移／实际画质／codec／来源指纹分别核对摘要；字节中点不等于媒体时间中点。目录层标签与取源后实时播放量分层单独报告，不用旧热度冒充当前冷门。
+
+有界下载对照应把 `setup_seconds` 加回代理首段/完整目标供给的总等待，同时保留原始下载层计时，避免忽略代理启动成本。原生的 `initial_progress_seconds` 是播放器进度开始推进，代理启动单列为 `bridge_setup_seconds`；地址获取、GUI首帧与首音频不在该指标内。不同素材、签名来源、画质、起点或缓冲参数的原生样本按各自 `comparison_key` 汇总，不合并均值。JSON检查点、失败与未运行分母也必须在框架异常后保留；框架中断和生产媒体失败分别归因。
+
+代理 `selected_hosts` 只表示每轨最后记录的首选/初始连续流主机，不是所有实际分块或竞争来源。`observed_upstream_body_bytes` 是已读到的body字节，`upstream_requests` 包括采样、竞争、重定向及可能已取消的HTTP打开尝试；它们不是全部线速流量或完成的请求数。`peak_buffered_payload_bytes`/hedge计数只测代理的逻辑预留额度，64MiB限制不代表进程堆、原生缓存或内核TCP缓冲总量。资格探测也会产生上游首字节事件，因此体验判断使用有用媒体交付与原生缓存指标，不能把探测首包当成解码起播。
+
+原生问题样本可用 `playback --bvid BV14Fao6HEB8 --cookie-file … --quality-code 120 --order hw-direct,smart,smart,hw-direct --duration-seconds 90 --seek-seconds 105 --buffer-seconds 360 --buffer-mib 200 --network-timeout-seconds 5`，并传入实际 `--library`／`--dart`及输出目录。seek 105 仅适用于本轮该分 P 的 120 秒长度，其他素材需另选合法目标。上游正文和缓冲／竞争副本计数用于定位，正文不是包含 TLS 与未读取取消数据的完整网络流量，payload 预约也不是进程 RSS。
+
+
+### 5434 公平超时与新增回归
+
+原生批次可传 `--network-timeout-seconds 5`，让华为云与代理使用相同播放器网络超时；不传则沿用应用的直连 5 秒／代理 60 秒，不能直接据后者的成功率断言更可靠。`regress` 已加入 measured transport 和电池换算套件。
+
+```sh
+python3 tool/vod_native_suite.py --catalog /path/to/public-catalog.json --output /path/to/equal-timeout --library /Applications/PiliPlus.app/Contents/Frameworks/Mpv.framework/Mpv --count 8 --seconds 30 --network-timeout-seconds 5
+```
+
+[本轮实际结果](cdn-auto-evaluation-20260929.md)与[机器摘要](results/cdn-auto-evaluation-20260929.json)包含未通过样本，不能只统计输出成功的行。
+
+
+## 最高实际画质的卡顿诊断与消融（AUTO-07）
+
+新入口 `tool/cdn_ablation_test.py` 用同一私有素材快照运行原生双轨，额外记录主demux缓存范围、CPU区间、可用丢帧指标、请求与有序交付时间线。它不读取账号库、不自动取Cookie，也不修改应用设置。素材由已授权的既有官方GET取源函数准备；默认匿名取源不能代表登录4K。私有manifest需包含真实bvid/page及view.page_duration，权限应为600，目录700；运行后清理签名地址。本轮实际取源、发行库与对照证据见[三视频报告](cdn-three-diagnostic-20260930.md)。
+
+```sh
+python3 tool/cdn_ablation_test.py run \
+  --manifest BV1ikaZ6rELU=/path/to/private/BV1ikaZ6rELU.json \
+  --actual-quality BV1ikaZ6rELU=120 \
+  --case BV1ikaZ6rELU=35:none \
+  --library /path/to/PiliPlus.app/Contents/Frameworks/Mpv.framework/Mpv \
+  --dart /path/to/flutter/bin/dart \
+  --buffer-seconds 360 --buffer-mib 200 --chunk-kib 512 --concurrency 8 \
+  --timeout-profile equal --equal-network-timeout 60 \
+  --trial-deadline-seconds 240 --total-budget-seconds 4200 \
+  --runtime-label diagnostic-factorial --reference-source SOURCE_COMMIT \
+  --output /path/to/public-results
+```
+
+示例画质代码120必须与该快照的实际最高条目一致；工具不能因请求129而声称实际是8K。每BV各给一组manifest、actual-quality和case，可重复三个参数覆盖多个视频。`35:none`表示从0推进到35秒且不seek；`150:none`覆盖90～150秒；`15:1200`先推进到15秒，再跳1200并推进至目标+15秒。观察依据媒体位置，停顿会延长墙钟时间。无seek指标为N/A；缺信号、短素材、超时和未运行分别保留。
+
+默认五模式正序再反向，关闭/开启分块并发分别采用严格华为或正常候选池；四个代理模式保留相同auto/adaptive算法，华为直连另外对照。关闭分块并发不代表整个音视频系统只有一个TCP连接：每轨主响应及有界资格探测仍存在。`equal`统一mpv超时60秒；`app`复现H5/S60，两情景不能合并统计。代理上游超时仍10秒。诊断默认由此测试入口显式开启，客户端代理默认关闭；`--no-diagnostics`可作扰动检查，原生缓存/CPU观察仍会运行。
+
+每轮原子保存JSON/CSV，预算和源码/库/素材SHA冻结防止混入不同程序；正式比较需新输出目录、独立进程、禁止其他性能测试同时占网络。预编译桥可传`--bridge-executable`，必须与记录的源码对应。固定华为还须核域名计数之和等于总请求、dropped=0，不能只看首个主机。日志满额及丢弃数量保留，不把缺失当0。
+
+起播、seek restart、目标后1秒进度和目标+15秒完成分别记录；main范围外不证明音频/OS/CDN缓存未命中。CPU是进程多线程用量，null输出的frame-drop不等于GUI掉帧。旧版本passthrough流量计数遗漏须与诊断读取量分开，峰值和mpv速率读数不可取代实际连续交付与缓存耗尽证据。每模式仅两次不计算可靠P95或宣称全站有效。

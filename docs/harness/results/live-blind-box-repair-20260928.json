@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-09-27T16:44:29.946741+00:00",
+  "scope": "Known blind box restriction repair",
+  "source_sha256": {
+    "lib/models_new/live/interactions/live_interaction_parser.dart": "2c94da26b7707a321c4f38d929b048c2062e5ae5f2d7ef319b59e7fca8ab8de9",
+    "test/services/live_interaction_service_test.dart": "13305ee693ed32e553155aa3189208cb340eb1e24cf390b821c58484e438bda2",
+    "test/fixtures/live/room6_known_blind_boxes.json": "3c20b534d64d41f4f6ea7f2f76be81e45808e36f9151052da3641e14d8bfc594"
+  },
+  "service_tests_passed": 38,
+  "service_tests_failed": 0,
+  "analyzer": "No issues found",
+  "two_room_anonymous_payload_smoke": "all 3 known blind boxes disabled in each of rooms 6 and 7596842",
+  "authenticated_write_run": false,
+  "real_transaction_run": false
+}

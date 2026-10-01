@@ -7,6 +7,7 @@ abstract final class SettingBoxKey {
       defaultAudioQa = 'defaultAudioQa',
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
+      inAppMiniPlayer = 'inAppMiniPlayer',
       fullScreenMode = 'fullScreenMode',
       preferCodecs = 'preferCodecs',
       preferCodecsCellular = 'preferCodecsCellular',
@@ -90,6 +91,8 @@ abstract final class SettingBoxKey {
       continuePlayingPart = 'continuePlayingPart',
       cdnSpeedTest = 'cdnSpeedTest',
       cdnParallelLoading = 'cdnParallelLoading',
+      cdnAutoSelect = 'cdnAutoSelect',
+      cdnAdaptive = 'cdnAdaptive',
       cdnParallelConnections = 'cdnParallelConnections',
       cdnParallelChunkSizeKiB = 'cdnParallelChunkSizeKiB',
       horizontalPreview = 'horizontalPreview',
@@ -147,6 +150,7 @@ abstract final class SettingBoxKey {
       silentDownImg = 'silentDownImg',
       showMemberShop = 'showMemberShop',
       enablePlayAll = 'enablePlayAll',
+      enableTemporaryQueue = 'enableTemporaryQueue',
       enableTapDm = 'enableTapDm',
       setSystemBrightness = 'setSystemBrightness',
       downloadPath = 'downloadPath',
@@ -242,6 +246,7 @@ abstract final class SettingBoxKey {
       tempPlayerConf = 'tempPlayerConf',
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
+      liveRoomEnhancement = 'liveRoomEnhancement',
       saveReply = 'saveReply',
       appFont = 'appFont';
 }

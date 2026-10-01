@@ -112,7 +112,7 @@ void main() {
       await tester.pumpWidget(
         _settings([
           'CDN 设置',
-          '并发 CDN 加载（实验性）',
+          '自动选择 CDN（实验性）',
           'CDN 测速',
           '音频不跟随 CDN 设置',
         ]),
@@ -127,7 +127,7 @@ void main() {
       );
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
-      expect(Pref.cdnParallelLoading, isTrue);
+      expect(Pref.cdnAutoSelect, isTrue);
       expect(
         tester
             .widgetList<Switch>(find.byType(Switch))
@@ -144,7 +144,7 @@ void main() {
 
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
-      expect(Pref.cdnParallelLoading, isFalse);
+      expect(Pref.cdnAutoSelect, isFalse);
       expect(find.textContaining('此项已停用'), findsNothing);
       expect(
         tester.widgetList<Switch>(find.byType(Switch)).map((v) => v.value),
@@ -167,10 +167,34 @@ void main() {
         const MaterialApp(home: Scaffold(body: CdnSelectDialog())),
       );
       expect(find.text('CDN 设置'), findsOneWidget);
-      await GStorage.setting.put(SettingBoxKey.cdnParallelLoading, true);
+      await GStorage.setting.put(SettingBoxKey.cdnAutoSelect, true);
       await tester.pumpAndSettle();
       expect(find.text('CDN 设置已停用'), findsOneWidget);
       expect(find.text('CDN 设置'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'automatic source selection and parallel download toggle independently',
+    (tester) async {
+      await tester.pumpWidget(
+        _settings([
+          '自动选择 CDN（实验性）',
+          '并发 CDN 加载（实验性）',
+          'CDN 设置',
+        ]),
+      );
+      await tester.tap(find.text('自动选择 CDN（实验性）'));
+      await tester.pumpAndSettle();
+      expect(Pref.cdnAutoSelect, isTrue);
+      expect(Pref.cdnParallelLoading, isFalse);
+      await tester.tap(find.text('并发 CDN 加载（实验性）'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('自动选择 CDN（实验性）'));
+      await tester.pumpAndSettle();
+      expect(Pref.cdnAutoSelect, isFalse);
+      expect(Pref.cdnParallelLoading, isTrue);
+      expect(find.textContaining('此项已停用'), findsNothing);
     },
   );
 
@@ -202,7 +226,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(GStorage.setting.get(key), endpoint);
           expect(find.byType(TextFormField), findsNothing);
-          expect(find.textContaining('当前：$endpoint '), findsOneWidget);
+          expect(find.textContaining('手动模式：$endpoint '), findsOneWidget);
         }
       },
     );

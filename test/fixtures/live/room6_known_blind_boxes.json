@@ -1,0 +1,142 @@
+{
+  "source": {
+    "url": "https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?room_id=6&platform=pc&ruid=612",
+    "captured_date": "2026-09-27",
+    "anonymous": true,
+    "response_api_code": 0,
+    "source_payload_sha256": "d2a854152bb151c7cfe4ade8f3806b08e27d916e9cdc1909025948f9cb4a941a",
+    "projection": "Four public catalogue entries and minimum relevant config fields; no login or write evidence",
+    "reviewed_date": "2026-09-28"
+  },
+  "data": {
+    "gift_data": {
+      "max_send_gift": 5000,
+      "room_gift_list": {
+        "gold_list": [
+          {
+            "gift_id": 35942,
+            "id": 35942,
+            "special": {
+              "special_type": 0,
+              "is_use": 1,
+              "tips": "",
+              "url": ""
+            },
+            "gift_scene": {
+              "scene": "default_gift",
+              "pay_type": "send_gift",
+              "hide_price": false
+            }
+          },
+          {
+            "gift_id": 33988,
+            "id": 33988,
+            "special": {
+              "special_type": 0,
+              "is_use": 1,
+              "tips": "",
+              "url": ""
+            },
+            "gift_scene": {
+              "scene": "default_gift",
+              "pay_type": "send_gift",
+              "hide_price": false
+            }
+          },
+          {
+            "gift_id": 32251,
+            "id": 32251,
+            "special": {
+              "special_type": 0,
+              "is_use": 1,
+              "tips": "",
+              "url": ""
+            },
+            "gift_scene": null
+          },
+          {
+            "gift_id": 35206,
+            "id": 35206,
+            "special": {
+              "special_type": 0,
+              "is_use": 1,
+              "tips": "",
+              "url": ""
+            },
+            "gift_scene": {
+              "scene": "default_gift",
+              "pay_type": "send_gift",
+              "hide_price": false
+            }
+          }
+        ]
+      }
+    },
+    "gift_config": {
+      "base_config": {
+        "list": [
+          {
+            "id": 35206,
+            "name": "幸运盲盒",
+            "price": 5000,
+            "coin_type": "gold",
+            "draw": 0,
+            "privilege_required": 0,
+            "bind_ruid": 0,
+            "bind_roomid": 0,
+            "gift_type": 6,
+            "max_send_limit": 5000,
+            "gift_attrs": [
+              6
+            ]
+          },
+          {
+            "id": 35942,
+            "name": "中秋盲盒",
+            "price": 9000,
+            "coin_type": "gold",
+            "draw": 0,
+            "privilege_required": 0,
+            "bind_ruid": 0,
+            "bind_roomid": 0,
+            "gift_type": 6,
+            "max_send_limit": 5000,
+            "gift_attrs": [
+              6
+            ]
+          },
+          {
+            "id": 32251,
+            "name": "心动盲盒",
+            "price": 15000,
+            "coin_type": "gold",
+            "draw": 0,
+            "privilege_required": 0,
+            "bind_ruid": 0,
+            "bind_roomid": 0,
+            "gift_type": 6,
+            "max_send_limit": 5000,
+            "gift_attrs": [
+              6
+            ]
+          },
+          {
+            "id": 33988,
+            "name": "人气票",
+            "price": 100,
+            "coin_type": "gold",
+            "draw": 0,
+            "privilege_required": 0,
+            "bind_ruid": 0,
+            "bind_roomid": 0,
+            "gift_type": 0,
+            "max_send_limit": 5000,
+            "gift_attrs": [
+              0
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
