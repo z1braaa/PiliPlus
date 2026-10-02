@@ -1,0 +1,3172 @@
+{
+  "schema_version": 1,
+  "platform": "macOS native mpv + production LiveViewingSession",
+  "room": 1577263,
+  "streamer": "咕王BbT",
+  "account_confirmed": true,
+  "credentials": "temporary private copy, original unchanged; no credentials in evidence",
+  "status": "complete",
+  "emote": {
+    "label": "oi",
+    "package": "房间专属表情",
+    "first_in_fan_package": true,
+    "available": true
+  },
+  "before": [
+    {
+      "title": "观看直播满15分钟",
+      "sub_title": "每日上限 2/10",
+      "add_text": "亲密度+1",
+      "jump_type": "watchLive",
+      "is_done": false
+    },
+    {
+      "title": "发弹幕",
+      "sub_title": "每日上限 1/10",
+      "add_text": "亲密度+1",
+      "jump_type": "sendDanmu",
+      "is_done": false
+    },
+    {
+      "title": "点赞30次",
+      "sub_title": "每日上限 5/10",
+      "add_text": "亲密度+1",
+      "jump_type": "like",
+      "is_done": false
+    }
+  ],
+  "after": [
+    {
+      "title": "观看直播满15分钟",
+      "sub_title": "每日上限 3/10",
+      "add_text": "亲密度+1",
+      "jump_type": "watchLive",
+      "is_done": false
+    },
+    {
+      "title": "发弹幕",
+      "sub_title": "每日上限 10/10",
+      "add_text": "亲密度+1",
+      "jump_type": "sendDanmu",
+      "is_done": true
+    },
+    {
+      "title": "点赞30次",
+      "sub_title": "每日上限 10/10",
+      "add_text": "亲密度+1",
+      "jump_type": "like",
+      "is_done": true
+    }
+  ],
+  "elapsed_seconds": 969,
+  "accepted_watch_seconds": 960,
+  "native_tracks_decoded": true,
+  "samples": [
+    {
+      "seconds": 10,
+      "native_position": 11.74,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 1/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 7/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": false
+        }
+      ]
+    },
+    {
+      "seconds": 20,
+      "native_position": 21.773,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 1/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": false
+        }
+      ]
+    },
+    {
+      "seconds": 30,
+      "native_position": 31.806,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 1/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 40,
+      "native_position": 41.84,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 50,
+      "native_position": 51.873,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 60,
+      "native_position": 61.923,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 0,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 70,
+      "native_position": 71.94,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 60,
+      "automation_state": "sending",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 80,
+      "native_position": 81.99,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 60,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 90,
+      "native_position": 92.023,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 60,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 101,
+      "native_position": 102.056,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 60,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 111,
+      "native_position": 112.106,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 60,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 121,
+      "native_position": 122.14,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 131,
+      "native_position": 132.173,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "loading",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 4/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 141,
+      "native_position": 143.206,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 4/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 151,
+      "native_position": 153.256,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 4/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 161,
+      "native_position": 163.29,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 4/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 171,
+      "native_position": 173.323,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 120,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 4/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 181,
+      "native_position": 183.356,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "loading",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 5/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 192,
+      "native_position": 193.373,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 5/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 202,
+      "native_position": 203.423,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 5/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 212,
+      "native_position": 213.456,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 222,
+      "native_position": 223.49,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 232,
+      "native_position": 233.523,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 180,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 242,
+      "native_position": 243.556,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 252,
+      "native_position": 253.606,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 262,
+      "native_position": 263.64,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 6/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 272,
+      "native_position": 273.69,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 7/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 282,
+      "native_position": 283.723,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 7/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 292,
+      "native_position": 293.756,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 240,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 7/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 303,
+      "native_position": 303.79,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 7/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 313,
+      "native_position": 313.856,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 8/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 323,
+      "native_position": 324.89,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 8/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 333,
+      "native_position": 334.923,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 8/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 343,
+      "native_position": 344.956,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 8/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 353,
+      "native_position": 354.99,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 300,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 2/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 8/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 363,
+      "native_position": 365.023,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 373,
+      "native_position": 375.056,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 383,
+      "native_position": 385.106,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 393,
+      "native_position": 395.14,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 403,
+      "native_position": 405.173,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 414,
+      "native_position": 415.206,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 360,
+      "automation_state": "waiting",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 9/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": false
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 424,
+      "native_position": 425.24,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "verifying",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 434,
+      "native_position": 435.273,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 444,
+      "native_position": 445.306,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 454,
+      "native_position": 455.34,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "loading",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 464,
+      "native_position": 465.373,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 474,
+      "native_position": 475.406,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 420,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 484,
+      "native_position": 485.44,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 494,
+      "native_position": 496.49,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 504,
+      "native_position": 506.506,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 514,
+      "native_position": 516.54,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 525,
+      "native_position": 526.573,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 535,
+      "native_position": 536.606,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 480,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 545,
+      "native_position": 546.656,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 555,
+      "native_position": 556.673,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 565,
+      "native_position": 566.723,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 575,
+      "native_position": 576.74,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 585,
+      "native_position": 586.79,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 595,
+      "native_position": 596.823,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 540,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 605,
+      "native_position": 606.84,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 615,
+      "native_position": 616.89,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 626,
+      "native_position": 626.923,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 636,
+      "native_position": 636.956,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 646,
+      "native_position": 647.006,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 656,
+      "native_position": 658.04,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 600,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 666,
+      "native_position": 668.073,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 676,
+      "native_position": 678.123,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 686,
+      "native_position": 688.156,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 696,
+      "native_position": 698.19,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 706,
+      "native_position": 708.24,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 716,
+      "native_position": 718.256,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 660,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 727,
+      "native_position": 728.306,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 737,
+      "native_position": 738.323,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 747,
+      "native_position": 748.373,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 757,
+      "native_position": 758.406,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 767,
+      "native_position": 768.456,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 777,
+      "native_position": 778.49,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 720,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 787,
+      "native_position": 788.523,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 797,
+      "native_position": 798.54,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 807,
+      "native_position": 808.573,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 817,
+      "native_position": 818.623,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 827,
+      "native_position": 828.656,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 837,
+      "native_position": 839.706,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 780,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 848,
+      "native_position": 849.74,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 858,
+      "native_position": 859.773,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 868,
+      "native_position": 869.823,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 878,
+      "native_position": 879.856,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 888,
+      "native_position": 889.89,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 898,
+      "native_position": 899.923,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 840,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 908,
+      "native_position": 909.956,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 918,
+      "native_position": 920.006,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 928,
+      "native_position": 930.04,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 938,
+      "native_position": 940.073,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 949,
+      "native_position": 950.123,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 959,
+      "native_position": 960.156,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 900,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    },
+    {
+      "seconds": 969,
+      "native_position": 970.206,
+      "playing": true,
+      "buffering": false,
+      "watch_state": "reporting",
+      "reported_seconds": 960,
+      "automation_state": "completed",
+      "tasks": [
+        {
+          "title": "观看直播满15分钟",
+          "sub_title": "每日上限 3/10",
+          "add_text": "亲密度+1",
+          "jump_type": "watchLive",
+          "is_done": false
+        },
+        {
+          "title": "发弹幕",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "sendDanmu",
+          "is_done": true
+        },
+        {
+          "title": "点赞30次",
+          "sub_title": "每日上限 10/10",
+          "add_text": "亲密度+1",
+          "jump_type": "like",
+          "is_done": true
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "server polled every 10 seconds; not a direct outbound interaction counter",
+    "watch progress included a preexisting partially accumulated interval",
+    "same-account official browser equal-duration comparison and other platforms not run"
+  ],
+  "final_build_source_commit": "b0e2f7f968cb6662eec06e9c6354ac9942ec2a3c",
+  "long_run_source": "working-tree repair candidate, started before final feature commit; exact source snapshot not pinned",
+  "gui": {
+    "build": 5439,
+    "source_commit": "b0e2f7f968cb6662eec06e9c6354ac9942ec2a3c",
+    "isolated_sandbox": true,
+    "native_video_visible": true,
+    "before_background_watch_progress": "3/10",
+    "after_background_watch_progress": "4/10",
+    "watch_status_after_background": "reporting",
+    "after_restart": {
+      "auto_like": true,
+      "auto_danmaku": true,
+      "mode": "emoticon",
+      "default_emoticon": "oi",
+      "random_interval_seconds": [
+        30,
+        60
+      ],
+      "like_progress": "10/10",
+      "danmaku_progress": "10/10",
+      "watch_progress": "4/10",
+      "intimacy": 86
+    },
+    "limitations": [
+      "daily like and danmaku were already complete during GUI background segment; no further background sends were required",
+      "restart and background were checked on this macOS build; other platforms and app mini-player not run"
+    ]
+  }
+}

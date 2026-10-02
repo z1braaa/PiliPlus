@@ -392,8 +392,11 @@ void main() {
           await private.delete(recursive: true);
         }
         record();
-        // Output only the public sanitized report.
-        print(jsonEncode(result));
+      // Output only the public sanitized report.
+      print(jsonEncode(result));
+      if (result['status'] == 'failed') {
+        fail('Live acceptance failed at $stage; see the sanitized report.');
+      }
       }
     },
     skip: !const bool.fromEnvironment('LIVE_ACCOUNT_ACCEPTANCE'),

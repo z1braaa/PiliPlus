@@ -1,0 +1,13 @@
+{
+  "passed": 270,
+  "failed": 0,
+  "skipped": 0,
+  "count_verified": true,
+  "framework_events": 42,
+  "framework_failures": 0,
+  "source_commit": "b0e2f7f968cb6662eec06e9c6354ac9942ec2a3c",
+  "analysis": {
+    "dart_files": 15,
+    "issues": 0
+  }
+}
