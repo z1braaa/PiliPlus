@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/services/live_task_automation.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
@@ -746,6 +748,9 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
             loggedIn: widget.session.service.isLoggedIn,
             snapshotReady: widget.session.snapshotMatchesCurrentAccount,
             onChanged: widget.onAutomationPreferencesChanged,
+            roomId: widget.session.service.roomId,
+            anchorUid: widget.session.service.anchorUid,
+            loadEmoticons: widget.session.service.loadTaskEmoticons,
           ),
         const SizedBox(height: 12),
         Text('勋章佩戴与摘下', style: Theme.of(context).textTheme.titleMedium),
@@ -994,6 +999,9 @@ class LiveTaskAutomationControls extends StatefulWidget {
     required this.loggedIn,
     required this.onChanged,
     this.snapshotReady = true,
+    this.roomId = 0,
+    this.anchorUid = 0,
+    this.loadEmoticons,
   });
 
   final LiveTaskAutomationService service;
@@ -1001,6 +1009,9 @@ class LiveTaskAutomationControls extends StatefulWidget {
   final bool loggedIn;
   final bool snapshotReady;
   final ValueChanged<LiveTaskAutomationPreferences>? onChanged;
+  final int roomId;
+  final int anchorUid;
+  final Future<List<LiveTaskEmoticonOption>> Function()? loadEmoticons;
 
   @override
   State<LiveTaskAutomationControls> createState() =>
@@ -1026,7 +1037,10 @@ class _LiveTaskAutomationControlsState
   @override
   void didUpdateWidget(covariant LiveTaskAutomationControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_editable || !identical(oldWidget.service, widget.service)) {
+    if (!_editable ||
+        !identical(oldWidget.service, widget.service) ||
+        oldWidget.roomId != widget.roomId ||
+        oldWidget.anchorUid != widget.anchorUid) {
       _closeEditor();
     }
   }
@@ -1042,6 +1056,14 @@ class _LiveTaskAutomationControlsState
     animation: widget.service,
     builder: (context, _) {
       final preferences = widget.preferences;
+      final usingEmoticon =
+          preferences.danmakuMode == LiveTaskDanmakuMode.emoticon;
+      final hasEmoticon = preferences.defaultEmoticonUnique.isNotEmpty;
+      final matchesRoom =
+          preferences.defaultEmoticonRoomId == widget.roomId &&
+          preferences.defaultEmoticonAnchorUid == widget.anchorUid &&
+          widget.roomId > 0 &&
+          widget.anchorUid > 0;
       return Card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1068,7 +1090,13 @@ class _LiveTaskAutomationControlsState
               key: const ValueKey('live-auto-danmaku'),
               title: const Text('自动弹幕'),
               subtitle: Text(
-                preferences.defaultMessage.trim().isEmpty
+                usingEmoticon
+                    ? !hasEmoticon
+                          ? '选择默认表情后执行；当前等待设置'
+                          : !matchesRoom
+                          ? '表情与当前直播间不匹配，自动操作暂停'
+                          : '发送前核对表情权限，完成后停止'
+                    : preferences.defaultMessage.trim().isEmpty
                     ? '设置默认弹幕后执行；当前等待设置'
                     : '按剩余弹幕数量执行，完成后停止',
               ),
@@ -1079,18 +1107,62 @@ class _LiveTaskAutomationControlsState
                     )
                   : null,
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<LiveTaskDanmakuMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: LiveTaskDanmakuMode.text,
+                    label: Text('文字', key: ValueKey('live-danmaku-mode-text')),
+                    icon: Icon(Icons.text_fields),
+                  ),
+                  ButtonSegment(
+                    value: LiveTaskDanmakuMode.emoticon,
+                    label: Text(
+                      '表情',
+                      key: ValueKey('live-danmaku-mode-emoticon'),
+                    ),
+                    icon: Icon(Icons.emoji_emotions_outlined),
+                  ),
+                ],
+                selected: {preferences.danmakuMode},
+                onSelectionChanged: _editable
+                    ? (values) => widget.onChanged!(
+                        preferences.copyWith(danmakuMode: values.single),
+                      )
+                    : null,
+              ),
+            ),
             ListTile(
-              key: const ValueKey('live-default-danmaku'),
-              title: const Text('默认发送弹幕'),
+              key: ValueKey(
+                usingEmoticon
+                    ? 'live-default-emoticon'
+                    : 'live-default-danmaku',
+              ),
+              title: Text(usingEmoticon ? '默认发送表情' : '默认发送弹幕'),
               subtitle: Text(
-                preferences.defaultMessage.isEmpty
+                usingEmoticon
+                    ? !hasEmoticon
+                          ? '请选择当前主播的可用表情'
+                          : !matchesRoom
+                          ? '已保存表情属于其他直播间，请重新选择'
+                          : '${preferences.defaultEmoticonName.isEmpty ? "已选表情" : preferences.defaultEmoticonName} · 发送前核对可用状态'
+                    : preferences.defaultMessage.isEmpty
                     ? '尚未设置'
                     : preferences.defaultMessage,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: const Icon(Icons.edit_outlined),
-              onTap: _editable ? _editMessage : null,
+              onTap: _editable
+                  ? usingEmoticon
+                        ? widget.loadEmoticons != null &&
+                                  widget.roomId > 0 &&
+                                  widget.anchorUid > 0
+                              ? _editEmoticon
+                              : null
+                        : _editMessage
+                  : null,
             ),
             ListTile(
               key: const ValueKey('live-danmaku-interval'),
@@ -1136,6 +1208,46 @@ class _LiveTaskAutomationControlsState
       );
     },
   );
+
+  Future<void> _editEmoticon() async {
+    final loader = widget.loadEmoticons;
+    if (!_editable || loader == null) return;
+    final service = widget.service;
+    final identity = service.accountIdentity;
+    final roomId = widget.roomId;
+    final anchorUid = widget.anchorUid;
+    final route = DialogRoute<LiveTaskEmoticonOption>(
+      context: context,
+      builder: (context) => _LiveTaskEmoticonPicker(load: loader),
+    );
+    LiveTaskEmoticonOption? value;
+    try {
+      _settingsRoute = route;
+      value = await Navigator.of(context, rootNavigator: true).push(route);
+      await route.completed;
+    } finally {
+      if (identical(_settingsRoute, route)) _settingsRoute = null;
+    }
+    if (mounted &&
+        _editable &&
+        identical(service, widget.service) &&
+        identical(identity, service.accountIdentity) &&
+        roomId == widget.roomId &&
+        anchorUid == widget.anchorUid &&
+        value != null &&
+        value.available &&
+        value.unique.isNotEmpty) {
+      widget.onChanged!(
+        widget.preferences.copyWith(
+          danmakuMode: LiveTaskDanmakuMode.emoticon,
+          defaultEmoticonUnique: value.unique,
+          defaultEmoticonName: value.label,
+          defaultEmoticonRoomId: roomId,
+          defaultEmoticonAnchorUid: anchorUid,
+        ),
+      );
+    }
+  }
 
   Future<void> _editMessage() async {
     final controller = TextEditingController(
@@ -1273,6 +1385,92 @@ class _LiveTaskAutomationControlsState
       );
     }
   }
+}
+
+class _LiveTaskEmoticonPicker extends StatefulWidget {
+  const _LiveTaskEmoticonPicker({required this.load});
+  final Future<List<LiveTaskEmoticonOption>> Function() load;
+
+  @override
+  State<_LiveTaskEmoticonPicker> createState() =>
+      _LiveTaskEmoticonPickerState();
+}
+
+class _LiveTaskEmoticonPickerState extends State<_LiveTaskEmoticonPicker> {
+  late Future<List<LiveTaskEmoticonOption>> _options = widget.load();
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('选择默认发送表情'),
+    content: SizedBox(
+      width: 360,
+      height: 360,
+      child: FutureBuilder<List<LiveTaskEmoticonOption>>(
+        future: _options,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final loaded = snapshot.data ?? const <LiveTaskEmoticonOption>[];
+          final options = [
+            ...loaded.where((option) => option.isFanClub),
+            ...loaded.where((option) => !option.isFanClub),
+          ];
+          if (snapshot.hasError || options.isEmpty) {
+            return Center(
+              child: TextButton.icon(
+                key: const ValueKey('live-emoticon-retry'),
+                onPressed: () {
+                  final next = widget.load();
+                  setState(() {
+                    _options = next;
+                  });
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text(
+                  snapshot.hasError ? '表情加载失败，请重试' : '当前没有可选表情，点击刷新',
+                ),
+              ),
+            );
+          }
+          return ListView(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('优先显示主播粉丝团表情；发送前会再次核对可用权限。'),
+              ),
+              for (final option in options)
+                ListTile(
+                  key: ValueKey('live-emoticon-option:${option.unique}'),
+                  leading: option.url.isNotEmpty
+                      ? NetworkImgLayer(
+                          src: option.url,
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.contain,
+                          type: ImageType.emote,
+                        )
+                      : const Icon(Icons.emoji_emotions_outlined),
+                  title: Text(option.label),
+                  subtitle: Text(option.packageName),
+                  trailing: option.available ? null : const Text('不可发送'),
+                  enabled: option.available && option.unique.isNotEmpty,
+                  onTap: option.available && option.unique.isNotEmpty
+                      ? () => Navigator.of(context).pop(option)
+                      : null,
+                ),
+            ],
+          );
+        },
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('取消'),
+      ),
+    ],
+  );
 }
 
 class _Notice extends StatelessWidget {

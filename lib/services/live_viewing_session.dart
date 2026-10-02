@@ -188,6 +188,13 @@ class LiveViewingSession extends ChangeNotifier {
       autoLike: preferences.autoLike,
       autoDanmaku: preferences.autoDanmaku,
       defaultMessage: preferences.defaultMessage,
+      danmakuMessage: preferences.danmakuMode == LiveTaskDanmakuMode.text
+          ? LiveTaskDanmakuMessage.text(preferences.defaultMessage)
+          : LiveTaskDanmakuMessage.emoticon(
+              emoticonUnique: preferences.defaultEmoticonUnique,
+              roomId: preferences.defaultEmoticonRoomId,
+              anchorUid: preferences.defaultEmoticonAnchorUid,
+            ),
       minIntervalSeconds: preferences.minIntervalSeconds,
       maxIntervalSeconds: preferences.maxIntervalSeconds,
     );
@@ -195,14 +202,14 @@ class LiveViewingSession extends ChangeNotifier {
   }
 
   Future<LiveTaskWriteResult> _sendAutomaticDanmaku(
-    String message,
+    LiveTaskDanmakuMessage message,
     Object identity,
     bool Function() stillAllowed,
   ) async {
     LiveTaskWriteResult? result;
     final attempt = await danmakuSendGate.trySend(() async {
       result = await interaction.sendTaskDanmaku(
-        message: message,
+        taskMessage: message,
         expectedAccountIdentity: identity,
         stillAllowed: stillAllowed,
       );

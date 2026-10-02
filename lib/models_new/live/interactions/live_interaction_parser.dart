@@ -6,6 +6,11 @@ abstract final class LiveInteractionParser {
   static final _taskProgress = RegExp(
     r'^(?:已完成\s*[:：]?\s*)?([0-9]+)\s*[/／]\s*([0-9]+)\s*(次|条|分钟)?$',
   );
+  static final _dailyTaskProgress = RegExp(
+    r'^每日上限\s*[:：]?\s*([0-9]+)\s*[/／]\s*([0-9]+)$',
+  );
+  static final _likeRound = RegExp(r'^点赞\s*([0-9]+)\s*次$');
+  static final _danmakuQuota = RegExp(r'^(?:发|发送)弹幕\s*([0-9]+)\s*次$');
 
   static List<LiveFanTask> fanTasks(Object? value) => [
     for (final task in liveMaps(value)) _fanTask(task),
@@ -14,13 +19,54 @@ abstract final class LiveInteractionParser {
   static LiveFanTask _fanTask(Map<String, dynamic> task) {
     final progress = task['sub_title']?.toString().trim() ?? '';
     final type = task['jump_type']?.toString() ?? '';
+    final title =
+        (task['title'] ?? task['task_name'] ?? task['name'])
+            ?.toString()
+            .trim() ??
+        '';
     int? current;
     int? target;
+    int? actionsPerProgress = 1;
+    final daily = _dailyTaskProgress.firstMatch(progress);
+    final completionOnly = progress == '仅点亮';
     // Explicit count fields are preferred when both are valid. These must be
     // confirmed against a current account response before claiming API parity.
     final structuredCurrent = liveInt(task['current_count']);
     final structuredTarget = liveInt(task['target_count']);
-    if (structuredCurrent != null &&
+    if (completionOnly) {
+      final quota = type == 'like'
+          ? int.tryParse(_likeRound.firstMatch(title)?[1] ?? '')
+          : type == 'sendDanmu'
+          ? int.tryParse(_danmakuQuota.firstMatch(title)?[1] ?? '')
+          : null;
+      if (quota != null && quota > 0 && quota <= 1000) {
+        actionsPerProgress = type == 'like' ? quota : 1;
+        target = type == 'like' ? 1 : quota;
+      } else {
+        actionsPerProgress = null;
+      }
+    } else if (daily != null) {
+      current = int.tryParse(daily[1]!);
+      target = int.tryParse(daily[2]!);
+      if (current == null ||
+          target == null ||
+          target <= 0 ||
+          current > target) {
+        current = target = null;
+      }
+      // These are complete task definitions observed in the official UI.
+      // Reward amounts in add_text never describe the interaction quota.
+      actionsPerProgress = type == 'like'
+          ? int.tryParse(_likeRound.firstMatch(title)?[1] ?? '')
+          : type == 'sendDanmu' && {'发弹幕', '发送弹幕'}.contains(title)
+          ? 1
+          : null;
+      if (actionsPerProgress == null ||
+          actionsPerProgress <= 0 ||
+          actionsPerProgress > 1000) {
+        actionsPerProgress = null;
+      }
+    } else if (structuredCurrent != null &&
         structuredTarget != null &&
         structuredCurrent >= 0 &&
         structuredTarget > 0 &&
@@ -49,9 +95,7 @@ abstract final class LiveInteractionParser {
       }
     }
     return LiveFanTask(
-      name:
-          (task['title'] ?? task['task_name'] ?? task['name'])?.toString() ??
-          '',
+      name: title,
       description:
           (task['add_text'] ?? task['task_desc'] ?? task['desc'])?.toString() ??
           '',
@@ -63,6 +107,9 @@ abstract final class LiveInteractionParser {
       progressText: progress,
       currentCount: current,
       targetCount: target,
+      actionsPerProgress: actionsPerProgress,
+      dailyRewardProgress: daily != null,
+      completionOnly: completionOnly,
       period: task['period_id']?.toString() ?? '',
     );
   }

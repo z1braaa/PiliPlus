@@ -22,6 +22,18 @@ class _Transport implements LiveTaskInteractionTransport {
   LiveInteractionAccount? actor;
   bool failPost = false;
   bool cancelBeforeDispatch = false;
+  Future<void>? emoticonReadDelay;
+  Map<String, dynamic> emoticonData = {
+    'data': [
+      {
+        'pkg_name': '粉丝团表情',
+        'pkg_type': 1,
+        'emoticons': [
+          {'emoji': '支持', 'emoticon_unique': 'room_fixture', 'perm': 1},
+        ],
+      },
+    ],
+  };
   Map<String, dynamic> readData = {
     'level': 1,
     'task_info': [
@@ -37,10 +49,14 @@ class _Transport implements LiveTaskInteractionTransport {
     CancelToken token,
   ) async {
     gets++;
-    expect(path, endsWith('/GetActivatedMedalInfo'));
-    expect(query['target_id'], 20);
     expect(query['room_id'], 6);
     actor = account;
+    if (path.endsWith('/GetEmoticons')) {
+      await emoticonReadDelay;
+      return {'code': 0, 'data': emoticonData};
+    }
+    expect(path, endsWith('/GetActivatedMedalInfo'));
+    expect(query['target_id'], 20);
     return {'code': 0, 'data': readData};
   }
 
@@ -177,6 +193,146 @@ void main() {
     expect(transport.body?['reply_mid'], 0);
     expect(transport.body?['csrf_token'], 'fixture-main-token');
   });
+
+  test(
+    'a daily like reward round sends its full confirmed quota once',
+    () async {
+      final result = await service.sendTaskLikes(
+        clickTime: 30,
+        expectedAccountIdentity: account.identity,
+      );
+      expect(result.state, LiveTaskWriteState.accepted);
+      expect(transport.posts, 1);
+      expect(transport.body?['click_time'], 30);
+      final invalid = await service.sendTaskLikes(
+        clickTime: 1001,
+        expectedAccountIdentity: account.identity,
+      );
+      expect(invalid.state, LiveTaskWriteState.notSubmitted);
+      expect(transport.posts, 1);
+    },
+  );
+
+  test('expression permissions are current and unknown or inline entries stay disabled', () async {
+    transport.emoticonData = {
+      'data': [
+        {
+          'pkg_name': '基础',
+          'pkg_type': 1,
+          'emoticons': [
+            {'emoji': '好', 'emoticon_unique': 'allowed', 'perm': 1},
+            {'emoji': '未知', 'emoticon_unique': 'unknown'},
+            {'emoji': '锁定', 'emoticon_unique': 'locked', 'perm': 0},
+          ],
+        },
+        {
+          'pkg_name': '房间专属表情',
+          'pkg_type': 2,
+          'emoticons': [
+            {'emoji': '支持', 'emoticon_unique': 'fan', 'perm': true},
+          ],
+        },
+        {
+          'pkg_type': 3,
+          'emoticons': [
+            {'emoji': '[笑]', 'emoticon_unique': 'inline', 'perm': 1},
+          ],
+        },
+        {
+          'pkg_type': 2,
+          'perm': 0,
+          'emoticons': [
+            {'emoji': '包已锁定', 'emoticon_unique': 'package_locked', 'perm': 1},
+          ],
+        },
+      ],
+    };
+    final options = await service.loadTaskEmoticons();
+    expect(options.map((option) => option.available), [
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+    expect(
+      options.singleWhere((option) => option.unique == 'fan').isFanClub,
+      isTrue,
+    );
+    expect(transport.posts, 0);
+  });
+
+  test('automatic expression payload matches manual dm_type branch and rereads permission', () async {
+    const payload = LiveTaskDanmakuMessage.emoticon(
+      emoticonUnique: 'room_fixture',
+      roomId: 6,
+      anchorUid: 20,
+    );
+    await service.loadTaskEmoticons();
+    final result = await service.sendTaskDanmaku(
+      taskMessage: payload,
+      expectedAccountIdentity: account.identity,
+    );
+    expect(result.state, LiveTaskWriteState.accepted);
+    expect(transport.gets, 2);
+    expect(transport.posts, 1);
+    expect(transport.body?['msg'], 'room_fixture');
+    expect(transport.body?['dm_type'], 1);
+    expect(transport.body?['emoticonOptions'], '[object Object]');
+    expect(transport.body?.containsKey('reply_mid'), isFalse);
+    transport.emoticonData['data'] = [];
+    final revoked = await service.sendTaskDanmaku(
+      taskMessage: payload,
+      expectedAccountIdentity: account.identity,
+    );
+    expect(revoked.state, LiveTaskWriteState.notSubmitted);
+    expect(transport.posts, 1);
+  });
+
+  test(
+    'an expression belonging to another room never reads or sends',
+    () async {
+      final result = await service.sendTaskDanmaku(
+        taskMessage: const LiveTaskDanmakuMessage.emoticon(
+          emoticonUnique: 'room_fixture',
+          roomId: 7,
+          anchorUid: 20,
+        ),
+        expectedAccountIdentity: account.identity,
+      );
+      expect(result.state, LiveTaskWriteState.notSubmitted);
+      expect(transport.gets, 0);
+      expect(transport.posts, 0);
+    },
+  );
+
+  test(
+    'switching accounts during expression permission read prevents the POST',
+    () async {
+      final read = Completer<void>();
+      transport.emoticonReadDelay = read.future;
+      final sending = service.sendTaskDanmaku(
+        taskMessage: const LiveTaskDanmakuMessage.emoticon(
+          emoticonUnique: 'room_fixture',
+          roomId: 6,
+          anchorUid: 20,
+        ),
+        expectedAccountIdentity: account.identity,
+      );
+      await Future<void>.delayed(Duration.zero);
+      account = LiveInteractionAccount(
+        uid: 10,
+        loggedIn: true,
+        identity: Object(),
+        csrf: 'new-fixture',
+        generation: 2,
+      );
+      read.complete();
+      expect((await sending).state, LiveTaskWriteState.notSubmitted);
+      expect(transport.posts, 0);
+    },
+  );
   test(
     'timeout and malformed response are unknown and never retry POST',
     () async {

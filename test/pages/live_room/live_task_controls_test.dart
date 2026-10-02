@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
 import 'package:PiliPlus/services/live_task_automation.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
@@ -6,6 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 class _Automation extends ChangeNotifier implements LiveTaskAutomationService {
+  final identity = Object();
+  @override
+  Object get accountIdentity => identity;
   bool disposed = false;
   String message = '任务数量尚未确认，自动操作已暂停';
   List<LiveFanTask> currentTasks = [];
@@ -66,6 +71,9 @@ void main() {
     WidgetTester tester, {
     bool loggedIn = true,
     bool snapshotReady = true,
+    int roomId = 6,
+    int anchorUid = 10,
+    Future<List<LiveTaskEmoticonOption>> Function()? loadEmoticons,
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
@@ -76,6 +84,9 @@ void main() {
               preferences: preferences,
               loggedIn: loggedIn,
               snapshotReady: snapshotReady,
+              roomId: roomId,
+              anchorUid: anchorUid,
+              loadEmoticons: loadEmoticons,
               onChanged: (value) {
                 changes.add(value);
                 setState(() => preferences = value);
@@ -161,6 +172,176 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('selects available fan-club emoticons and keeps saved text', (
+    tester,
+  ) async {
+    preferences = const LiveTaskAutomationPreferences(
+      defaultMessage: '保存的文字',
+    );
+    var loads = 0;
+    await mount(
+      tester,
+      loadEmoticons: () async {
+        ++loads;
+        return const [
+          LiveTaskEmoticonOption(
+            unique: 'official_1',
+            label: '官方表情',
+            available: true,
+            packageName: '官方表情包',
+          ),
+          LiveTaskEmoticonOption(
+            unique: 'room_6_1',
+            label: '粉丝团点赞',
+            available: true,
+            packageName: '主播粉丝团',
+            isFanClub: true,
+          ),
+          LiveTaskEmoticonOption(
+            unique: 'room_6_2',
+            label: '尚未解锁',
+            available: false,
+            packageName: '主播粉丝团',
+            isFanClub: true,
+          ),
+        ];
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('live-danmaku-mode-emoticon')));
+    await tester.pumpAndSettle();
+    expect(preferences.danmakuMode, LiveTaskDanmakuMode.emoticon);
+    expect(loads, 0);
+    await tester.tap(find.byKey(const ValueKey('live-default-emoticon')));
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+    final fan = find.byKey(const ValueKey('live-emoticon-option:room_6_1'));
+    final official = find.byKey(
+      const ValueKey('live-emoticon-option:official_1'),
+    );
+    expect(tester.getTopLeft(fan).dy, lessThan(tester.getTopLeft(official).dy));
+    final unavailable = tester.widget<ListTile>(
+      find.byKey(const ValueKey('live-emoticon-option:room_6_2')),
+    );
+    expect(unavailable.enabled, isFalse);
+    expect(unavailable.onTap, isNull);
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(fan);
+    await tester.pumpAndSettle();
+    expect(preferences.defaultEmoticonUnique, 'room_6_1');
+    expect(preferences.defaultEmoticonName, '粉丝团点赞');
+    expect(preferences.defaultEmoticonRoomId, 6);
+    expect(preferences.defaultEmoticonAnchorUid, 10);
+    expect(preferences.defaultMessage, '保存的文字');
+    expect(preferences.autoDanmaku, isFalse);
+    await tester.tap(find.byKey(const ValueKey('live-danmaku-mode-text')));
+    await tester.pumpAndSettle();
+    expect(find.text('保存的文字'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a saved emoticon cannot silently follow another room', (
+    tester,
+  ) async {
+    preferences = const LiveTaskAutomationPreferences(
+      autoDanmaku: true,
+      danmakuMode: LiveTaskDanmakuMode.emoticon,
+      defaultEmoticonUnique: 'room_6_1',
+      defaultEmoticonName: '粉丝团点赞',
+      defaultEmoticonRoomId: 6,
+      defaultEmoticonAnchorUid: 10,
+    );
+    await mount(tester, roomId: 7, anchorUid: 11);
+    expect(find.text('表情与当前直播间不匹配，自动操作暂停'), findsOneWidget);
+    expect(find.text('已保存表情属于其他直播间，请重新选择'), findsOneWidget);
+    expect(changes, isEmpty);
+  });
+
+  testWidgets(
+    'room changes close the picker before a late result can be saved',
+    (
+      tester,
+    ) async {
+      preferences = const LiveTaskAutomationPreferences(
+        danmakuMode: LiveTaskDanmakuMode.emoticon,
+      );
+      final result = Completer<List<LiveTaskEmoticonOption>>();
+      await mount(tester, loadEmoticons: () => result.future);
+      await tester.tap(find.byKey(const ValueKey('live-default-emoticon')));
+      await tester.pump();
+      await mount(tester, roomId: 7, anchorUid: 11);
+      await tester.pumpAndSettle();
+      result.complete(const [
+        LiveTaskEmoticonOption(
+          unique: 'room_6_1',
+          label: '旧直播间表情',
+          available: true,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('旧直播间表情'), findsNothing);
+      expect(changes, isEmpty);
+      expect(preferences.defaultEmoticonRoomId, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('account refresh discards an outstanding emoticon selection', (
+    tester,
+  ) async {
+    preferences = const LiveTaskAutomationPreferences(
+      danmakuMode: LiveTaskDanmakuMode.emoticon,
+    );
+    final result = Completer<List<LiveTaskEmoticonOption>>();
+    await mount(tester, loadEmoticons: () => result.future);
+    await tester.tap(find.byKey(const ValueKey('live-default-emoticon')));
+    await tester.pump();
+    await mount(tester, snapshotReady: false);
+    await tester.pumpAndSettle();
+    result.complete(const [
+      LiveTaskEmoticonOption(
+        unique: 'room_6_1',
+        label: '旧账号表情',
+        available: true,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('旧账号表情'), findsNothing);
+    expect(changes, isEmpty);
+    expect(preferences.defaultEmoticonUnique, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed emoticon reads can be retried without saving a choice', (
+    tester,
+  ) async {
+    preferences = const LiveTaskAutomationPreferences(
+      danmakuMode: LiveTaskDanmakuMode.emoticon,
+    );
+    var loads = 0;
+    await mount(
+      tester,
+      loadEmoticons: () async {
+        if (++loads == 1) throw StateError('read failed');
+        return const [
+          LiveTaskEmoticonOption(
+            unique: 'room_6_1',
+            label: '重试取得的表情',
+            available: true,
+          ),
+        ];
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('live-default-emoticon')));
+    await tester.pumpAndSettle();
+    expect(find.text('表情加载失败，请重试'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('live-emoticon-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('重试取得的表情'), findsOneWidget);
+    expect(loads, 2);
+    expect(changes, isEmpty);
+    expect(preferences.defaultEmoticonUnique, isEmpty);
+  });
+
   testWidgets(
     'service status updates and closing controls never stops automation',
     (tester) async {
@@ -194,6 +375,14 @@ void main() {
       isNull,
     );
     expect(find.text('登录后可开启自动任务。'), findsOneWidget);
+    expect(
+      tester
+          .widget<SegmentedButton<LiveTaskDanmakuMode>>(
+            find.byType(SegmentedButton<LiveTaskDanmakuMode>),
+          )
+          .onSelectionChanged,
+      isNull,
+    );
   });
 
   testWidgets(

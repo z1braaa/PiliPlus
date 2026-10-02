@@ -12,6 +12,8 @@ export 'package:PiliPlus/models_new/live/interactions/live_interaction.dart'
     show
         LiveFanTask,
         LiveFanTaskSnapshot,
+        LiveTaskDanmakuMessage,
+        LiveTaskEmoticonOption,
         LiveTaskWriteResult,
         LiveTaskWriteState;
 
@@ -21,7 +23,7 @@ typedef LiveTaskLikeSender = Future<LiveTaskWriteResult> Function(
   bool Function() stillAllowed,
 );
 typedef LiveTaskDanmakuSender = Future<LiveTaskWriteResult> Function(
-  String message,
+  LiveTaskDanmakuMessage message,
   Object accountIdentity,
   bool Function() stillAllowed,
 );
@@ -60,7 +62,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
       sendDanmaku:
           sendDanmaku ??
           (message, identity, allowed) => service.sendTaskDanmaku(
-            message: message,
+            taskMessage: message,
             expectedAccountIdentity: identity,
             stillAllowed: allowed,
           ),
@@ -121,11 +123,14 @@ class LiveTaskAutomationService extends ChangeNotifier {
   bool _disposed = false;
   bool _busy = false;
   bool _restart = false;
+  bool _retryConfigurationOnNextRead = false;
   bool _playing = false;
   bool _enhancementEnabled = false;
   bool _autoLike = false;
   bool _autoDanmaku = false;
-  String _defaultMessage = '';
+  LiveTaskDanmakuMessage _defaultMessage = const LiveTaskDanmakuMessage.text(
+    '',
+  );
   int _minInterval = 30;
   int _maxInterval = 60;
   int _epoch = 0;
@@ -165,6 +170,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
     required bool autoLike,
     required bool autoDanmaku,
     required String defaultMessage,
+    LiveTaskDanmakuMessage? danmakuMessage,
     int minIntervalSeconds = 30,
     int maxIntervalSeconds = 60,
   }) {
@@ -172,11 +178,13 @@ class LiveTaskAutomationService extends ChangeNotifier {
     final minInterval = minIntervalSeconds.clamp(10, 3600);
     final maxInterval = maxIntervalSeconds.clamp(minInterval, 3600);
     final identity = _identity();
+    final message =
+        danmakuMessage ?? LiveTaskDanmakuMessage.text(defaultMessage);
     final identityChanged = !_sameAccount;
     final resetMessageDelay =
         identityChanged ||
         autoDanmaku != _autoDanmaku ||
-        defaultMessage != _defaultMessage ||
+        message != _defaultMessage ||
         minInterval != _minInterval ||
         maxInterval != _maxInterval;
     final changed =
@@ -185,10 +193,11 @@ class LiveTaskAutomationService extends ChangeNotifier {
         enhancementEnabled != _enhancementEnabled ||
         autoLike != _autoLike ||
         autoDanmaku != _autoDanmaku ||
-        defaultMessage != _defaultMessage ||
+        message != _defaultMessage ||
         minInterval != _minInterval ||
         maxInterval != _maxInterval;
     if (!changed) return;
+    if (message != _defaultMessage) _retryConfigurationOnNextRead = true;
     ++_epoch;
     _timer?.cancel();
     _timer = null;
@@ -196,7 +205,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
     _enhancementEnabled = enhancementEnabled;
     _autoLike = autoLike;
     _autoDanmaku = autoDanmaku;
-    _defaultMessage = defaultMessage;
+    _defaultMessage = message;
     _minInterval = minInterval;
     _maxInterval = maxInterval;
     _boundIdentity = identity;
@@ -288,7 +297,8 @@ class LiveTaskAutomationService extends ChangeNotifier {
 
   String _key(LiveFanTask task) =>
       '$_scope${_period(task)}:'
-      '${task.id.isEmpty ? task.jumpType : task.id}:${task.jumpType}';
+      '${task.id.isEmpty ? task.jumpType : task.id}:${task.jumpType}'
+      '${task.completionOnly ? ':lighting' : ''}';
 
   _TaskBudget _budget(LiveFanTask task) => _budgets.putIfAbsent(
     _key(task),
@@ -299,6 +309,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
       initialRemaining: task.remainingCount ?? 0,
       current: task.currentCount ?? 0,
       target: task.targetCount ?? 0,
+      actionsPerProgress: task.actionsPerProgress ?? 1,
+      dailyRewardProgress: task.dailyRewardProgress,
+      completionOnly: task.completionOnly,
     ),
   );
 
@@ -328,7 +341,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
       final key = _key(task);
       if (!_budgets.containsKey(key) &&
           task.completed != true &&
-          (task.remainingCount == null || (task.targetCount ?? 0) > 10000)) {
+          (task.remainingCount == null ||
+              task.actionsPerProgress == null ||
+              (task.targetCount ?? 0) > 10000)) {
         continue;
       }
       final budget = _budgets[key] ?? _budget(task);
@@ -345,6 +360,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
           initialRemaining: task.remainingCount ?? 0,
           current: task.currentCount!,
           target: task.targetCount ?? 0,
+          actionsPerProgress: task.actionsPerProgress ?? 1,
+          dailyRewardProgress: task.dailyRewardProgress,
+          completionOnly: task.completionOnly,
         );
         await _persist(_budgets[key]!);
         if (_disposed || epoch != _epoch || !_sameAccount) return;
@@ -358,6 +376,21 @@ class LiveTaskAutomationService extends ChangeNotifier {
         await _persist(budget);
         if (_disposed || epoch != _epoch || !_sameAccount) return;
       }
+    }
+    if (_retryConfigurationOnNextRead) {
+      for (final budget in _budgets.values.where(
+        (budget) =>
+            budget.key.startsWith(scope) &&
+            budget.retryOnMessageChange &&
+            budget.pendingCount == 0,
+      )) {
+        budget
+          ..halted = null
+          ..retryOnMessageChange = false;
+        await _persist(budget);
+        if (_disposed || epoch != _epoch || !_sameAccount) return;
+      }
+      _retryConfigurationOnNextRead = false;
     }
     if (_verification case final previous?) {
       _verification = _budgets[previous.key] ?? previous;
@@ -456,7 +489,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
         final task = matches.single;
         if (task.completed == true) continue;
         final remaining = task.remainingCount;
-        if (task.completed == null || remaining == null) {
+        if (task.completed == null ||
+            remaining == null ||
+            task.actionsPerProgress == null) {
           notices.add('$label任务的数量或完成状态尚未确认，自动操作暂停');
           continue;
         }
@@ -464,18 +499,24 @@ class LiveTaskAutomationService extends ChangeNotifier {
           notices.add('$label数量已满足，等待官方确认完成');
           continue;
         }
-        if (task.targetCount! > 10000) {
+        if (task.targetCount! > 10000 ||
+            task.actionsPerProgress! <= 0 ||
+            task.actionsPerProgress! > 1000) {
           notices.add('$label任务数量异常，自动操作暂停');
           continue;
         }
         final budget = _budget(task);
         if (task.targetCount != budget.target ||
-            task.currentCount! < budget.highestObserved) {
+            task.actionsPerProgress != budget.actionsPerProgress ||
+            task.dailyRewardProgress != budget.dailyRewardProgress ||
+            task.completionOnly != budget.completionOnly ||
+            (task.currentCount != null &&
+                task.currentCount! < budget.highestObserved)) {
           budget.halted = '$label任务目标或进度发生变化，自动操作暂停';
         }
         budget.highestObserved = math.max(
           budget.highestObserved,
-          task.currentCount!,
+          task.currentCount ?? 0,
         );
         if (budget.halted != null) {
           notices.add(budget.halted!);
@@ -485,8 +526,8 @@ class LiveTaskAutomationService extends ChangeNotifier {
           notices.add('$label已用完本次任务发送预算，等待官方状态核对');
           continue;
         }
-        if (type == 'sendDanmu' && _defaultMessage.trim().isEmpty) {
-          notices.add('请先设置默认弹幕；自动弹幕尚未发送');
+        if (type == 'sendDanmu' && _defaultMessage.isEmpty) {
+          notices.add('请先设置默认弹幕（文字或表情）；自动弹幕尚未发送');
           continue;
         }
         candidates.add(task);
@@ -524,7 +565,12 @@ class LiveTaskAutomationService extends ChangeNotifier {
         return;
       }
       final budget = _budget(chosen);
-      final count = chosen.jumpType == 'like'
+      // Daily limits count reward rounds. A like task "点赞30次" sends one
+      // confirmed 30-click round and verifies one server progress increment.
+      final count =
+          chosen.jumpType == 'like' &&
+              !chosen.dailyRewardProgress &&
+              !chosen.completionOnly
           ? math.min(
               budget.countMappingConfirmed ? 5 : 1,
               math.min(chosen.remainingCount!, budget.allowance),
@@ -536,7 +582,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
       budget
         ..sent += count
         ..pendingCount = count
-        ..beforeWriteCount = chosen.currentCount!
+        ..beforeWriteCount = chosen.currentCount ?? 0
         ..verificationChecks = 0;
       _verification = budget;
       // Durable before the write: reopening/restarting can only reconcile an
@@ -557,7 +603,11 @@ class LiveTaskAutomationService extends ChangeNotifier {
       LiveTaskWriteResult result;
       try {
         result = chosen.jumpType == 'like'
-            ? await _sendLike(count, identity, allowed)
+            ? await _sendLike(
+                count * chosen.actionsPerProgress!,
+                identity,
+                allowed,
+              )
             : await _sendDanmaku(_defaultMessage, identity, allowed);
       } catch (_) {
         result = const LiveTaskWriteResult(
@@ -572,6 +622,13 @@ class LiveTaskAutomationService extends ChangeNotifier {
         case LiveTaskWriteState.accepted:
         case LiveTaskWriteState.unknown:
           budget.unknown = result.state == LiveTaskWriteState.unknown;
+          if (chosen.completionOnly && !budget.unknown) {
+            // No numerical server progress exists in the lighting phase.
+            // Accepted writes consume the title quota; every next write still
+            // begins with a fresh is_done read. Unknown writes remain frozen.
+            budget.pendingCount = 0;
+            if (identical(_verification, budget)) _verification = null;
+          }
           await _persist(budget);
           if (_validRun(epoch)) {
             _show(
@@ -590,9 +647,13 @@ class LiveTaskAutomationService extends ChangeNotifier {
           if (result.state == LiveTaskWriteState.rejected ||
               (result.state == LiveTaskWriteState.notSubmitted &&
                   _validRun(epoch))) {
-            budget.halted = result.message.isEmpty
-                ? '互动未提交或被拒绝，自动操作暂停'
-                : result.message;
+            budget
+              ..retryOnMessageChange =
+                  result.state == LiveTaskWriteState.notSubmitted &&
+                  chosen.jumpType == 'sendDanmu'
+              ..halted = result.message.isEmpty
+                  ? '互动未提交或被拒绝，自动操作暂停'
+                  : result.message;
           }
           await _persist(budget);
           if (_validRun(epoch)) {
@@ -639,14 +700,21 @@ class LiveTaskAutomationService extends ChangeNotifier {
     if (budget == null) return false;
     final matches = _tasks.where((task) => _key(task) == budget.key).toList();
     if (matches.isEmpty) {
-      // Only a different explicit server period retires the unresolved task.
+      // An official transition from a lighting quota to daily rewards confirms
+      // that the former phase ended. Its quota must not poison the daily one.
+      final completedLightingPhase =
+          budget.completionOnly &&
+          _tasks.any(
+            (task) => task.jumpType == budget.type && task.dailyRewardProgress,
+          );
+      // Otherwise only a different explicit server period can retire it.
       final newPeriod = _tasks.any(
         (task) =>
             task.jumpType == budget.type &&
             task.period.isNotEmpty &&
             _period(task) != budget.period,
       );
-      if (newPeriod) {
+      if (completedLightingPhase || newPeriod) {
         budget.retired = true;
         await _persist(budget);
         _verification = null;
@@ -710,6 +778,9 @@ class _TaskBudget {
   final String period;
   final int initialRemaining;
   final int target;
+  final int actionsPerProgress;
+  final bool dailyRewardProgress;
+  final bool completionOnly;
   int highestObserved;
   int sent = 0;
   int pendingCount = 0;
@@ -720,6 +791,7 @@ class _TaskBudget {
   String? halted;
   bool serverCompleted = false;
   bool retired = false;
+  bool retryOnMessageChange = false;
   _TaskBudget({
     required this.key,
     required this.type,
@@ -727,11 +799,17 @@ class _TaskBudget {
     required this.initialRemaining,
     required int current,
     required this.target,
+    required this.actionsPerProgress,
+    required this.dailyRewardProgress,
+    required this.completionOnly,
   }) : highestObserved = current;
   int get allowance => initialRemaining - sent;
 
   Map<String, dynamic> get record => {
-    'schema': 1,
+    'schema': 2,
+    'actions_per_progress': actionsPerProgress,
+    'daily_reward_progress': dailyRewardProgress,
+    'completion_only': completionOnly,
     'type': type,
     'period': period,
     'initial_remaining': initialRemaining,
@@ -747,6 +825,7 @@ class _TaskBudget {
     // Never store credentials or the user's default/public message.
     'unknown': unknown,
     'halted': halted,
+    'retry_on_message_change': retryOnMessageChange,
   };
 
   factory _TaskBudget.restore(String key, Map<String, dynamic> record) {
@@ -760,7 +839,7 @@ class _TaskBudget {
 
     final type = record['type'];
     final period = record['period'];
-    if (record['schema'] != 1 ||
+    if (!{1, 2}.contains(record['schema']) ||
         !{'like', 'sendDanmu'}.contains(type) ||
         period is! String) {
       throw const LiveInteractionException('本地任务记录无法核对，自动操作暂停');
@@ -770,11 +849,21 @@ class _TaskBudget {
     final sent = value('sent');
     final pending = value('pending_count');
     final before = value('before_write_count');
+    final actionsPerProgress = record['schema'] == 1
+        ? 1
+        : value('actions_per_progress');
+    final dailyRewardProgress = record['daily_reward_progress'] == true;
+    final completionOnly = record['completion_only'] == true;
     if (initial > target ||
         sent > initial ||
         pending > sent ||
         before + pending > target ||
-        pending > (type == 'like' ? 5 : 1)) {
+        actionsPerProgress <= 0 ||
+        actionsPerProgress > 1000 ||
+        pending >
+            (type == 'like' && !dailyRewardProgress && !completionOnly
+                ? 5
+                : 1)) {
       throw const LiveInteractionException('本地任务记录无法核对，自动操作暂停');
     }
     return _TaskBudget(
@@ -784,6 +873,9 @@ class _TaskBudget {
         initialRemaining: initial,
         current: value('highest_observed'),
         target: target,
+        actionsPerProgress: actionsPerProgress,
+        dailyRewardProgress: dailyRewardProgress,
+        completionOnly: completionOnly,
       )
       ..sent = sent
       ..pendingCount = pending
@@ -792,6 +884,7 @@ class _TaskBudget {
       ..countMappingConfirmed = record['count_mapping_confirmed'] == true
       ..serverCompleted = record['server_completed'] == true
       ..retired = record['retired'] == true
+      ..retryOnMessageChange = record['retry_on_message_change'] == true
       ..unknown = true
       ..halted = record['halted'] as String?;
   }

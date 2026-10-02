@@ -58,6 +58,105 @@ class LiveWatchDevice {
   const LiveWatchDevice({required this.buvid, required this.mixinKey});
 }
 
+/// Expected failures contain fixed diagnostics, never response bodies or keys.
+class LiveWatchProtocolException implements Exception {
+  final String diagnostic;
+  final bool unsupported;
+  final int? apiCode;
+  const LiveWatchProtocolException(
+    this.diagnostic, {
+    this.unsupported = true,
+    this.apiCode,
+  });
+}
+
+/// The official room-init response supplies LIVE_BUVID; the room HTML does not
+/// currently supply it. Injected reads exercise preparation without credentials.
+abstract final class LiveWatchPreparation {
+  static const roomInit =
+      'https://api.live.bilibili.com/room/v1/Room/room_init';
+  static const nav = 'https://api.bilibili.com/x/web-interface/nav';
+
+  static Future<LiveWatchDevice> prepare({
+    required int roomId,
+    required int uid,
+    required Future<String> Function() readBuvid,
+    required Future<Object?> Function(String, Map<String, Object>) get,
+    required void Function() guard,
+  }) async {
+    guard();
+    var buvid = await readBuvid();
+    guard();
+    if (buvid.isEmpty) {
+      final response = await get(roomInit, {'id': roomId});
+      guard();
+      if (response is! Map || response['code'] is! int) {
+        throw const LiveWatchProtocolException('房间初始化响应缺少 code');
+      }
+      final code = response['code'] as int;
+      if (code != 0) {
+        throw LiveWatchProtocolException(
+          '房间初始化被官方拒绝（$code）',
+          unsupported: false,
+          apiCode: code,
+        );
+      }
+      buvid = await readBuvid();
+      guard();
+    }
+    if (buvid.isEmpty || buvid.length > 1024) {
+      throw const LiveWatchProtocolException(
+        '房间初始化未提供有效的 LIVE_BUVID 设备标识',
+        unsupported: false,
+      );
+    }
+    final response = await get(nav, const {});
+    guard();
+    if (response is! Map || response['code'] is! int) {
+      throw const LiveWatchProtocolException('账号导航响应缺少 code');
+    }
+    final code = response['code'] as int;
+    final data = response['data'];
+    if (code != 0 ||
+        data is! Map ||
+        data['isLogin'] != true ||
+        data['mid'] != uid) {
+      throw LiveWatchProtocolException(
+        code == -101
+            ? '主账号网页登录会话已过期，请重新登录'
+            : code != 0
+            ? '账号导航被官方拒绝（$code）'
+            : '账号导航与当前主账号身份不一致',
+        unsupported: false,
+        apiCode: code == 0 ? null : code,
+      );
+    }
+    final wbi = data['wbi_img'];
+    if (wbi is! Map) {
+      throw const LiveWatchProtocolException('账号导航缺少 wbi_img 签名信息');
+    }
+    String key(Object? value) {
+      final uri = value is String ? Uri.tryParse(value) : null;
+      if (uri == null || uri.pathSegments.isEmpty) {
+        throw const LiveWatchProtocolException('账号导航的 WBI 签名地址无效');
+      }
+      return uri.pathSegments.last.split('.').first;
+    }
+
+    try {
+      return LiveWatchDevice(
+        buvid: buvid,
+        mixinKey: LiveWatchSigner.mixinKey(
+          key(wbi['img_url']),
+          key(wbi['sub_url']),
+        ),
+      );
+    } on FormatException {
+      throw const LiveWatchProtocolException('账号导航的 WBI 签名密钥格式无效');
+    }
+  }
+}
+
 abstract interface class LiveWatchTransport {
   Future<LiveWatchDevice> prepare(
     int roomId,
@@ -77,7 +176,6 @@ abstract interface class LiveWatchTransport {
 class _RequestWatchTransport implements LiveWatchTransport {
   static const _live = 'https://live.bilibili.com';
   static const _trace = 'https://live-trace.bilibili.com';
-  static const _nav = 'https://api.bilibili.com/x/web-interface/nav';
   Dio? _client;
   Dio get client {
     Request();
@@ -90,7 +188,8 @@ class _RequestWatchTransport implements LiveWatchTransport {
         InterceptorsWrapper(
           onRequest: (options, handler) {
             final account = Accounts.main;
-            if (!identical(options.extra['account'], account) ||
+            if (Accounts.mainIdentityChangeInProgress ||
+                !identical(options.extra['account'], account) ||
                 !account.isLogin ||
                 options.extra['watchUid'] != account.mid ||
                 options.extra['watchGeneration'] !=
@@ -130,6 +229,7 @@ class _RequestWatchTransport implements LiveWatchTransport {
   void _guard(LiveWatchAccount owner, CancelToken token) {
     final current = Accounts.main;
     if (token.isCancelled ||
+        Accounts.mainIdentityChangeInProgress ||
         !identical(current, owner.identity) ||
         owner.generation != Accounts.mainChangeGeneration ||
         !current.isLogin ||
@@ -143,7 +243,7 @@ class _RequestWatchTransport implements LiveWatchTransport {
     int roomId,
     LiveWatchAccount account,
     CancelToken token,
-  ) async {
+  ) {
     _guard(account, token);
     final owner = account.identity as Account;
     final uri = Uri.parse('$_live/$roomId');
@@ -157,54 +257,27 @@ class _RequestWatchTransport implements LiveWatchTransport {
       return '';
     }
 
-    var buvid = await readBuvid();
-    _guard(account, token);
-    if (buvid.isEmpty) {
-      // Official live HTML establishes LIVE_BUVID through its response cookie.
-      // No HTML scripts are executed, and no second player is created.
-      await client.get<String>(
-        uri.toString(),
-        options: _options(
-          account,
-          roomId,
-        ).copyWith(responseType: ResponseType.plain),
-        cancelToken: token,
-      );
-      _guard(account, token);
-      buvid = await readBuvid();
-      _guard(account, token);
-    }
-    if (buvid.isEmpty || buvid.length > 1024) {
-      throw const FormatException('官方直播设备标识不可用，观看上报已暂停');
-    }
-    final response = await client.get<dynamic>(
-      _nav,
-      options: _options(account, roomId),
-      cancelToken: token,
-    );
-    _guard(account, token);
-    final data = response.data;
-    final wbi = data is Map && data['code'] == 0 && data['data'] is Map
-        ? data['data']['wbi_img']
-        : null;
-    if (wbi is! Map) {
-      throw const FormatException('官方 WBI 参数不可用，观看上报已暂停');
-    }
-    String key(Object? value) {
-      if (value is! String) throw const FormatException('Invalid WBI URL');
-      final uri = Uri.tryParse(value);
-      if (uri == null || uri.pathSegments.isEmpty) {
-        throw const FormatException('Invalid WBI URL');
-      }
-      return uri.pathSegments.last.split('.').first;
-    }
-
-    return LiveWatchDevice(
-      buvid: buvid,
-      mixinKey: LiveWatchSigner.mixinKey(
-        key(wbi['img_url']),
-        key(wbi['sub_url']),
-      ),
+    return LiveWatchPreparation.prepare(
+      roomId: roomId,
+      uid: account.uid,
+      readBuvid: readBuvid,
+      guard: () => _guard(account, token),
+      get: (url, query) async {
+        // The helper reaches only these two fixed official read endpoints.
+        if (url != LiveWatchPreparation.roomInit &&
+            url != LiveWatchPreparation.nav) {
+          throw const LiveWatchProtocolException('观看准备请求地址不受支持');
+        }
+        _guard(account, token);
+        final response = await client.get<dynamic>(
+          url,
+          queryParameters: query,
+          options: _options(account, roomId),
+          cancelToken: token,
+        );
+        _guard(account, token);
+        return response.data;
+      },
     );
   }
 
@@ -229,7 +302,7 @@ class _RequestWatchTransport implements LiveWatchTransport {
     );
     _guard(account, token);
     if (response.data is! Map) {
-      throw const FormatException('官方观看响应格式不受支持');
+      throw const LiveWatchProtocolException('官方观看响应不是 JSON 对象');
     }
     return Map<String, dynamic>.from(response.data as Map);
   }
@@ -455,6 +528,7 @@ class LiveWatchReporter {
 
   Future<void> _begin(LiveWatchAccount account, int generation) async {
     _emit(LiveWatchState.connecting, '正在建立官方观看上报会话');
+    var phase = '观看准备';
     try {
       final device = await _transport.prepare(_roomId, account, _token);
       _guard(account, generation);
@@ -478,21 +552,33 @@ class LiveWatchReporter {
         device,
       );
       _guard(account, generation);
+      phase = '观看 E 入场';
       final response = await _transport.post(enterPath, query, account, _token);
       _guard(account, generation);
-      _parameters = _WatchParameters.parse(_data(response));
+      _parameters = _WatchParameters.parse(_data(response), phase: 'E');
       _sequence = 1;
       _segmentStart = _monotonicNow();
       _emit(LiveWatchState.reporting, '观看上报运行中；亲密度以官方任务进度为准');
       _arm(account, generation);
     } on _WatchStopped {
       // A stale result must not mutate the new session's flags or visible status.
+    } on LiveWatchProtocolException catch (error) {
+      _fail(
+        generation,
+        unsupported: error.unsupported,
+        apiCode: error.apiCode,
+        diagnostic: error.diagnostic,
+      );
     } on FormatException {
-      _fail(generation, unsupported: true);
+      _fail(
+        generation,
+        unsupported: true,
+        diagnostic: '$phase参数无法解析',
+      );
     } on _WatchRejected catch (error) {
-      _fail(generation, apiCode: error.code);
-    } catch (_) {
-      _fail(generation);
+      _fail(generation, apiCode: error.code, diagnostic: '$phase被官方拒绝');
+    } catch (error) {
+      _fail(generation, diagnostic: _requestFailure(error, phase));
     }
   }
 
@@ -515,10 +601,14 @@ class LiveWatchReporter {
 
   Map<String, dynamic> _data(Map<String, dynamic> response) {
     final code = response['code'];
-    if (code is! int) throw const FormatException('Invalid watch result code');
+    if (code is! int) {
+      throw const LiveWatchProtocolException('官方观看响应缺少有效的 code');
+    }
     if (code != 0) throw _WatchRejected(code);
     final data = response['data'];
-    if (data is! Map) throw const FormatException('Invalid watch response');
+    if (data is! Map) {
+      throw const LiveWatchProtocolException('官方观看响应缺少 data 对象');
+    }
     return Map<String, dynamic>.from(data);
   }
 
@@ -567,29 +657,65 @@ class LiveWatchReporter {
         _token,
       );
       _guard(account, generation);
-      _parameters = _WatchParameters.parse(_data(response), previous: params);
+      _parameters = _WatchParameters.parse(
+        _data(response),
+        previous: params,
+        phase: 'X',
+      );
       ++_sequence;
       _reportedSeconds += watched;
       _emit(LiveWatchState.reporting, '观看上报运行中；亲密度以官方任务进度为准');
       _arm(account, generation);
     } on _WatchStopped {
       // Cancellation does not credit an unknown or late heartbeat response.
+    } on LiveWatchProtocolException catch (error) {
+      _fail(
+        generation,
+        unsupported: error.unsupported,
+        apiCode: error.apiCode,
+        diagnostic: error.diagnostic,
+      );
     } on FormatException {
-      _fail(generation, unsupported: true);
+      _fail(
+        generation,
+        unsupported: true,
+        diagnostic: '观看 X 心跳签名参数无法解析',
+      );
     } on _WatchRejected catch (error) {
-      _fail(generation, apiCode: error.code);
-    } catch (_) {
-      _fail(generation);
+      _fail(generation, apiCode: error.code, diagnostic: '观看 X 心跳被官方拒绝');
+    } catch (error) {
+      _fail(generation, diagnostic: _requestFailure(error, '观看 X 心跳'));
     }
   }
 
-  void _fail(int generation, {bool unsupported = false, int? apiCode}) {
+  static String _requestFailure(Object error, String phase) {
+    if (error is DioException) {
+      final httpCode = error.response?.statusCode;
+      if (httpCode != null) return '$phase失败（HTTP $httpCode），结果未知';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return '$phase超时，结果未知';
+      }
+    }
+    if (error is TimeoutException) return '$phase超时，结果未知';
+    return '$phase请求失败，结果未知';
+  }
+
+  void _fail(
+    int generation, {
+    bool unsupported = false,
+    int? apiCode,
+    String? diagnostic,
+  }) {
     if (_disposed || generation != _generation) return;
     _invalidate();
     _failed = true;
     _emit(
       unsupported ? LiveWatchState.unsupported : LiveWatchState.error,
-      unsupported
+      diagnostic != null
+          ? '$diagnostic${apiCode != null && !diagnostic.contains('（$apiCode）') ? '（$apiCode）' : ''}，已暂停；不会自动重发'
+          : unsupported
           ? '官方观看上报规则不受支持，已暂停'
           : apiCode != null
           ? '观看上报被官方拒绝（$apiCode），已暂停；不会自动重发'
@@ -629,27 +755,27 @@ class _WatchParameters {
   factory _WatchParameters.parse(
     Map<String, dynamic> data, {
     _WatchParameters? previous,
+    required String phase,
   }) {
     final interval = data['heartbeat_interval'] ?? previous?.interval;
     final timestamp = data['timestamp'];
     final key = data['secret_key'] ?? previous?.key;
     final rawRules = data['secret_rule'] ?? previous?.rules;
-    if (interval is! int ||
-        interval < 1 ||
-        interval > 3600 ||
-        timestamp is! int ||
-        timestamp <= 0 ||
-        timestamp > 9007199254740991 ||
-        key is! String ||
-        key.isEmpty ||
-        key.length > 4096 ||
-        rawRules is! List ||
-        rawRules.any((value) => value is! int)) {
-      throw const FormatException('Unsupported official watch challenge');
+    if (interval is! int || interval < 1 || interval > 3600) {
+      throw LiveWatchProtocolException('观看 $phase 返回的 heartbeat_interval 无效');
+    }
+    if (timestamp is! int || timestamp <= 0 || timestamp > 9007199254740991) {
+      throw LiveWatchProtocolException('观看 $phase 返回的 timestamp 无效或缺失');
+    }
+    if (key is! String || key.isEmpty || key.length > 4096) {
+      throw LiveWatchProtocolException('观看 $phase 返回的 secret_key 无效或缺失');
+    }
+    if (rawRules is! List || rawRules.any((value) => value is! int)) {
+      throw LiveWatchProtocolException('观看 $phase 返回的 secret_rule 格式不受支持');
     }
     final rules = List<int>.from(rawRules);
     if (!LiveWatchSigner.supportsRules(rules)) {
-      throw const FormatException('Unsupported official watch signature rules');
+      throw LiveWatchProtocolException('观看 $phase 返回的 secret_rule 算法不受支持');
     }
     return _WatchParameters(interval, timestamp, key, List.unmodifiable(rules));
   }

@@ -337,6 +337,45 @@ class LiveInteractionService {
     );
   }
 
+  /// Live permissions are re-read before every automatic expression send.
+  /// No permission from a persisted preference or a different room is reused.
+  Future<List<LiveTaskEmoticonOption>> loadTaskEmoticons() =>
+      _loadTaskEmoticons(_account());
+
+  Future<List<LiveTaskEmoticonOption>> _loadTaskEmoticons(
+    LiveInteractionAccount account,
+  ) async {
+    _guard(account);
+    final data = await _get(
+      '/xlive/web-ucenter/v2/emoticon/GetEmoticons',
+      {'platform': 'pc', 'room_id': roomId},
+      account,
+    );
+    if (data['data'] is! List) {
+      throw const LiveInteractionException('当前房间表情权限尚未取得');
+    }
+    return [
+      for (final package in liveMaps(data['data']))
+        for (final emote in liveMaps(package['emoticons']))
+          if ((emote['emoticon_unique']?.toString() ?? '').isNotEmpty)
+            LiveTaskEmoticonOption(
+              unique: emote['emoticon_unique'].toString(),
+              label: emote['emoji']?.toString() ?? '',
+              url: emote['url']?.toString() ?? '',
+              available:
+                  liveInt(package['pkg_type']) != 3 &&
+                  liveBool(emote['perm'] ?? package['perm']) == true &&
+                  (!package.containsKey('perm') ||
+                      liveBool(package['perm']) == true),
+              packageName: package['pkg_name']?.toString() ?? '',
+              isFanClub:
+                  liveInt(package['pkg_type']) == 2 ||
+                  liveBool(package['is_fan_club']) == true ||
+                  (package['pkg_name']?.toString() ?? '').contains('粉丝'),
+            ),
+    ];
+  }
+
   Future<LiveTaskWriteResult> sendTaskLikes({
     required int clickTime,
     required Object expectedAccountIdentity,
@@ -345,8 +384,8 @@ class LiveInteractionService {
     expectedAccountIdentity: expectedAccountIdentity,
     stillAllowed: stillAllowed,
     prepare: (account) async {
-      if (clickTime <= 0 || clickTime > 5) {
-        throw const LiveInteractionException('自动点赞数量不在当前小批次范围内');
+      if (clickTime <= 0 || clickTime > 1000) {
+        throw const LiveInteractionException('自动点赞数量不在已确认任务范围内');
       }
       return (
         path: '/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3',
@@ -363,15 +402,33 @@ class LiveInteractionService {
   );
 
   Future<LiveTaskWriteResult> sendTaskDanmaku({
-    required String message,
+    String? message,
+    LiveTaskDanmakuMessage? taskMessage,
     required Object expectedAccountIdentity,
     bool Function()? stillAllowed,
   }) => _sendTaskInteraction(
     expectedAccountIdentity: expectedAccountIdentity,
     stillAllowed: stillAllowed,
     prepare: (account) async {
-      if (message.trim().isEmpty) {
-        throw const LiveInteractionException('请先设置默认弹幕');
+      final payload = taskMessage ?? LiveTaskDanmakuMessage.text(message ?? '');
+      if (payload.isEmpty) {
+        throw const LiveInteractionException('请先设置默认文字或表情弹幕');
+      }
+      if (payload.isEmoticon) {
+        if (payload.roomId != roomId || payload.anchorUid != anchorUid) {
+          throw const LiveInteractionException('默认表情所属直播间已变化，请重新选择');
+        }
+        final options = await _loadTaskEmoticons(account);
+        if (options
+                .where(
+                  (option) =>
+                      option.unique == payload.emoticonUnique &&
+                      option.available,
+                )
+                .length !=
+            1) {
+          throw const LiveInteractionException('当前房间表情权限未确认或已失效，请重新选择');
+        }
       }
       final query = await _sign({'web_location': 444.8});
       return (
@@ -384,17 +441,22 @@ class LiveInteractionService {
         ).toString(),
         body: <String, dynamic>{
           'bubble': 0,
-          'msg': message,
+          'msg': payload.isEmoticon ? payload.emoticonUnique : payload.text,
           'color': 16777215,
           'mode': 1,
-          'room_type': 0,
-          'jumpfrom': 0,
-          'reply_mid': 0,
-          'reply_attr': 0,
-          'replay_dmid': '',
-          'statistics': '{"appId":100,"platform":5}',
-          'reply_type': 0,
-          'reply_uname': '',
+          if (payload.isEmoticon) ...{
+            'dm_type': 1,
+            'emoticonOptions': '[object Object]',
+          } else ...{
+            'room_type': 0,
+            'jumpfrom': 0,
+            'reply_mid': 0,
+            'reply_attr': 0,
+            'replay_dmid': '',
+            'statistics': '{"appId":100,"platform":5}',
+            'reply_type': 0,
+            'reply_uname': '',
+          },
           'fontsize': 25,
           'rnd': _now().millisecondsSinceEpoch ~/ 1000,
           'roomid': roomId,

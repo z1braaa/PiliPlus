@@ -125,6 +125,288 @@ class _Fixture {
 }
 
 void main() {
+  Map<String, Object> navigation({int code = 0, int uid = 123}) => {
+    'code': code,
+    'data': {
+      'isLogin': code == 0,
+      if (code == 0) 'mid': uid,
+      'wbi_img': {
+        'img_url':
+            'https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png',
+        'sub_url':
+            'https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png',
+      },
+    },
+  };
+
+  group('Official device and WBI preparation', () {
+    test(
+      'Missing device uses room-init cookie before account navigation',
+      () async {
+        var buvid = '';
+        final paths = <String>[];
+        final queries = <Map<String, Object>>[];
+        final device = await LiveWatchPreparation.prepare(
+          roomId: 5438,
+          uid: 123,
+          readBuvid: () async => buvid,
+          guard: () {},
+          get: (path, query) async {
+            paths.add(path);
+            queries.add(query);
+            if (path == LiveWatchPreparation.roomInit) {
+              // Simulates AccountManager saving the official response cookie.
+              buvid = 'fixture-live-buvid';
+              return {
+                'code': 0,
+                'data': {'room_id': 5438},
+              };
+            }
+            return navigation();
+          },
+        );
+        expect(paths, [
+          LiveWatchPreparation.roomInit,
+          LiveWatchPreparation.nav,
+        ]);
+        expect(queries, [
+          {'id': 5438},
+          <String, Object>{},
+        ]);
+        expect(device.buvid, 'fixture-live-buvid');
+        expect(device.mixinKey.length, 32);
+      },
+    );
+
+    test('Existing device does not repeat room initialization', () async {
+      final paths = <String>[];
+      await LiveWatchPreparation.prepare(
+        roomId: 5438,
+        uid: 123,
+        readBuvid: () async => 'fixture-live-buvid',
+        guard: () {},
+        get: (path, _) async {
+          paths.add(path);
+          return navigation();
+        },
+      );
+      expect(paths, [LiveWatchPreparation.nav]);
+    });
+
+    test(
+      'Missing response cookie stops with a device-specific diagnostic',
+      () async {
+        final paths = <String>[];
+        await expectLater(
+          LiveWatchPreparation.prepare(
+            roomId: 5438,
+            uid: 123,
+            readBuvid: () async => '',
+            guard: () {},
+            get: (path, _) async {
+              paths.add(path);
+              return {'code': 0};
+            },
+          ),
+          throwsA(
+            isA<LiveWatchProtocolException>()
+                .having((e) => e.diagnostic, 'reason', contains('LIVE_BUVID'))
+                .having((e) => e.unsupported, 'retryable preparation', isFalse),
+          ),
+        );
+        expect(paths, [LiveWatchPreparation.roomInit]);
+      },
+    );
+
+    test(
+      'Expired navigation cannot reuse its publicly available WBI keys',
+      () async {
+        await expectLater(
+          LiveWatchPreparation.prepare(
+            roomId: 5438,
+            uid: 123,
+            readBuvid: () async => 'fixture-live-buvid',
+            guard: () {},
+            get: (_, _) async => navigation(code: -101),
+          ),
+          throwsA(
+            isA<LiveWatchProtocolException>()
+                .having((e) => e.diagnostic, 'reason', contains('登录会话已过期'))
+                .having((e) => e.apiCode, 'code', -101),
+          ),
+        );
+      },
+    );
+
+    test('Different logged-in navigation identity stops before E', () async {
+      await expectLater(
+        LiveWatchPreparation.prepare(
+          roomId: 5438,
+          uid: 123,
+          readBuvid: () async => 'fixture-live-buvid',
+          guard: () {},
+          get: (_, _) async => navigation(uid: 456),
+        ),
+        throwsA(
+          isA<LiveWatchProtocolException>().having(
+            (e) => e.diagnostic,
+            'reason',
+            contains('身份不一致'),
+          ),
+        ),
+      );
+    });
+
+    test('Malformed WBI address never appears in the diagnostic', () async {
+      final response = navigation();
+      (response['data'] as Map)['wbi_img'] = {
+        'img_url': 'PRIVATE-WBI-CONTENT',
+        'sub_url': 5,
+      };
+      await expectLater(
+        LiveWatchPreparation.prepare(
+          roomId: 5438,
+          uid: 123,
+          readBuvid: () async => 'fixture-live-buvid',
+          guard: () {},
+          get: (_, _) async => response,
+        ),
+        throwsA(
+          isA<LiveWatchProtocolException>()
+              .having((e) => e.diagnostic, 'reason', contains('WBI'))
+              .having(
+                (e) => e.diagnostic,
+                'does not expose response',
+                isNot(contains('PRIVATE-WBI-CONTENT')),
+              ),
+        ),
+      );
+    });
+
+    test(
+      'Initialization rejection retains code without proceeding to navigation',
+      () async {
+        final paths = <String>[];
+        await expectLater(
+          LiveWatchPreparation.prepare(
+            roomId: 5438,
+            uid: 123,
+            readBuvid: () async => '',
+            guard: () {},
+            get: (path, _) async {
+              paths.add(path);
+              return {'code': -352, 'message': 'PRIVATE-SERVER-MESSAGE'};
+            },
+          ),
+          throwsA(
+            isA<LiveWatchProtocolException>()
+                .having((e) => e.apiCode, 'code', -352)
+                .having(
+                  (e) => e.diagnostic,
+                  'does not expose response',
+                  isNot(contains('PRIVATE-SERVER-MESSAGE')),
+                ),
+          ),
+        );
+        expect(paths, [LiveWatchPreparation.roomInit]);
+      },
+    );
+
+    test('Cancellation during room-init prevents navigation', () async {
+      var stopped = false;
+      final paths = <String>[];
+      await expectLater(
+        LiveWatchPreparation.prepare(
+          roomId: 5438,
+          uid: 123,
+          readBuvid: () async => '',
+          guard: () {
+            if (stopped) throw StateError('fixture-stopped');
+          },
+          get: (path, _) async {
+            paths.add(path);
+            stopped = true;
+            return {'code': 0};
+          },
+        ),
+        throwsStateError,
+      );
+      expect(paths, [LiveWatchPreparation.roomInit]);
+    });
+  });
+
+  test(
+    'Preparation failure is displayed specifically, without sending E',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      fixture.transport.onPrepare = () => Future.error(
+        const LiveWatchProtocolException(
+          '房间初始化未提供有效的 LIVE_BUVID 设备标识',
+          unsupported: false,
+        ),
+      );
+      await fixture.play();
+      expect(fixture.reporter.status.value.state, LiveWatchState.error);
+      expect(fixture.reporter.status.value.message, contains('LIVE_BUVID'));
+      expect(fixture.transport.paths, isEmpty);
+    },
+  );
+
+  test(
+    'Unexpected format errors are redacted into a fixed phase reason',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      fixture.transport.onPrepare = () => Future.error(
+        const FormatException('PRIVATE-KEY-OR-COOKIE'),
+      );
+      await fixture.play();
+      expect(fixture.reporter.status.value.message, contains('观看准备参数无法解析'));
+      expect(
+        fixture.reporter.status.value.message,
+        isNot(contains('PRIVATE-KEY-OR-COOKIE')),
+      );
+      expect(fixture.transport.paths, isEmpty);
+    },
+  );
+
+  test('Malformed E challenge identifies its missing field', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.challenge.remove('timestamp');
+    await fixture.play();
+    expect(fixture.reporter.status.value.state, LiveWatchState.unsupported);
+    expect(
+      fixture.reporter.status.value.message,
+      contains('观看 E 返回的 timestamp 无效或缺失'),
+    );
+    expect(fixture.transport.paths, [LiveWatchReporter.enterPath]);
+  });
+
+  test(
+    'Malformed X challenge identifies rules without exposing its key',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      await fixture.play();
+      fixture.transport.challenge
+        ..['secret_key'] = 'PRIVATE-ROTATED-KEY'
+        ..['secret_rule'] = [6];
+      await fixture.advance(60);
+      expect(fixture.reporter.status.value.state, LiveWatchState.unsupported);
+      expect(
+        fixture.reporter.status.value.message,
+        contains('观看 X 返回的 secret_rule 算法不受支持'),
+      );
+      expect(
+        fixture.reporter.status.value.message,
+        isNot(contains('PRIVATE-ROTATED-KEY')),
+      );
+      expect(fixture.reporter.status.value.reportedSeconds, 0);
+    },
+  );
+
   test('Native signatures equal 16 current official WASM vectors', () {
     final source = jsonDecode(
       File(

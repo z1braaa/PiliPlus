@@ -26,6 +26,10 @@ void main() {
         expect(preferences.autoLike, isFalse);
         expect(preferences.autoDanmaku, isFalse);
         expect(preferences.defaultMessage, isEmpty);
+        expect(preferences.danmakuMode, LiveTaskDanmakuMode.text);
+        expect(preferences.defaultEmoticonUnique, isEmpty);
+        expect(preferences.defaultEmoticonRoomId, 0);
+        expect(preferences.defaultEmoticonAnchorUid, 0);
         expect(preferences.minIntervalSeconds, 30);
         expect(preferences.maxIntervalSeconds, 60);
       }
@@ -43,6 +47,55 @@ void main() {
       expect(restored.minIntervalSeconds, 30);
       expect(restored.maxIntervalSeconds, 60);
       expect(restored.toJson(), isNot(contains('pending')));
+    },
+  );
+
+  test('legacy text preferences keep their mode and saved text', () {
+    final preferences = LiveTaskAutomationPreferences.fromJson({
+      'autoDanmaku': true,
+      'defaultMessage': '晚上好',
+    });
+    expect(preferences.danmakuMode, LiveTaskDanmakuMode.text);
+    expect(preferences.defaultMessage, '晚上好');
+    expect(preferences.autoDanmaku, isTrue);
+    final malformed = LiveTaskAutomationPreferences.fromJson({
+      'danmakuMode': 'anything',
+      'defaultEmoticonUnique': 1,
+      'defaultEmoticonName': false,
+      'defaultEmoticonRoomId': '6',
+      'defaultEmoticonAnchorUid': -10,
+    });
+    expect(malformed.danmakuMode, LiveTaskDanmakuMode.text);
+    expect(malformed.defaultEmoticonUnique, isEmpty);
+    expect(malformed.defaultEmoticonName, isEmpty);
+    expect(malformed.defaultEmoticonRoomId, 0);
+    expect(malformed.defaultEmoticonAnchorUid, 0);
+  });
+
+  test(
+    'emoticon selection retains its room scope without saved permission',
+    () {
+      const selected = LiveTaskAutomationPreferences(
+        danmakuMode: LiveTaskDanmakuMode.emoticon,
+        defaultMessage: '保存的文字',
+        defaultEmoticonUnique: 'room_6_1',
+        defaultEmoticonName: '赞',
+        defaultEmoticonRoomId: 6,
+        defaultEmoticonAnchorUid: 10,
+      );
+      final restored = LiveTaskAutomationPreferences.fromJson({
+        ...selected.toJson(),
+        'available': true,
+      });
+      expect(restored, selected);
+      expect(restored.hashCode, selected.hashCode);
+      expect(restored.toJson(), isNot(contains('available')));
+      expect(
+        restored.copyWith(danmakuMode: LiveTaskDanmakuMode.text),
+        isNot(restored),
+      );
+      expect(restored.copyWith(defaultEmoticonAnchorUid: 11), isNot(restored));
+      expect(restored.copyWith(defaultEmoticonRoomId: 7), isNot(restored));
     },
   );
 
@@ -76,6 +129,11 @@ void main() {
         autoLike: true,
         autoDanmaku: true,
         defaultMessage: '晚上好',
+        danmakuMode: LiveTaskDanmakuMode.emoticon,
+        defaultEmoticonUnique: 'room_6_1',
+        defaultEmoticonName: '赞',
+        defaultEmoticonRoomId: 6,
+        defaultEmoticonAnchorUid: 10,
       );
       const second = LiveTaskAutomationPreferences(
         autoDanmaku: true,

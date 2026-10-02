@@ -118,6 +118,14 @@ class LiveFanTask {
   final int? currentCount;
   final int? targetCount;
 
+  /// One progress increment may require a full interaction round (e.g. 30
+  /// likes). Daily limits count rewarded rounds, never individual clicks.
+  final int? actionsPerProgress;
+  final bool dailyRewardProgress;
+
+  /// The server exposes a title quota and completion flag, without a counter.
+  final bool completionOnly;
+
   /// An explicit server task period, when supplied. Empty stays unknown.
   final String period;
   const LiveFanTask({
@@ -129,6 +137,9 @@ class LiveFanTask {
     this.progressText = '',
     this.currentCount,
     this.targetCount,
+    this.actionsPerProgress = 1,
+    this.dailyRewardProgress = false,
+    this.completionOnly = false,
     this.period = '',
   });
 
@@ -136,11 +147,60 @@ class LiveFanTask {
     if (completed == true) return 0;
     final current = currentCount;
     final target = targetCount;
+    if (completionOnly) return target != null && target > 0 ? target : null;
     if (current == null || target == null || current < 0 || target <= 0) {
       return null;
     }
     return (target - current).clamp(0, target);
   }
+}
+
+class LiveTaskDanmakuMessage {
+  final String text;
+  final String? emoticonUnique;
+  final int roomId;
+  final int anchorUid;
+  const LiveTaskDanmakuMessage.text(this.text)
+    : emoticonUnique = null,
+      roomId = 0,
+      anchorUid = 0;
+  const LiveTaskDanmakuMessage.emoticon({
+    required String emoticonUnique,
+    required this.roomId,
+    required this.anchorUid,
+  }) : text = '',
+       // This constructor's public parameter is non-nullable; text uses null.
+       // ignore: prefer_initializing_formals
+       emoticonUnique = emoticonUnique;
+  bool get isEmoticon => emoticonUnique != null;
+  bool get isEmpty =>
+      isEmoticon ? emoticonUnique!.trim().isEmpty : text.trim().isEmpty;
+  @override
+  bool operator ==(Object other) =>
+      other is LiveTaskDanmakuMessage &&
+      text == other.text &&
+      emoticonUnique == other.emoticonUnique &&
+      roomId == other.roomId &&
+      anchorUid == other.anchorUid;
+  @override
+  int get hashCode => Object.hash(text, emoticonUnique, roomId, anchorUid);
+}
+
+class LiveTaskEmoticonOption {
+  final String unique;
+  final String label;
+  final String url;
+  final bool available;
+  final String packageName;
+  final bool isFanClub;
+  const LiveTaskEmoticonOption({
+    required this.unique,
+    required this.label,
+    this.url = '',
+    required this.available,
+    this.packageName = '',
+    this.isFanClub = false,
+  });
 }
 
 /// A task-only read, scoped to one login instance and the resolved live room.

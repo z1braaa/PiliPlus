@@ -39,11 +39,18 @@ class _Harness {
   DateTime now = DateTime.utc(2026, 10, 2, 15, 59, 50);
   int likes = 0;
   int messages = 0;
+  int messageAttempts = 0;
   int reads = 0;
   Object? lastActor;
   bool? sendAllowed;
   bool? durableBeforeSend;
   String? sentMessage;
+  LiveTaskDanmakuMessage? sentPayload;
+  final likeBatches = <int>[];
+  bool dailyRewardProgress = false;
+  bool completionOnly = false;
+  bool holdCompletionFlag = false;
+  int actionsPerProgress = 1;
   int likeProgress = 0;
   int dmProgress = 0;
   int likeTarget = 7;
@@ -52,6 +59,7 @@ class _Harness {
   bool reflectProgress = true;
   bool returnUnknown = false;
   bool returnDeferred = false;
+  LiveTaskWriteState? danmakuResultOverride;
   String period = '';
   List<LiveFanTask>? tasksOverride;
   Future<LiveFanTaskSnapshot> Function()? loadOverride;
@@ -62,10 +70,13 @@ class _Harness {
     name: type,
     description: '当前任务',
     jumpType: type,
-    completed: current >= target,
-    currentCount: countKnown ? current : null,
+    completed: !holdCompletionFlag && current >= target,
+    currentCount: !completionOnly && countKnown ? current : null,
     targetCount: countKnown ? target : null,
     period: period,
+    dailyRewardProgress: dailyRewardProgress,
+    completionOnly: completionOnly,
+    actionsPerProgress: type == 'like' ? actionsPerProgress : 1,
   );
   LiveFanTaskSnapshot get snapshot => LiveFanTaskSnapshot(
     roomId: 6,
@@ -93,7 +104,8 @@ class _Harness {
         sendAllowed = allowed();
         durableBeforeSend = _pendingRecords.isNotEmpty;
         likes += count;
-        if (reflectProgress) likeProgress += count;
+        likeBatches.add(count);
+        if (reflectProgress) likeProgress += count ~/ actionsPerProgress;
         return LiveTaskWriteResult(
           returnUnknown
               ? LiveTaskWriteState.unknown
@@ -101,19 +113,27 @@ class _Harness {
         );
       },
       sendDanmaku: (message, actor, allowed) async {
+        messageAttempts++;
         lastActor = actor;
         sendAllowed = allowed();
         durableBeforeSend = _pendingRecords.isNotEmpty;
         if (returnDeferred) {
           return const LiveTaskWriteResult(LiveTaskWriteState.deferred);
         }
-        sentMessage = message;
+        if (danmakuResultOverride
+            case LiveTaskWriteState.notSubmitted ||
+                LiveTaskWriteState.rejected) {
+          return LiveTaskWriteResult(danmakuResultOverride!, '表情权限未确认');
+        }
+        sentPayload = message;
+        sentMessage = message.text;
         messages++;
         if (reflectProgress) dmProgress++;
         return LiveTaskWriteResult(
-          returnUnknown
-              ? LiveTaskWriteState.unknown
-              : LiveTaskWriteState.accepted,
+          danmakuResultOverride ??
+              (returnUnknown
+                  ? LiveTaskWriteState.unknown
+                  : LiveTaskWriteState.accepted),
         );
       },
       accountIdentity: () => identity,
@@ -136,6 +156,7 @@ class _Harness {
     bool autoLike = false,
     bool autoDanmaku = false,
     String message = '默认任务弹幕',
+    LiveTaskDanmakuMessage? danmakuMessage,
   }) {
     service.update(
       playing: playing,
@@ -143,6 +164,7 @@ class _Harness {
       autoLike: autoLike,
       autoDanmaku: autoDanmaku,
       defaultMessage: message,
+      danmakuMessage: danmakuMessage,
     );
   }
 
@@ -154,6 +176,353 @@ class _Harness {
 }
 
 void main() {
+  test('lighting-only task titles define a quota without inventing a server counter', () {
+    final tasks = LiveInteractionParser.fanTasks([
+      {
+        'title': '发弹幕10次',
+        'sub_title': '仅点亮',
+        'jump_type': 'sendDanmu',
+        'is_done': false,
+      },
+      {
+        'title': '点赞30次',
+        'sub_title': '仅点亮',
+        'jump_type': 'like',
+        'is_done': false,
+      },
+      {
+        'title': '点赞奖励30',
+        'sub_title': '仅点亮',
+        'jump_type': 'like',
+        'is_done': false,
+      },
+    ]);
+    expect(tasks.first.completionOnly, isTrue);
+    expect(tasks.first.currentCount, isNull);
+    expect(tasks.first.targetCount, 10);
+    expect(tasks.first.remainingCount, 10);
+    expect(tasks.first.actionsPerProgress, 1);
+    expect(tasks[1].remainingCount, 1);
+    expect(tasks[1].actionsPerProgress, 30);
+    expect(tasks[2].actionsPerProgress, isNull);
+  });
+
+  testWidgets(
+    'accepted lighting messages consume the title quota while completion remains server-owned',
+    (tester) async {
+      final h = _Harness()
+        ..completionOnly = true
+        ..holdCompletionFlag = true
+        ..dmTarget = 3;
+      h.create();
+      h.update(autoDanmaku: true);
+      await tester.pump(Duration.zero);
+      for (var i = 0; i < 3; i++) {
+        await h.advance(tester, 30);
+      }
+      expect(h.messages, 3);
+      expect(h.messageAttempts, 3);
+      await h.advance(tester, 60);
+      expect(h.messages, 3);
+      expect(h.service.state, isNot(LiveTaskAutomationState.completed));
+      h.holdCompletionFlag = false;
+      await h.service.refreshTasks();
+      expect(h.service.state, LiveTaskAutomationState.completed);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'lighting likes send one bounded 30-click batch and preserve it across reentry',
+    (tester) async {
+      final journal = _Journal();
+      final old = _Harness(journal)
+        ..completionOnly = true
+        ..holdCompletionFlag = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 1;
+      old.create();
+      old.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(old.likeBatches, [30]);
+      await old.advance(tester, 60);
+      expect(old.likeBatches, [30]);
+      old.service.dispose();
+      final next = _Harness(journal)
+        ..completionOnly = true
+        ..holdCompletionFlag = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 1;
+      next.create();
+      next.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(next.likes, 0);
+      next.likeProgress = 1;
+      next.holdCompletionFlag = false;
+      await next.service.refreshTasks();
+      expect(next.service.state, LiveTaskAutomationState.completed);
+      next.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'unknown lighting writes freeze until completion or an official daily transition',
+    (tester) async {
+      final h = _Harness()
+        ..completionOnly = true
+        ..holdCompletionFlag = true
+        ..reflectProgress = false
+        ..returnUnknown = true
+        ..dmTarget = 10;
+      h.create();
+      h.update(autoDanmaku: true);
+      await tester.pump(Duration.zero);
+      await h.advance(tester, 30);
+      await h.advance(tester, 60);
+      expect(h.messages, 1);
+      h.completionOnly = false;
+      h.dailyRewardProgress = true;
+      h.holdCompletionFlag = false;
+      h.reflectProgress = true;
+      h.returnUnknown = false;
+      await h.service.refreshTasks();
+      await tester.pump(Duration.zero);
+      expect(h.messages, 2);
+      expect(
+        h.journal.records.values.where(
+          (record) =>
+              record['completion_only'] == true && record['retired'] == true,
+        ),
+        isNotEmpty,
+      );
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'an accepted lighting quota transitions to a fresh daily budget without a mismatch halt',
+    (tester) async {
+      final h = _Harness()
+        ..completionOnly = true
+        ..holdCompletionFlag = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 1;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(h.likes, 30);
+      h.completionOnly = false;
+      h.dailyRewardProgress = true;
+      h.holdCompletionFlag = false;
+      h.likeProgress = 0;
+      h.likeTarget = 10;
+      await h.advance(tester, 5);
+      expect(h.likeBatches, [30, 30]);
+      expect(h.service.statusText, isNot(contains('发生变化')));
+      h.service.dispose();
+    },
+  );
+  testWidgets(
+    'changing the default expression recovers a known unsubmitted configuration halt',
+    (tester) async {
+      final h = _Harness()
+        ..dmTarget = 1
+        ..danmakuResultOverride = LiveTaskWriteState.notSubmitted;
+      h.create();
+      h.update(
+        autoDanmaku: true,
+        message: '',
+        danmakuMessage: const LiveTaskDanmakuMessage.emoticon(
+          emoticonUnique: 'old_room',
+          roomId: 7,
+          anchorUid: 20,
+        ),
+      );
+      await tester.pump(Duration.zero);
+      await h.advance(tester, 30);
+      expect(h.messages, 0);
+      expect(h.messageAttempts, 1);
+      expect(h.service.state, LiveTaskAutomationState.paused);
+      h.danmakuResultOverride = null;
+      const valid = LiveTaskDanmakuMessage.emoticon(
+        emoticonUnique: 'current_room',
+        roomId: 6,
+        anchorUid: 20,
+      );
+      h.update(autoDanmaku: true, message: '', danmakuMessage: valid);
+      await tester.pump(Duration.zero);
+      await h.advance(tester, 30);
+      expect(h.messages, 1);
+      expect(h.messageAttempts, 2);
+      expect(h.sentPayload, valid);
+      await h.advance(tester, 5);
+      expect(h.service.state, LiveTaskAutomationState.completed);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'changing a default message never releases unknown or server-rejected writes',
+    (tester) async {
+      for (final result in [
+        LiveTaskWriteState.unknown,
+        LiveTaskWriteState.rejected,
+      ]) {
+        final h = _Harness()
+          ..reflectProgress = false
+          ..danmakuResultOverride = result;
+        h.create();
+        h.update(autoDanmaku: true, message: '先前消息');
+        await tester.pump(Duration.zero);
+        await h.advance(tester, 30);
+        expect(h.messageAttempts, 1);
+        h.danmakuResultOverride = null;
+        h.update(autoDanmaku: true, message: '新消息');
+        await tester.pump(Duration.zero);
+        await h.advance(tester, 60);
+        expect(h.messageAttempts, 1, reason: result.name);
+        expect(h.service.state, isNot(LiveTaskAutomationState.sending));
+        h.service.dispose();
+      }
+    },
+  );
+  test(
+    'daily reward limits keep rounds distinct from the title interaction quota',
+    () {
+      final tasks = LiveInteractionParser.fanTasks([
+        {
+          'title': '点赞30次',
+          'add_text': '亲密度+1',
+          'sub_title': '每日上限5/10',
+          'is_done': 0,
+          'jump_type': 'like',
+        },
+        {
+          'title': '发弹幕',
+          'add_text': '亲密度+1',
+          'sub_title': '每日上限0/10',
+          'is_done': 0,
+          'jump_type': 'sendDanmu',
+        },
+        {
+          'title': '点赞得30奖励',
+          'add_text': '亲密度+30',
+          'sub_title': '每日上限5/10',
+          'is_done': 0,
+          'jump_type': 'like',
+        },
+      ]);
+      expect(tasks.first.currentCount, 5);
+      expect(tasks.first.targetCount, 10);
+      expect(tasks.first.remainingCount, 5);
+      expect(tasks.first.actionsPerProgress, 30);
+      expect(tasks.first.dailyRewardProgress, isTrue);
+      expect(tasks[1].actionsPerProgress, 1);
+      expect(tasks[1].remainingCount, 10);
+      expect(tasks[2].actionsPerProgress, isNull);
+    },
+  );
+
+  testWidgets(
+    'remaining daily like rewards send one full round then verify server progress',
+    (tester) async {
+      final h = _Harness()
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 10
+        ..likeProgress = 5;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(h.likeBatches, [30]);
+      for (var i = 0; i < 5; i++) {
+        await h.advance(tester, 5);
+      }
+      expect(h.likeBatches, [30, 30, 30, 30, 30]);
+      expect(h.likes, 150);
+      expect(h.likeProgress, 10);
+      expect(h.service.state, LiveTaskAutomationState.completed);
+      final budget = h.journal.records.values.singleWhere(
+        (record) => record['type'] == 'like',
+      );
+      expect(budget['initial_remaining'], 5);
+      expect(budget['sent'], 5);
+      expect(budget['pending_count'], 0);
+      expect(budget['actions_per_progress'], 30);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'an uncounted daily round never resends and midnight does not reset it',
+    (tester) async {
+      final h = _Harness()
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 10
+        ..likeProgress = 5
+        ..reflectProgress = false;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      for (var i = 0; i < 5; i++) {
+        await h.advance(tester, 5);
+      }
+      expect(h.likeBatches, [30]);
+      expect(h.service.state, LiveTaskAutomationState.paused);
+      h.likeProgress = 6;
+      await h.service.refreshTasks();
+      expect(h.likes, 30);
+      h.reflectProgress = true;
+      await h.advance(tester, 1);
+      expect(h.likeBatches, [30, 30]);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'a completed daily limit can reset only after the server reports a new cycle',
+    (tester) async {
+      final h = _Harness()
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 10
+        ..likeProgress = 10;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(h.likes, 0);
+      h.likeProgress = 0;
+      await h.advance(tester, 30);
+      expect(h.likeBatches, [30]);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'a default expression follows the same random interval and budget as text',
+    (tester) async {
+      final h = _Harness()..dmTarget = 1;
+      h.create();
+      const payload = LiveTaskDanmakuMessage.emoticon(
+        emoticonUnique: 'room_fixture',
+        roomId: 6,
+        anchorUid: 20,
+      );
+      h.update(autoDanmaku: true, message: '', danmakuMessage: payload);
+      await tester.pump(Duration.zero);
+      await h.advance(tester, 29);
+      expect(h.messages, 0);
+      await h.advance(tester, 1);
+      expect(h.messages, 1);
+      expect(h.sentPayload, payload);
+      await h.advance(tester, 5);
+      expect(h.service.state, LiveTaskAutomationState.completed);
+      expect(jsonEncode(h.journal.records), isNot(contains('room_fixture')));
+      h.service.dispose();
+    },
+  );
+
   test('current official task fields preserve title, progress and is_done', () {
     final task = LiveInteractionParser.fanTasks([
       {
