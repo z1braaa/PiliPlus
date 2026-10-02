@@ -1,0 +1,349 @@
+{
+  "reviewed_at": "2026-10-02",
+  "evidence": "Offline signatures only: public official WASM, fixture values; no credentials or business requests",
+  "source_html": "https://live.bilibili.com/21452505",
+  "sources": [
+    {
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.3b48f866e1563d25d39c.js",
+      "sha256": "fb51c9acf90afc446bc4a82ae6c5e55fc22ff5219aaf0f4cf152aa705506de82"
+    },
+    {
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/bilibili.db8b38549c9cc2a44dc5.js",
+      "sha256": "b4fa0b8cab5dd5c0fe178e3c22a882a88129a388983bb76c171f07f7e29eb4b6"
+    },
+    {
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/7188.dbddf87d005ac5affb68.js",
+      "sha256": "74672ee11668d64eb82901a6cecb3cb72393bb3c69c4f86a4bc7e85d8bc94a90"
+    },
+    {
+      "url": "https://i0.hdslb.com/bfs/live/e791556706f88d88b4846a61a583b31db007f83d.wasm",
+      "sha256": "22d5483eb75e46725342e5e61ef1384678962cb7de5fdcc61b79017fa9524717"
+    }
+  ],
+  "rules": {
+    "0": "HMAC-MD5",
+    "1": "HMAC-SHA1",
+    "2": "HMAC-SHA256",
+    "3": "HMAC-SHA224",
+    "4": "HMAC-SHA512",
+    "5": "HMAC-SHA384"
+  },
+  "native_result": "Each round takes prior lowercase hexadecimal signature as UTF-8 text; initial value is canonical JSON; key is benchmark UTF-8",
+  "unknown_rule": "Fail closed; official WASM ignores an unknown code, but native client requires reviewed rules",
+  "authenticated_protocol_verified": false,
+  "intimacy_settlement_verified": false,
+  "vectors": [
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        0
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "08726a69f5041ac08a739a3775ad3604"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        1
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "a2b83a079bd62c3629c4535d801a3b982769b988"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        2
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "b99229cb9d0c4b0b3883414ccb2dfe762f406c6f3449d0a7057cf1f3b358ee32"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        3
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "57098eccf017d86694f4ef4feb3f4758b5e39f697235d32da9c290b1"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        4
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "706302261da2d34c86f86b5c27ba6651c51d5a7e8cfdbcd850f29b4dded7285be8c2f0f46521ca82038d486cb14ceb6645d96d3e25399b46c5bf27a9cee6dc48"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        5
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "9eecf6e5cbe0bdf7cc0d11efe8f736e3c3660ac5d844f2c678de43840ba2d764e7c751a5fdf3bda3800def215a4c5052"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "eda43328fd6c6f82047962820afeb82ede436975dc1d401a6995d81165d6391f7e1573358ce0a43f650f4a6ad8f49b28"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"FAKE-BUVID\",\"00000000-0000-4000-8000-000000000000\"]",
+        "ruid": 434334701,
+        "ets": 1700000000,
+        "benchmark": "fixture-key",
+        "time": 60,
+        "ts": 1700000060000,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        5,
+        2,
+        0,
+        2
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"FAKE-BUVID\",\"uuid\":\"00000000-0000-4000-8000-000000000000\",\"ets\":1700000000,\"time\":60,\"ts\":1700000060000}",
+      "signature": "6f7bb2418352858a6dccb99e9d059491fa227ebe9af698305944f4aa1d1fecbd"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        0
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "a7223d5823f7b9be4377b9a8ac5a49f0"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        1
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "e8d0a82c314f7e0f4d80f11ade8fbae2fe3753d6"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        2
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "6c19813a5d2af47866f6c4fd720c86d0093d7fc978c197bc5d759800dfdc0198"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        3
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "35ba7b1ac5b53fb1cac3a71d05c5f93f9630cbccff35f2bff0c99682"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        4
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "4d4ac96053c1ea05bcc43422fb957c621f4e0f092393cc82aca7f75078a8ec802523743c86b8c7378e07a42650d4c36636861d424c3b86dcf31d0745e3dc2ff0"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        5
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "eff02c32dab076651f0f142139fe040fe348998fb9418dc82b4ee94c3175afdcfb739ab778e110f3b98dd42ffe952e7b"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "e847203ea8cc47e2340172a2d17b5319e2e6bb8c7154d6bc5fb63dc35c5e7a0f7e6e2486a1844a8d48e70f440a786f77"
+    },
+    {
+      "body": {
+        "id": "[1,2,0,21452505]",
+        "device": "[\"设备\\\\测试\\\"\\n\",\"fixture-uuid\"]",
+        "ruid": 434334701,
+        "ets": 1790880000,
+        "benchmark": "秘钥\"\n",
+        "time": 1,
+        "ts": 1790880000123,
+        "ua": "fixture-agent",
+        "trackid": "-999998"
+      },
+      "rules": [
+        5,
+        2,
+        0,
+        2
+      ],
+      "canonical": "{\"platform\":\"web\",\"parent_id\":1,\"area_id\":2,\"seq_id\":0,\"room_id\":21452505,\"buvid\":\"设备\\\\测试\\\"\\n\",\"uuid\":\"fixture-uuid\",\"ets\":1790880000,\"time\":1,\"ts\":1790880000123}",
+      "signature": "8d54c5f3c93c7dfaf0ad9222f4b98d2dc233fd40da1bedd9b1083d6dbcacec09"
+    }
+  ],
+  "watch_contract": {
+    "e_path": "https://live-trace.bilibili.com/xlive/data-interface/v1/x25Kn/E",
+    "x_path": "https://live-trace.bilibili.com/xlive/data-interface/v1/x25Kn/X",
+    "transport": "POST query, credentials included; current official middleware adds CSRF and WBI w_rid/wts",
+    "sources": "bilibili.js modules 46653 and 25219; character ranges 2657880-2659000, 2677009-2692800, 2320200-2321740",
+    "separate_online_count_path": "te9Kl/s82Tq and skynet belong to app.js online-count tracker; not treated as intimacy reporting",
+    "native_limitations": "No offline heartbeat replay; incomplete intervals discarded on pause/buffer; no server timestamp synthesis; unsupported challenges suspend; accepted watch seconds are not proof of intimacy credit"
+  }
+}

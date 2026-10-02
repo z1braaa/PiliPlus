@@ -4,6 +4,7 @@ import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/login.dart';
+import 'package:PiliPlus/http/retry_interceptor.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/live/live_contribution_rank_type.dart';
 import 'package:PiliPlus/models/common/live/live_search_type.dart';
@@ -34,6 +35,36 @@ import 'package:dio/dio.dart';
 abstract final class LiveHttp {
   static Account get recommend => Accounts.get(AccountType.recommend);
 
+  // Interactive writes keep the chosen sender through signing and transport.
+  // A timeout must never cause an automatic duplicate message or like batch.
+  static Dio? _writeClient;
+  static Dio get _liveWriteClient {
+    Request();
+    return _writeClient ??= Request.dio.clone()
+      ..interceptors.removeWhere(
+        (i) => i is RetryInterceptor || i is LogInterceptor,
+      )
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (Accounts.mainIdentityChangeInProgress ||
+                !identical(options.extra['account'], Accounts.main) ||
+                options.extra['liveWriteGeneration'] !=
+                    Accounts.mainChangeGeneration) {
+              handler.reject(
+                DioException.requestCancelled(
+                  requestOptions: options,
+                  reason: '直播互动账号已变化',
+                ),
+              );
+            } else {
+              handler.next(options);
+            }
+          },
+        ),
+      );
+  }
+
   static Future<LoadingState<void>> sendLiveMsg({
     required Object roomId,
     required Object msg,
@@ -42,10 +73,25 @@ abstract final class LiveHttp {
     int replyMid = 0,
     String replayDmid = '',
   }) async {
-    String csrf = Accounts.main.csrf;
-    final res = await Request().post(
+    final account = Accounts.main;
+    final generation = Accounts.mainChangeGeneration;
+    if (!account.isLogin || Accounts.mainIdentityChangeInProgress) {
+      return const Error('请等待账号登录或切换完成');
+    }
+    final query = await WbiSign.makSign({'web_location': 444.8});
+    if (!identical(account, Accounts.main) ||
+        generation != Accounts.mainChangeGeneration) {
+      return const Error('账号已变化，请重新发送');
+    }
+    final csrf = account.csrf;
+    final res = await _liveWriteClient.post(
       Api.sendLiveMsg,
-      queryParameters: await WbiSign.makSign({'web_location': 444.8}),
+      queryParameters: query,
+      options: Options(
+        extra: {'account': account, 'liveWriteGeneration': generation},
+        followRedirects: false,
+        maxRedirects: 0,
+      ),
       data: FormData.fromMap({
         'bubble': 0,
         'msg': msg,
@@ -71,6 +117,10 @@ abstract final class LiveHttp {
         'csrf_token': csrf,
       }),
     );
+    if (!identical(account, Accounts.main) ||
+        generation != Accounts.mainChangeGeneration) {
+      return const Error('账号已变化，发送结果待原账号核对');
+    }
     if (res.data['code'] == 0) {
       return const Success(null);
     } else {
@@ -598,18 +648,38 @@ abstract final class LiveHttp {
     required Object uid,
     Object? anchorId,
   }) async {
-    final res = await Request().post(
+    final account = Accounts.main;
+    final generation = Accounts.mainChangeGeneration;
+    if (!account.isLogin || Accounts.mainIdentityChangeInProgress) {
+      return const Error('请等待账号登录或切换完成');
+    }
+    if (clickTime <= 0) return const Error('没有待提交的点赞');
+    final body = await WbiSign.makSign({
+      'click_time': clickTime,
+      'room_id': roomId,
+      'uid': account.mid,
+      'anchor_id': ?anchorId,
+      'web_location': 444.8,
+      'csrf': account.csrf,
+    });
+    if (!identical(account, Accounts.main) ||
+        generation != Accounts.mainChangeGeneration) {
+      return const Error('账号已变化，请重新点赞');
+    }
+    final res = await _liveWriteClient.post(
       Api.liveLikeReport,
-      data: await WbiSign.makSign({
-        'click_time': clickTime,
-        'room_id': roomId,
-        'uid': uid,
-        'anchor_id': ?anchorId,
-        'web_location': 444.8,
-        'csrf': Accounts.heartbeat.csrf,
-      }),
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      data: body,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account, 'liveWriteGeneration': generation},
+        followRedirects: false,
+        maxRedirects: 0,
+      ),
     );
+    if (!identical(account, Accounts.main) ||
+        generation != Accounts.mainChangeGeneration) {
+      return const Error('账号已变化，点赞结果待原账号核对');
+    }
     if (res.data['code'] == 0) {
       return const Success(null);
     } else {

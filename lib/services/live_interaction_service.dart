@@ -8,6 +8,7 @@ import 'package:PiliPlus/http/retry_interceptor.dart';
 import 'package:PiliPlus/models_new/live/interactions/live_interaction.dart';
 import 'package:PiliPlus/models_new/live/interactions/live_interaction_parser.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -19,11 +20,13 @@ class LiveInteractionAccount {
   final bool loggedIn;
   final Object identity;
   final String csrf;
+  final int generation;
   const LiveInteractionAccount({
     required this.uid,
     required this.loggedIn,
     required this.identity,
     this.csrf = '',
+    this.generation = 0,
   });
 }
 
@@ -38,6 +41,17 @@ abstract interface class LiveInteractionTransport {
     String path,
     Map<String, dynamic> body,
     LiveInteractionAccount account,
+  );
+}
+
+/// Optional final dispatch guard; existing injected transports remain valid.
+abstract interface class LiveTaskInteractionTransport
+    implements LiveInteractionTransport {
+  Future<Map<String, dynamic>> postTask(
+    String path,
+    Map<String, dynamic> body,
+    LiveInteractionAccount account,
+    bool Function() stillAllowed,
   );
 }
 
@@ -66,14 +80,18 @@ class _HiveInteractionJournal implements LiveInteractionJournal {
   }
 }
 
-class _RequestInteractionTransport implements LiveInteractionTransport {
+class _RequestInteractionTransport implements LiveTaskInteractionTransport {
   Dio? _client;
   Dio get client {
     Request();
     return _client ??= Request.dio.clone()
       ..interceptors.removeWhere(
         (i) => i is RetryInterceptor || i is LogInterceptor,
-      );
+      )
+      // Runs after AccountManager's asynchronous cookie loading and immediately
+      // before adapter dispatch. Captured account/room/preferences must remain
+      // valid at this boundary as well as before/after WBI signing.
+      ..interceptors.add(liveTaskDispatchGuard());
   }
 
   Options _options(LiveInteractionAccount account) => Options(
@@ -112,8 +130,50 @@ class _RequestInteractionTransport implements LiveInteractionTransport {
       options: _options(account),
     )).data,
   );
+  @override
+  Future<Map<String, dynamic>> postTask(
+    String path,
+    Map<String, dynamic> body,
+    LiveInteractionAccount account,
+    bool Function() stillAllowed,
+  ) async => liveMap(
+    (await client.post<dynamic>(
+      _origin + path,
+      data: body,
+      options: _options(account)
+        ..extra = {
+          'account': account.identity,
+          'liveTaskStillAllowed': stillAllowed,
+        },
+    )).data,
+  );
   // Never close this clone: its adapter belongs to Request.dio.
 }
+
+/// Exposed for deterministic validation of the final dispatch boundary.
+Interceptor liveTaskDispatchGuard() => InterceptorsWrapper(
+  onRequest: (options, handler) {
+    final guard = options.extra['liveTaskStillAllowed'];
+    if (guard is bool Function()) {
+      bool allowed;
+      try {
+        allowed = guard();
+      } catch (_) {
+        allowed = false;
+      }
+      if (!allowed) {
+        handler.reject(
+          DioException.requestCancelled(
+            requestOptions: options,
+            reason: 'live_task_guard',
+          ),
+        );
+        return;
+      }
+    }
+    handler.next(options);
+  },
+);
 
 /// Official live API integration. Current JS supplies protocol candidates;
 /// account/write compatibility still requires controlled online acceptance.
@@ -124,6 +184,7 @@ class LiveInteractionService {
   final LiveInteractionJournal _journal;
   final LiveInteractionAccount Function() _account;
   final DateTime Function() _now;
+  final Future<Map<String, Object>> Function(Map<String, Object>) _sign;
   static final Set<String> _writeLocks = {};
   static int _nonce = 0;
   final Set<String> _consumedConfirmations = {};
@@ -139,7 +200,8 @@ class LiveInteractionService {
     : _transport = _RequestInteractionTransport(),
       _journal = _HiveInteractionJournal(),
       _account = _currentAccount,
-      _now = DateTime.now;
+      _now = DateTime.now,
+      _sign = WbiSign.makSign;
 
   LiveInteractionService.testing({
     required this.roomId,
@@ -148,10 +210,12 @@ class LiveInteractionService {
     required LiveInteractionJournal journal,
     required LiveInteractionAccount Function() account,
     DateTime Function()? now,
+    Future<Map<String, Object>> Function(Map<String, Object>)? sign,
   }) : _transport = transport,
        _journal = journal,
        _account = account,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _sign = sign ?? WbiSign.makSign;
 
   static LiveInteractionAccount _currentAccount() {
     final account = Accounts.main;
@@ -160,6 +224,7 @@ class LiveInteractionService {
       loggedIn: account.isLogin,
       identity: account,
       csrf: account.isLogin ? account.csrf : '',
+      generation: Accounts.mainChangeGeneration,
     );
   }
 
@@ -193,7 +258,8 @@ class LiveInteractionService {
     if (_disposed) throw const LiveInteractionException('互动面板已关闭');
     final current = _account();
     if (!identical(account.identity, current.identity) ||
-        account.uid != current.uid) {
+        account.uid != current.uid ||
+        account.generation != current.generation) {
       throw const LiveInteractionException('账号已变化，请重新确认');
     }
     if (login &&
@@ -246,6 +312,168 @@ class LiveInteractionService {
     'ruid': anchorUid,
     'platform': 'pc',
   };
+
+  /// Reads only the current room's fan tasks, without gift/wallet requests.
+  Future<LiveFanTaskSnapshot> loadFanTasks() async {
+    final account = _account();
+    _guard(account);
+    final data = await _get(_activatedPath, {
+      'target_id': anchorUid,
+      'room_id': roomId,
+      'platform': 'pc',
+      'scene': 'club',
+    }, account);
+    if (data['task_info'] is! List) {
+      throw const LiveInteractionException('官方任务字段尚未取得，自动操作暂停');
+    }
+    final level = liveInt(data['level']);
+    return LiveFanTaskSnapshot(
+      roomId: roomId,
+      anchorUid: anchorUid,
+      accountUid: account.uid,
+      accountIdentity: account.identity,
+      joined: level == null ? null : level > 0,
+      tasks: LiveInteractionParser.fanTasks(data['task_info']),
+    );
+  }
+
+  Future<LiveTaskWriteResult> sendTaskLikes({
+    required int clickTime,
+    required Object expectedAccountIdentity,
+    bool Function()? stillAllowed,
+  }) => _sendTaskInteraction(
+    expectedAccountIdentity: expectedAccountIdentity,
+    stillAllowed: stillAllowed,
+    prepare: (account) async {
+      if (clickTime <= 0 || clickTime > 5) {
+        throw const LiveInteractionException('自动点赞数量不在当前小批次范围内');
+      }
+      return (
+        path: '/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3',
+        body: await _sign({
+          'click_time': clickTime,
+          'room_id': roomId,
+          'uid': account.uid,
+          'anchor_id': anchorUid,
+          'web_location': 444.8,
+          'csrf': account.csrf,
+        }),
+      );
+    },
+  );
+
+  Future<LiveTaskWriteResult> sendTaskDanmaku({
+    required String message,
+    required Object expectedAccountIdentity,
+    bool Function()? stillAllowed,
+  }) => _sendTaskInteraction(
+    expectedAccountIdentity: expectedAccountIdentity,
+    stillAllowed: stillAllowed,
+    prepare: (account) async {
+      if (message.trim().isEmpty) {
+        throw const LiveInteractionException('请先设置默认弹幕');
+      }
+      final query = await _sign({'web_location': 444.8});
+      return (
+        path: Uri(
+          path: '/msg/send',
+          queryParameters: {
+            for (final entry in query.entries)
+              entry.key: entry.value.toString(),
+          },
+        ).toString(),
+        body: <String, dynamic>{
+          'bubble': 0,
+          'msg': message,
+          'color': 16777215,
+          'mode': 1,
+          'room_type': 0,
+          'jumpfrom': 0,
+          'reply_mid': 0,
+          'reply_attr': 0,
+          'replay_dmid': '',
+          'statistics': '{"appId":100,"platform":5}',
+          'reply_type': 0,
+          'reply_uname': '',
+          'fontsize': 25,
+          'rnd': _now().millisecondsSinceEpoch ~/ 1000,
+          'roomid': roomId,
+          'csrf': account.csrf,
+          'csrf_token': account.csrf,
+        },
+      );
+    },
+  );
+
+  Future<LiveTaskWriteResult> _sendTaskInteraction({
+    required Object expectedAccountIdentity,
+    required Future<({String path, Map<String, dynamic> body})> Function(
+      LiveInteractionAccount account,
+    )
+    prepare,
+    bool Function()? stillAllowed,
+  }) async {
+    final account = _account();
+    bool submitted = false;
+    try {
+      void guardSubmission() {
+        _guard(account);
+        if (!identical(account.identity, expectedAccountIdentity)) {
+          throw const LiveInteractionException('任务所属账号已变化，自动操作暂停');
+        }
+        if (stillAllowed?.call() == false) {
+          throw const LiveInteractionException('当前观看或自动任务设置已变化');
+        }
+      }
+
+      guardSubmission();
+      final request = await prepare(account);
+      // Signing may await a key refresh. Recheck before the only write.
+      guardSubmission();
+      submitted = true;
+      final response = _transport is LiveTaskInteractionTransport
+          ? await _transport.postTask(
+              request.path,
+              request.body,
+              account,
+              () {
+                try {
+                  guardSubmission();
+                  return true;
+                } catch (_) {
+                  return false;
+                }
+              },
+            )
+          : await _transport.post(request.path, request.body, account);
+      final code = liveInt(response['code']);
+      if (code == 0) {
+        return const LiveTaskWriteResult(LiveTaskWriteState.accepted);
+      }
+      if (code == null) {
+        return const LiveTaskWriteResult(
+          LiveTaskWriteState.unknown,
+          '互动响应不完整，正在只读核对任务',
+        );
+      }
+      return LiveTaskWriteResult(
+        LiveTaskWriteState.rejected,
+        '官方拒绝本次互动（$code），自动操作暂停',
+      );
+    } catch (error) {
+      if (error is DioException &&
+          error.type == DioExceptionType.cancel &&
+          error.error == 'live_task_guard') {
+        submitted = false;
+      }
+      return LiveTaskWriteResult(
+        submitted
+            ? LiveTaskWriteState.unknown
+            : LiveTaskWriteState.notSubmitted,
+        submitted ? '互动结果未知，正在只读核对任务；不会自动重发' : _safeMessage(error),
+      );
+    }
+  }
 
   Future<LiveSuperChatConfig> loadSuperChatConfig({
     required int parentAreaId,

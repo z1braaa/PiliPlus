@@ -1,4 +1,6 @@
 import 'package:PiliPlus/services/live_interaction_service.dart';
+import 'package:PiliPlus/services/live_task_automation.dart';
+import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:material_ui/material_ui.dart';
 
@@ -23,6 +25,15 @@ class LiveInteractionSession extends ChangeNotifier {
       preparing ||
       result?.state == LiveActionState.submitting ||
       result?.state == LiveActionState.unknown;
+
+  bool get snapshotMatchesCurrentAccount =>
+      snapshot != null &&
+      _snapshotAccountIdentity != null &&
+      identical(_snapshotAccountIdentity, service.accountIdentity);
+
+  bool get snapshotAccountChanged =>
+      _snapshotAccountIdentity != null &&
+      !identical(_snapshotAccountIdentity, service.accountIdentity);
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -202,6 +213,12 @@ class LiveInteractionPanel extends StatefulWidget {
     this.initialTab = 0,
     this.quickGift,
     this.quickQuantity = 1,
+    this.taskAutomation,
+    this.automationPreferences = const LiveTaskAutomationPreferences(),
+    this.onAutomationPreferencesChanged,
+    this.watchStatusText,
+    this.onWatchRetry,
+    this.watchCanRetry = true,
   });
 
   final LiveInteractionSession session;
@@ -212,6 +229,13 @@ class LiveInteractionPanel extends StatefulWidget {
   final int initialTab;
   final LiveGift? quickGift;
   final int quickQuantity;
+  final LiveTaskAutomationService? taskAutomation;
+  final LiveTaskAutomationPreferences automationPreferences;
+  final ValueChanged<LiveTaskAutomationPreferences>?
+  onAutomationPreferencesChanged;
+  final String? watchStatusText;
+  final VoidCallback? onWatchRetry;
+  final bool watchCanRetry;
 
   @override
   State<LiveInteractionPanel> createState() => _LiveInteractionPanelState();
@@ -248,7 +272,15 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
   @override
   void didUpdateWidget(covariant LiveInteractionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.session == widget.session) return;
+    if (oldWidget.session == widget.session) {
+      if (widget.session.snapshotAccountChanged) {
+        final current = widget.session;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.session == current) current.load();
+        });
+      }
+      return;
+    }
     oldWidget.session.removeListener(_cancelDisabledConfirmation);
     oldWidget.session.hide(notify: false);
     final route = _confirmationRoute;
@@ -277,10 +309,10 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.session,
+    animation: Listenable.merge([widget.session, widget.taskAutomation]),
     builder: (context, _) {
       final session = widget.session;
-      final data = session.snapshot;
+      final data = session.snapshotAccountChanged ? null : session.snapshot;
       return NestedScrollView(
         headerSliverBuilder: (_, _) => [
           SliverToBoxAdapter(
@@ -599,6 +631,10 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
 
   Widget _fans(LiveInteractionSnapshot data) {
     final status = data.fanStatus;
+    final refreshedTasks = widget.taskAutomation?.tasks;
+    final tasks = refreshedTasks != null && refreshedTasks.isNotEmpty
+        ? refreshedTasks
+        : status?.tasks ?? const <LiveFanTask>[];
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       children: [
@@ -663,20 +699,54 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
               status.lightGift,
               data.loggedIn && status.isLighted == false,
             ),
-          const SizedBox(height: 12),
-          Text('亲密度任务', style: Theme.of(context).textTheme.titleMedium),
-          if (status.tasks.isEmpty) const _Notice('当前没有可展示的任务；每日规则以官方页面为准。'),
-          for (final task in status.tasks)
-            Card(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.favorite_border),
-                title: Text(task.name),
-                subtitle: Text(task.description),
-                trailing: Text(_state(task.completed, '已完成', '待完成')),
-              ),
-            ),
         ],
+        const SizedBox(height: 12),
+        Text('亲密度任务', style: Theme.of(context).textTheme.titleMedium),
+        if (tasks.isEmpty) const _Notice('当前没有可展示的任务；每日规则以官方页面为准。'),
+        for (final task in tasks)
+          Card(
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.favorite_border),
+              title: Text(task.name),
+              subtitle: Text(
+                [
+                  task.description,
+                  if (task.currentCount != null && task.targetCount != null)
+                    '进度 ${task.currentCount} / ${task.targetCount}'
+                  else if (task.progressText.isNotEmpty)
+                    task.progressText,
+                  if ((task.jumpType == 'like' ||
+                          task.jumpType == 'sendDanmu') &&
+                      task.remainingCount == null)
+                    '数量尚未确认，自动操作暂停',
+                ].where((text) => text.isNotEmpty).join('\n'),
+              ),
+              trailing: Text(_state(task.completed, '已完成', '待完成')),
+            ),
+          ),
+        if (widget.watchStatusText case final statusText?)
+          ListTile(
+            leading: const Icon(Icons.timer_outlined),
+            title: const Text('观看时长'),
+            subtitle: Text(statusText),
+            trailing: widget.watchCanRetry && widget.onWatchRetry != null
+                ? IconButton(
+                    tooltip: '重试观看上报',
+                    icon: const Icon(Icons.refresh),
+                    onPressed: widget.onWatchRetry,
+                  )
+                : null,
+          ),
+        if (widget.taskAutomation case final automation?)
+          LiveTaskAutomationControls(
+            key: ValueKey('live-task-automation:${data.accountUid}'),
+            service: automation,
+            preferences: widget.automationPreferences,
+            loggedIn: widget.session.service.isLoggedIn,
+            snapshotReady: widget.session.snapshotMatchesCurrentAccount,
+            onChanged: widget.onAutomationPreferencesChanged,
+          ),
         const SizedBox(height: 12),
         Text('勋章佩戴与摘下', style: Theme.of(context).textTheme.titleMedium),
         if (data.medals.isEmpty) const _Notice('未取得可佩戴勋章。'),
@@ -910,6 +980,296 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
                 medal,
                 expectedAccountIdentity: identity,
               ),
+      );
+    }
+  }
+}
+
+/// Editing this panel changes preferences only; the playback session owns work.
+class LiveTaskAutomationControls extends StatefulWidget {
+  const LiveTaskAutomationControls({
+    super.key,
+    required this.service,
+    required this.preferences,
+    required this.loggedIn,
+    required this.onChanged,
+    this.snapshotReady = true,
+  });
+
+  final LiveTaskAutomationService service;
+  final LiveTaskAutomationPreferences preferences;
+  final bool loggedIn;
+  final bool snapshotReady;
+  final ValueChanged<LiveTaskAutomationPreferences>? onChanged;
+
+  @override
+  State<LiveTaskAutomationControls> createState() =>
+      _LiveTaskAutomationControlsState();
+}
+
+class _LiveTaskAutomationControlsState
+    extends State<LiveTaskAutomationControls> {
+  ModalRoute<dynamic>? _settingsRoute;
+  bool get _editable =>
+      widget.loggedIn && widget.snapshotReady && widget.onChanged != null;
+
+  void _closeEditor() {
+    final route = _settingsRoute;
+    _settingsRoute = null;
+    if (route != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (route.isActive) route.navigator?.removeRoute(route);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LiveTaskAutomationControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_editable || !identical(oldWidget.service, widget.service)) {
+      _closeEditor();
+    }
+  }
+
+  @override
+  void dispose() {
+    _closeEditor();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.service,
+    builder: (context, _) {
+      final preferences = widget.preferences;
+      return Card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                '自动完成亲密度任务',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            SwitchListTile(
+              key: const ValueKey('live-auto-like'),
+              title: const Text('自动点赞'),
+              subtitle: const Text('按剩余点赞数量执行，完成后停止'),
+              value: preferences.autoLike,
+              onChanged: _editable
+                  ? (value) => widget.onChanged!(
+                      preferences.copyWith(autoLike: value),
+                    )
+                  : null,
+            ),
+            SwitchListTile(
+              key: const ValueKey('live-auto-danmaku'),
+              title: const Text('自动弹幕'),
+              subtitle: Text(
+                preferences.defaultMessage.trim().isEmpty
+                    ? '设置默认弹幕后执行；当前等待设置'
+                    : '按剩余弹幕数量执行，完成后停止',
+              ),
+              value: preferences.autoDanmaku,
+              onChanged: _editable
+                  ? (value) => widget.onChanged!(
+                      preferences.copyWith(autoDanmaku: value),
+                    )
+                  : null,
+            ),
+            ListTile(
+              key: const ValueKey('live-default-danmaku'),
+              title: const Text('默认发送弹幕'),
+              subtitle: Text(
+                preferences.defaultMessage.isEmpty
+                    ? '尚未设置'
+                    : preferences.defaultMessage,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: _editable ? _editMessage : null,
+            ),
+            ListTile(
+              key: const ValueKey('live-danmaku-interval'),
+              title: const Text('弹幕随机间隔'),
+              subtitle: Text(
+                '${preferences.minIntervalSeconds}–${preferences.maxIntervalSeconds} 秒',
+              ),
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: _editable ? _editInterval : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    !widget.loggedIn
+                        ? '登录后可开启自动任务。'
+                        : !widget.snapshotReady
+                        ? '账号任务状态正在刷新，自动操作暂停。'
+                        : widget.service.statusText,
+                    key: const ValueKey('live-task-automation-status'),
+                  ),
+                  if (widget.loggedIn && widget.snapshotReady)
+                    if (widget.service.error case final error?) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        error,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  const SizedBox(height: 8),
+                  const Text(
+                    '设置按账号记住，只在当前直播实际播放时执行。后台或小窗继续播放时也会继续；关闭此面板保留设置。',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Future<void> _editMessage() async {
+    final controller = TextEditingController(
+      text: widget.preferences.defaultMessage,
+    );
+    String? value;
+    try {
+      final route = DialogRoute<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('默认发送弹幕'),
+          content: TextField(
+            key: const ValueKey('live-default-danmaku-editor'),
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: '填写要自动发送的内容',
+              helperText: '清空后自动弹幕会等待设置。',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      _settingsRoute = route;
+      value = await Navigator.of(context, rootNavigator: true).push(route);
+      await route.completed;
+    } finally {
+      _settingsRoute = null;
+      controller.dispose();
+    }
+    if (mounted && _editable && value != null) {
+      widget.onChanged!(widget.preferences.copyWith(defaultMessage: value));
+    }
+  }
+
+  Future<void> _editInterval() async {
+    final minimum = TextEditingController(
+      text: '${widget.preferences.minIntervalSeconds}',
+    );
+    final maximum = TextEditingController(
+      text: '${widget.preferences.maxIntervalSeconds}',
+    );
+    final form = GlobalKey<FormState>();
+    (int, int)? value;
+    String? validate(String? text) {
+      final seconds = int.tryParse(text ?? '');
+      if (seconds == null ||
+          seconds < LiveTaskAutomationPreferences.minimumIntervalSeconds ||
+          seconds > LiveTaskAutomationPreferences.maximumIntervalSeconds) {
+        return '请输入 10–3600 秒';
+      }
+      return null;
+    }
+
+    try {
+      final route = DialogRoute<(int, int)>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('弹幕随机间隔'),
+          scrollable: true,
+          content: Form(
+            key: form,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  key: const ValueKey('live-interval-minimum'),
+                  controller: minimum,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: '最短间隔（秒）'),
+                  validator: validate,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const ValueKey('live-interval-maximum'),
+                  controller: maximum,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: '最长间隔（秒）'),
+                  validator: (text) {
+                    final error = validate(text);
+                    if (error != null) return error;
+                    final low = int.tryParse(minimum.text);
+                    final high = int.parse(text!);
+                    return low != null && low > high ? '最长间隔不能小于最短间隔' : null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (form.currentState!.validate()) {
+                  Navigator.of(context).pop((
+                    int.parse(minimum.text),
+                    int.parse(maximum.text),
+                  ));
+                }
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      _settingsRoute = route;
+      value = await Navigator.of(context, rootNavigator: true).push(route);
+      await route.completed;
+    } finally {
+      _settingsRoute = null;
+      minimum.dispose();
+      maximum.dispose();
+    }
+    if (mounted && _editable && value != null) {
+      widget.onChanged!(
+        widget.preferences.copyWith(
+          minIntervalSeconds: value.$1,
+          maxIntervalSeconds: value.$2,
+        ),
       );
     }
   }

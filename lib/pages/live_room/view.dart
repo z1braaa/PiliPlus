@@ -43,6 +43,7 @@ import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/services/in_app_mini_player.dart';
+import 'package:PiliPlus/services/live_watch_reporter.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -183,6 +184,17 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           ownerKey: _miniOwnerKey,
           routeName: '/liveRoom',
         );
+    final ownedPlayback = _liveRoomController.ownsLiveViewing;
+    final restoredSource = !ownedPlayback && !restoredMini;
+    _liveRoomController.claimLiveViewing(
+      preserve: ownedPlayback || restoredMini,
+    );
+    if (restoredSource) {
+      final shouldPlay =
+          !miniClosed && (_liveRoomController.isPlaying ?? false);
+      await _liveRoomController.queryLiveUrl(autoplay: shouldPlay);
+      if (!mounted) return;
+    }
     addObserverMobile(this);
     if (!plPlayerController.isLive) {
       plPlayerController.isLive = true;
@@ -209,6 +221,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           ..startLiveMsg();
       }
       if (!miniClosed &&
+          !restoredSource &&
           !restoredMini &&
           !_liveRoomController.adoptedMiniPlayer &&
           !_openingOfficialWeb) {
@@ -1001,17 +1014,40 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       return const Center(child: Text('等待官方主播信息；当前不能提交互动。'));
     }
     final session = _sessionFor(anchorUid);
-    return LiveInteractionPanel(
-      key: ObjectKey(session),
-      session: session,
-      anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
-      onLogin: () => Get.toNamed('/loginPage'),
-      onRecharge: _openOfficialRecharge,
-      onOpenGuard: () => _openOfficialGuard(anchorUid),
-      initialTab: initialTab,
-      quickGift: quickGift,
-      quickQuantity: quickQuantity,
-    );
+    final viewing = plPlayerController.liveViewingSession;
+    Widget panel() {
+      final preferenceAccount = Accounts.main;
+      return LiveInteractionPanel(
+        key: ObjectKey(session),
+        session: session,
+        taskAutomation: viewing?.tasks,
+        automationPreferences:
+            viewing?.preferences ?? const LiveTaskAutomationPreferences(),
+        onAutomationPreferencesChanged: viewing == null
+            ? null
+            : (value) {
+                if (identical(preferenceAccount, Accounts.main)) {
+                  viewing.savePreferences(value);
+                }
+              },
+        watchStatusText: viewing?.watchStatusText,
+        onWatchRetry: viewing?.watch.restart,
+        watchCanRetry:
+            viewing?.watch.status.value.state == LiveWatchState.error ||
+            viewing?.watch.status.value.state == LiveWatchState.unsupported,
+        anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
+        onLogin: () => Get.toNamed('/loginPage'),
+        onRecharge: _openOfficialRecharge,
+        onOpenGuard: () => _openOfficialGuard(anchorUid),
+        initialTab: initialTab,
+        quickGift: quickGift,
+        quickQuantity: quickQuantity,
+      );
+    }
+
+    return viewing == null
+        ? panel()
+        : ListenableBuilder(listenable: viewing, builder: (_, _) => panel());
   });
 
   Future<void> _openOfficialRecharge() async {

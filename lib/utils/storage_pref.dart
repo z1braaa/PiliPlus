@@ -1034,6 +1034,24 @@ abstract final class Pref {
     _setting.get(SettingBoxKey.liveRoomEnhancement),
   );
 
+  static String liveTaskAutomationStorageKey(int uid) =>
+      '${SettingBoxKey.liveTaskAutomationByAccount}:$uid';
+
+  static LiveTaskAutomationPreferences liveTaskAutomationFor(int uid) => uid > 0
+      ? LiveTaskAutomationPreferences.fromJson(
+          _setting.get(liveTaskAutomationStorageKey(uid)),
+        )
+      : const LiveTaskAutomationPreferences();
+
+  static Future<void> saveLiveTaskAutomationFor(
+    int uid,
+    LiveTaskAutomationPreferences value,
+  ) {
+    if (uid <= 0) return Future.value();
+    final normalized = LiveTaskAutomationPreferences.fromJson(value.toJson());
+    return _setting.put(liveTaskAutomationStorageKey(uid), normalized.toJson());
+  }
+
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,
     defaultValue: PlatformUtils.isMobile,

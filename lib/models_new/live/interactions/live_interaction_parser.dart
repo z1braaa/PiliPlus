@@ -1,6 +1,72 @@
 import 'package:PiliPlus/models_new/live/interactions/live_interaction.dart';
 
 abstract final class LiveInteractionParser {
+  // The current official FansHome uses title/add_text/sub_title/is_done.
+  // Only a complete progress field may supply counts; reward text never does.
+  static final _taskProgress = RegExp(
+    r'^(?:已完成\s*[:：]?\s*)?([0-9]+)\s*[/／]\s*([0-9]+)\s*(次|条|分钟)?$',
+  );
+
+  static List<LiveFanTask> fanTasks(Object? value) => [
+    for (final task in liveMaps(value)) _fanTask(task),
+  ];
+
+  static LiveFanTask _fanTask(Map<String, dynamic> task) {
+    final progress = task['sub_title']?.toString().trim() ?? '';
+    final type = task['jump_type']?.toString() ?? '';
+    int? current;
+    int? target;
+    // Explicit count fields are preferred when both are valid. These must be
+    // confirmed against a current account response before claiming API parity.
+    final structuredCurrent = liveInt(task['current_count']);
+    final structuredTarget = liveInt(task['target_count']);
+    if (structuredCurrent != null &&
+        structuredTarget != null &&
+        structuredCurrent >= 0 &&
+        structuredTarget > 0 &&
+        structuredCurrent <= structuredTarget) {
+      current = structuredCurrent;
+      target = structuredTarget;
+    } else if (!task.containsKey('current_count') &&
+        !task.containsKey('target_count')) {
+      final match = _taskProgress.firstMatch(progress);
+      final unit = match?[3];
+      final unitMatches =
+          unit == null ||
+          (type == 'like' && unit == '次') ||
+          (type == 'sendDanmu' && (unit == '次' || unit == '条')) ||
+          (type == 'watchLive' && unit == '分钟');
+      if (match != null && unitMatches) {
+        final parsedCurrent = int.tryParse(match[1]!);
+        final parsedTarget = int.tryParse(match[2]!);
+        if (parsedCurrent != null &&
+            parsedTarget != null &&
+            parsedTarget > 0 &&
+            parsedCurrent <= parsedTarget) {
+          current = parsedCurrent;
+          target = parsedTarget;
+        }
+      }
+    }
+    return LiveFanTask(
+      name:
+          (task['title'] ?? task['task_name'] ?? task['name'])?.toString() ??
+          '',
+      description:
+          (task['add_text'] ?? task['task_desc'] ?? task['desc'])?.toString() ??
+          '',
+      jumpType: type,
+      completed: liveBool(
+        task['is_done'] ?? task['is_complete'] ?? task['is_completed'],
+      ),
+      id: (task['task_id'] ?? task['id'])?.toString() ?? '',
+      progressText: progress,
+      currentCount: current,
+      targetCount: target,
+      period: task['period_id']?.toString() ?? '',
+    );
+  }
+
   static Map<int, Map<String, dynamic>> giftConfigs(Map<String, dynamic> data) {
     final config = liveMap(data['gift_config']);
     final base = liveMap(config['base_config']);
@@ -233,15 +299,7 @@ abstract final class LiveInteractionParser {
         activated['fans_club_gift_info'],
         'gift_discount_info',
       ),
-      tasks: [
-        for (final task in liveMaps(activated['task_info']))
-          LiveFanTask(
-            name: (task['task_name'] ?? task['name'])?.toString() ?? '',
-            description: (task['task_desc'] ?? task['desc'])?.toString() ?? '',
-            jumpType: task['jump_type']?.toString() ?? '',
-            completed: liveBool(task['is_complete'] ?? task['is_completed']),
-          ),
-      ],
+      tasks: fanTasks(activated['task_info']),
     );
   }
 

@@ -13,7 +13,6 @@ abstract final class ApiType {
       Api.heartBeat,
       Api.historyReport,
       Api.roomEntryAction,
-      Api.liveLikeReport,
       Api.mediaListHistory,
       // Api.historyList,
       // Api.pauseHistory,

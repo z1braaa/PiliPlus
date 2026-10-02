@@ -113,12 +113,67 @@ class LiveFanTask {
   final String description;
   final String jumpType;
   final bool? completed;
+  final String id;
+  final String progressText;
+  final int? currentCount;
+  final int? targetCount;
+
+  /// An explicit server task period, when supplied. Empty stays unknown.
+  final String period;
   const LiveFanTask({
     required this.name,
     required this.description,
     required this.jumpType,
     this.completed,
+    this.id = '',
+    this.progressText = '',
+    this.currentCount,
+    this.targetCount,
+    this.period = '',
   });
+
+  int? get remainingCount {
+    if (completed == true) return 0;
+    final current = currentCount;
+    final target = targetCount;
+    if (current == null || target == null || current < 0 || target <= 0) {
+      return null;
+    }
+    return (target - current).clamp(0, target);
+  }
+}
+
+/// A task-only read, scoped to one login instance and the resolved live room.
+class LiveFanTaskSnapshot {
+  final int roomId;
+  final int anchorUid;
+  final int accountUid;
+  final Object accountIdentity;
+  final bool? joined;
+  final List<LiveFanTask> tasks;
+  const LiveFanTaskSnapshot({
+    required this.roomId,
+    required this.anchorUid,
+    required this.accountUid,
+    required this.accountIdentity,
+    required this.tasks,
+    this.joined,
+  });
+}
+
+enum LiveTaskWriteState {
+  accepted,
+  rejected,
+  unknown,
+  notSubmitted,
+  deferred,
+}
+
+/// Accepted means the interaction request returned code 0, not task completion.
+class LiveTaskWriteResult {
+  final LiveTaskWriteState state;
+  final String message;
+  const LiveTaskWriteResult(this.state, [this.message = '']);
 }
 
 class LiveFanStatus {

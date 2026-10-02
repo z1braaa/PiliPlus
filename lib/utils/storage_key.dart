@@ -247,6 +247,7 @@ abstract final class SettingBoxKey {
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
       liveRoomEnhancement = 'liveRoomEnhancement',
+      liveTaskAutomationByAccount = 'liveTaskAutomationByAccount',
       saveReply = 'saveReply',
       appFont = 'appFont';
 }

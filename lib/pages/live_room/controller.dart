@@ -31,6 +31,8 @@ import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/in_app_mini_player.dart';
+import 'package:PiliPlus/services/live_task_automation.dart';
+import 'package:PiliPlus/services/live_playback_gate.dart';
 import 'package:PiliPlus/tcp/live.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -115,7 +117,41 @@ class LiveRoomController extends GetxController {
   // dm
   LiveDmInfoData? dmInfo;
   List<RichTextItem>? savedDanmaku;
-  final danmakuSendGate = LiveDanmakuSendGate();
+  final _fallbackDanmakuSendGate = LiveDanmakuSendGate();
+  LiveDanmakuSendGate get danmakuSendGate =>
+      plPlayerController.liveViewingSession?.danmakuSendGate ??
+      _fallbackDanmakuSendGate;
+  LiveTaskAutomationService? get liveTasks =>
+      plPlayerController.liveViewingSession?.tasks;
+  bool _hasRoomPlayInfo = false;
+  int _playInfoGeneration = 0;
+  final _liveOwner = Object();
+  late LivePlaybackLease _liveLease;
+  bool get ownsLiveViewing =>
+      plPlayerController.livePlaybackGate.accepts(_liveLease);
+
+  void claimLiveViewing({bool preserve = false}) {
+    _liveLease = plPlayerController.claimLiveViewing(
+      _liveOwner,
+      preserve: preserve,
+    );
+    if (preserve) _configureLiveViewing();
+  }
+
+  void _configureLiveViewing() {
+    if (_closed || !ownsLiveViewing || !_hasRoomPlayInfo || ruid == null) {
+      return;
+    }
+    final info = roomInfoH5.value?.roomInfo;
+    plPlayerController.configureLiveViewing(
+      lease: _liveLease,
+      roomId: roomId,
+      anchorUid: ruid!,
+      areaId: info?.areaId ?? 0,
+      parentAreaId: info?.parentAreaId ?? 0,
+    );
+  }
+
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
@@ -234,6 +270,7 @@ class LiveRoomController extends GetxController {
       ownerKey: 'live:$requestedRoomId',
       routeName: '/liveRoom',
     );
+    claimLiveViewing(preserve: adoptedMiniPlayer);
     if (adoptedMiniPlayer) isLoaded.value = true;
     queryLiveUrl(
       autoFullScreenFlag: !adoptedMiniPlayer,
@@ -256,7 +293,7 @@ class LiveRoomController extends GetxController {
     bool autoplay = true,
     bool autoFullScreenFlag = false,
   }) {
-    if (videoUrl == null) {
+    if (videoUrl == null || _closed || !ownsLiveViewing) {
       return null;
     }
     return plPlayerController.setDataSource(
@@ -271,7 +308,10 @@ class LiveRoomController extends GetxController {
   Future<void> queryLiveUrl({
     bool autoFullScreenFlag = false,
     bool preservePlayer = false,
+    bool autoplay = true,
   }) async {
+    final lease = _liveLease;
+    final requestGeneration = ++_playInfoGeneration;
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -280,8 +320,15 @@ class LiveRoomController extends GetxController {
       qn: currentQn,
       onlyAudio: plPlayerController.onlyPlayAudio.value,
     );
+    if (_closed ||
+        requestGeneration != _playInfoGeneration ||
+        !plPlayerController.livePlaybackGate.accepts(lease)) {
+      return;
+    }
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
+        _hasRoomPlayInfo = false;
+        plPlayerController.markLiveRoomEnded();
         _showDialog('当前直播间未开播');
         return;
       }
@@ -294,6 +341,8 @@ class LiveRoomController extends GetxController {
       if (response.roomId case final roomId?) {
         this.roomId = roomId;
       }
+      _hasRoomPlayInfo = true;
+      _configureLiveViewing();
       liveTime.value = response.liveTime;
       startLiveTimer();
       isPortrait.value = response.isPortrait ?? false;
@@ -306,6 +355,7 @@ class LiveRoomController extends GetxController {
             formatIndex: formatIndex,
             codecIndex: codecIndex,
             liveUrlIndex: liveUrlIndex,
+            autoplay: autoplay,
           ),
         if (!isLoaded.value && Accounts.heartbeat.isLogin) _fetchBlockRules(),
       ]);
@@ -353,6 +403,7 @@ class LiveRoomController extends GetxController {
     int formatIndex = 0,
     int codecIndex = 0,
     int liveUrlIndex = 0,
+    bool autoplay = true,
   }) {
     this.streamIndex = streamIndex;
     this.formatIndex = formatIndex;
@@ -376,13 +427,16 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    return playerInit()?.whenComplete(_startSizeSub);
+    return playerInit(autoplay: autoplay)?.whenComplete(_startSizeSub);
   }
 
   Future<void> queryLiveInfoH5() async {
+    final lease = _liveLease;
     final res = await LiveHttp.liveRoomInfoH5(roomId: roomId);
+    if (_closed || !plPlayerController.livePlaybackGate.accepts(lease)) return;
     if (res case Success(:final response)) {
       roomInfoH5.value = response;
+      _configureLiveViewing();
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
       videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);
@@ -641,7 +695,8 @@ class LiveRoomController extends GetxController {
     cancelLiveTimer();
     savedDanmaku?.clear();
     savedDanmaku = null;
-    danmakuSendGate.dispose();
+    // The player retains the shared gate while the mini player is playing.
+    _fallbackDanmakuSendGate.dispose();
     messages.clear();
     if (showSuperChat) {
       superChatMsg.clear();
@@ -713,6 +768,17 @@ class LiveRoomController extends GetxController {
     try {
       // logger.i(' 原始弹幕消息 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {
+        case 'PREPARING':
+          if (ownsLiveViewing) {
+            _hasRoomPlayInfo = false;
+            ++_playInfoGeneration;
+            plPlayerController.markLiveRoomEnded();
+          }
+          break;
+        case 'LIVE':
+          // Re-read the authoritative room/stream before resuming any task.
+          queryLiveUrl();
+          break;
         case 'DANMU_MSG':
           final info = obj['info'];
           final first = info[0];
@@ -839,6 +905,8 @@ class LiveRoomController extends GetxController {
 
   final RxInt likeClickTime = 0.obs;
   Timer? likeClickTimer;
+  Object? _likeAccountIdentity;
+  int? _likeAccountGeneration;
 
   void cancelLikeTimer() {
     likeClickTimer?.cancel();
@@ -847,6 +915,12 @@ class LiveRoomController extends GetxController {
 
   void onLikeTapDown(_) {
     cancelLikeTimer();
+    if (!identical(_likeAccountIdentity, Accounts.main) ||
+        _likeAccountGeneration != Accounts.mainChangeGeneration) {
+      likeClickTime.value = 0;
+      _likeAccountIdentity = Accounts.main;
+      _likeAccountGeneration = Accounts.mainChangeGeneration;
+    }
     likeClickTime.value++;
   }
 
@@ -855,22 +929,35 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> onLike() async {
-    if (!isLogin) {
-      likeClickTime.value = 0;
+    final count = likeClickTime.value;
+    likeClickTime.value = 0;
+    cancelLikeTimer();
+    if (_closed ||
+        !ownsLiveViewing ||
+        !Accounts.main.isLogin ||
+        Accounts.mainIdentityChangeInProgress ||
+        !identical(_likeAccountIdentity, Accounts.main) ||
+        _likeAccountGeneration != Accounts.mainChangeGeneration ||
+        count <= 0) {
       return;
     }
-    final res = await LiveHttp.liveLikeReport(
-      clickTime: likeClickTime.value,
-      roomId: roomId,
-      uid: mid,
-      anchorId: roomInfoH5.value?.roomInfo?.uid,
-    );
-    if (res.isSuccess) {
-      SmartDialog.showToast('点赞成功');
-    } else {
-      res.toast();
+    try {
+      final res = await LiveHttp.liveLikeReport(
+        clickTime: count,
+        roomId: roomId,
+        uid: mid,
+        anchorId: roomInfoH5.value?.roomInfo?.uid,
+      );
+      if (res.isSuccess) {
+        liveTasks?.refreshTasks();
+        SmartDialog.showToast('点赞成功');
+      } else {
+        res.toast();
+      }
+    } catch (_) {
+      liveTasks?.refreshTasks();
+      SmartDialog.showToast('点赞结果未知，请核对任务进度');
     }
-    likeClickTime.value = 0;
   }
 
   void toastNotLogin() {
@@ -919,14 +1006,18 @@ class LiveRoomController extends GetxController {
     Object? emoticonOptions,
     int replyMid = 0,
     String replayDmid = '',
-  }) => LiveHttp.sendLiveMsg(
-    roomId: roomId,
-    msg: message,
-    dmType: dmType,
-    emoticonOptions: emoticonOptions,
-    replyMid: replyMid,
-    replayDmid: replayDmid,
-  );
+  }) async {
+    final result = await LiveHttp.sendLiveMsg(
+      roomId: roomId,
+      msg: message,
+      dmType: dmType,
+      emoticonOptions: emoticonOptions,
+      replyMid: replyMid,
+      replayDmid: replayDmid,
+    );
+    if (result.isSuccess) liveTasks?.refreshTasks();
+    return result;
+  }
 
   void onAtUser(DanmakuMsg item) {
     danmakuSendGate.markDraftChanged();
