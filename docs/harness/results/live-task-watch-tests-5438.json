@@ -1,0 +1,62 @@
+{
+  "created_at_utc": "2026-10-02T11:59:29.811867+00:00",
+  "source_commit": "14176e6000bbf3bebadd1d524c4a689d035febc9",
+  "baseline_commit": "0cc8dfaf84a171f0123fe02b8d68fa0f67f2e480",
+  "requirements": [
+    "LIVE-TASK-01",
+    "LIVE-TASK-02",
+    "LIVE-WATCH-01"
+  ],
+  "flutter_tests": {
+    "passed": 234,
+    "failed": 0,
+    "skipped": 0,
+    "count_verified": true,
+    "framework_events": 42,
+    "framework_failures": 0
+  },
+  "targeted_analysis": {
+    "files": 25,
+    "exit_code": 0,
+    "diagnostics": 0,
+    "log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/analyze-final.log"
+  },
+  "offline_signature_vectors": {
+    "count": 16,
+    "source": "docs/requirements/research/live-watch-signing-2026-10-02.json",
+    "authenticated_acceptance": false
+  },
+  "evidence_files": [
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/flutter-tests.jsonl",
+      "sha256": "c09c9dd985246cb956f5d04735a2b072c361f81571b98e1ce707c95d4bd55ff1",
+      "bytes": 148796
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/flutter-tests.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/flutter-tests-summary.json",
+      "sha256": "ec3c83cd488f00f4b960a1e63b25ae61961f2c6ca11ba2fd6d410c5467a9e79f",
+      "bytes": 130
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/analyze-final.log",
+      "sha256": "35b741a344f2c63ef08736ab67095ddf2056bca072c16613b38a35317302c4d3",
+      "bytes": 634
+    }
+  ],
+  "not_run": [
+    "Authenticated fan-task response parsing and real like/danmaku task credit",
+    "Authenticated E/X acceptance and final intimacy watch progress comparison against official browser",
+    "Native GUI/background/miniplayer account acceptance",
+    "iOS, Android, Windows, Linux"
+  ],
+  "limits": [
+    "No real account credentials read and no real account interaction requests sent during validation",
+    "Offline fixtures and official WASM vectors are separate from server task settlement",
+    "Background continuation requires ongoing native playback; OS/process suspension is not tested, and delayed timers report at most one interval without replay"
+  ]
+}

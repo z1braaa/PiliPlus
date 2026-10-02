@@ -1,0 +1,527 @@
+{
+  "created_at_utc": "2026-10-02T12:05:50.326573+00:00",
+  "source_commit": "14176e6000bbf3bebadd1d524c4a689d035febc9",
+  "display_version": "2.1.5-CDN-AUTO-LIVE-TASK+5438",
+  "native_build_number": 5438,
+  "build_result": "macOS Release passed",
+  "initial_build_failure": "Existing Flutter xcconfigs omitted CocoaPods include; initial error was PODS_ROOT file lists unavailable",
+  "build_preparation": "Temporary CocoaPods includes and Flutter/Xcode generated migration changes; not feature source changes; restored after build",
+  "minimum_macos": "13.0",
+  "architectures": [
+    {
+      "path": "Contents/MacOS/PiliPlus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/wakelock_plus.framework/wakelock_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avfilter.framework/Avfilter",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/objective_c.framework/objective_c",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avformat.framework/Avformat",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Png16.framework/Png16",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/dynamic_color.framework/dynamic_color",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_libs_macos_video.framework/media_kit_libs_macos_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Dav1d.framework/Dav1d",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedcrypto.framework/Mbedcrypto",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_service.framework/audio_service",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/OrderedSet.framework/OrderedSet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Freetype.framework/Freetype",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Ass.framework/Ass",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_native_event_loop.framework/media_kit_native_event_loop",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_volume_controller.framework/flutter_volume_controller",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swresample.framework/Swresample",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Harfbuzz.framework/Harfbuzz",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_video.framework/media_kit_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mpv.framework/Mpv",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/App.framework/App",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedtls.framework/Mbedtls",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avcodec.framework/Avcodec",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/app_links.framework/app_links",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/battery_plus.framework/battery_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/device_info_plus.framework/device_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/share_plus.framework/share_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Fribidi.framework/Fribidi",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_picker_darwin.framework/file_picker_darwin",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avutil.framework/Avutil",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_inappwebview_macos.framework/flutter_inappwebview_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swscale.framework/Swscale",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/package_info_plus.framework/package_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/tray_manager.framework/tray_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/shared_preferences_foundation.framework/shared_preferences_foundation",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_session.framework/audio_session",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Uchardet.framework/Uchardet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/window_manager.framework/window_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedx509.framework/Mbedx509",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/screen_retriever_macos.framework/screen_retriever_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_selector_macos.framework/file_selector_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Xml2.framework/Xml2",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/connectivity_plus.framework/connectivity_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    }
+  ],
+  "mach_o_count": 45,
+  "embedded_source_hash_verified": true,
+  "signing": "ad-hoc; codesign deep/strict passed; not Apple notarized",
+  "dmg_path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/PiliPlus-2.1.5-CDN-AUTO-LIVE-TASK+5438-macos-universal.dmg",
+  "dmg_sha256": "cc3ce139a28e44bd24dfa1e2ab9f7cb1c7c4b63ea94df87fad183dd160206351",
+  "dmg_bytes": 60323096,
+  "build_log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build.log",
+  "limits": [
+    "No native GUI or real account task/watch settlement tests run",
+    "Intel hardware and other platforms not run"
+  ],
+  "readonly_mounted_app_verified": true,
+  "mounted_files_hash_verified": 227,
+  "tracked_macos_clean_after_build": true,
+  "initial_failed_build_log": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build-initial-failed.log",
+  "build_preparation_patch": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build-preparation.patch",
+  "evidence_files": [
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build.log",
+      "sha256": "001f164c1cdad8160e6292f750e84ebb21d54c16ac4a206cd9d461531b8e443e",
+      "bytes": 37919
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build-initial-failed.log",
+      "sha256": "d9a772cbb8788f1284b81d56aa06e84893efc19e0aa9d0de4854eae191b034c2",
+      "bytes": 2187
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build-preparation.patch",
+      "sha256": "a0b3b92331c2be1afbd716c23b46bfce74dd4ac7f7ec0041918514880dcd5d37",
+      "bytes": 12885
+    },
+    {
+      "path": "/Users/Admin/Downloads/PiliPlus-CDN-P0/outputs/live-task-watch-5438/build-defines.json",
+      "sha256": "2c92371c6aba08db3332f0cb6e469c16202374189f4e8832445e22c380dd9fda",
+      "bytes": 153
+    }
+  ]
+}
