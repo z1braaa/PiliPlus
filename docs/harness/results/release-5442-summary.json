@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "version": "2.1.5-LIVE-INTIMACY-QUEUE+5442",
+  "native_version": "2.1.5",
+  "build_number": 5442,
+  "source_commit": "2d6476dde19750dde197a723e94660e5c1fcb635",
+  "source_repository": "https://github.com/z1braaa/PiliPlus",
+  "source_branch": "codex/live-task-watch",
+  "release_tag": "v2.1.5-live-intimacy-5442-r1",
+  "windows_build_run": "https://github.com/z1braaa/PiliPlus/actions/runs/37113592991",
+  "artifacts": [
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5442-android-arm64-v8a.apk",
+      "bytes": 24460095,
+      "sha256": "ad9c38410e05a1396f03523fadfdbf202238bf93246515a9cfc992c2dc70d581",
+      "platform": "android",
+      "architecture": "arm64-v8a"
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5442-android-armeabi-v7a.apk",
+      "bytes": 24422997,
+      "sha256": "4c7f6ffc2f0be06f7c3b7e179a8de1093fa951b8bbfef792602fd145d0be7ccf",
+      "platform": "android",
+      "architecture": "armeabi-v7a"
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5442-android-x86_64.apk",
+      "bytes": 25373370,
+      "sha256": "914234a8e02d53e1473ed6e805e785d9f8ece90cd2780ba08aef2d2334b6399a",
+      "platform": "android",
+      "architecture": "x86_64"
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5442-macos-universal.dmg",
+      "bytes": 61090635,
+      "sha256": "4fbb3a37e6f689b834b3f5736d0bf7e8ff5d96f9d86cafa1b93385612cfed02f",
+      "platform": "macos",
+      "architecture": "arm64+x86_64"
+    },
+    {
+      "name": "PiliPlus_windows_2.1.5-LIVE-INTIMACY-QUEUE+5442_x64_portable.zip",
+      "bytes": 46214926,
+      "sha256": "fee967f7469128400f80db407be77e23cabd7305347cb15428bffbef8ac5e8cc",
+      "platform": "windows",
+      "architecture": "x86_64",
+      "type": "portable"
+    },
+    {
+      "name": "PiliPlus_windows_2.1.5-LIVE-INTIMACY-QUEUE+5442_x64_setup.exe",
+      "bytes": 34124387,
+      "sha256": "b031e71474e530522f423f6f6bc548e539f1b58ee26b2f7748dbb27a03653098",
+      "platform": "windows",
+      "architecture": "x86_64",
+      "type": "installer"
+    }
+  ],
+  "verification": {
+    "android": {
+      "package": "com.example.piliplus",
+      "min_sdk": 24,
+      "target_sdk": 37,
+      "build_mode": "non-debuggable release",
+      "signing": "local Android Debug certificate",
+      "signer_certificate_sha256": "c4e037a40be304509e4e5bbecc8c8042a7566e9342a62b19bf7c757e23d2c335",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86_64"
+      ],
+      "signature_zipalign_elf_mpv_embedded_source": "passed",
+      "independent_static_audit": "pass",
+      "device_install_launch_playback_live_tasks": "not_run"
+    },
+    "macos": {
+      "minimum_version": "13.0",
+      "mach_o_files": 45,
+      "all_arm64_and_x86_64": true,
+      "signature": "ad-hoc deep strict verified",
+      "readonly_mount_payload_hashes": {
+        "Contents/MacOS/PiliPlus": "819a6af222297cabbcd7bdb7189d793c226fa8b18852326e93c509c103ffb9fa",
+        "Contents/Info.plist": "bb3f8c05772fb1bdb9e410bf7f0e874fc8f622abb200f8f4b0ec94d127c81318",
+        "Contents/Frameworks/App.framework/App": "db8281d34ecf3f805103ca9ddb99bb41bdbba7d18534a6befee3b602a402a816"
+      },
+      "notarization": "not_run",
+      "5442_gui_and_live_tasks": "not_run"
+    },
+    "windows": {
+      "native_file_version": "2.1.5.5442",
+      "aot_format": "elf64-x86_64",
+      "payload_files": 94,
+      "native_dll_files": [
+        "app_links_plugin.dll",
+        "battery_plus_plugin.dll",
+        "concrt140.dll",
+        "connectivity_plus_plugin.dll",
+        "d3dcompiler_47.dll",
+        "dartjni.dll",
+        "dynamic_color_plugin.dll",
+        "file_selector_windows_plugin.dll",
+        "flutter_inappwebview_windows_plugin.dll",
+        "flutter_volume_controller_plugin.dll",
+        "flutter_windows.dll",
+        "libEGL.dll",
+        "libGLESv2.dll",
+        "libmpv-2.dll",
+        "media_kit_libs_windows_video_plugin.dll",
+        "media_kit_native_event_loop.dll",
+        "media_kit_video_plugin.dll",
+        "msvcp140_1.dll",
+        "msvcp140_2.dll",
+        "msvcp140_atomic_wait.dll",
+        "msvcp140_codecvt_ids.dll",
+        "msvcp140.dll",
+        "screen_retriever_windows_plugin.dll",
+        "share_plus_plugin.dll",
+        "tray_manager_plugin.dll",
+        "url_launcher_windows_plugin.dll",
+        "vcruntime140_1.dll",
+        "vcruntime140.dll",
+        "vk_swiftshader.dll",
+        "vulkan-1.dll",
+        "WebView2Loader.dll",
+        "window_manager_plugin.dll",
+        "zlib.dll"
+      ],
+      "msvc_runtime": {
+        "deployment": "app-local",
+        "discovery": "CMake InstallRequiredSystemLibraries from compiler redistributable directory",
+        "documentation": [
+          "https://cmake.org/cmake/help/latest/module/InstallRequiredSystemLibraries.html",
+          "https://docs.flutter.dev/platform-integration/windows/building#building-your-own-zip-file-for-windows",
+          "https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp"
+        ],
+        "required_files": [
+          "msvcp140.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll"
+        ],
+        "files": [
+          {
+            "name": "concrt140.dll",
+            "size": 374200,
+            "sha256": "54716f0738af891f283d213b5c8d11b25896bb8ee3097d301eae718560cf974e",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "msvcp140_1.dll",
+            "size": 35768,
+            "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "msvcp140_2.dll",
+            "size": 274872,
+            "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "msvcp140_atomic_wait.dll",
+            "size": 57792,
+            "sha256": "3d0cbfaa1bf3eecf5a3f4491d2960ee803cb994f30292c6adc4a07c498f60e2b",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "msvcp140_codecvt_ids.dll",
+            "size": 31160,
+            "sha256": "8a65c7596ef2e6938731f5a1058e7e40145b6d97967cc649231a076b9a608d78",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "msvcp140.dll",
+            "size": 643512,
+            "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "vcruntime140_1.dll",
+            "size": 50112,
+            "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          },
+          {
+            "name": "vcruntime140.dll",
+            "size": 178616,
+            "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
+            "file_version": "14.51.36247.0",
+            "product_version": "14.51.36247.0",
+            "company": "Microsoft Corporation",
+            "authenticode_status": "Valid",
+            "cmake_manifest_entry": true
+          }
+        ]
+      },
+      "isolated_install": {
+        "status": "passed",
+        "reason": "",
+        "payload_hashes_match": true,
+        "uninstall_verified": true,
+        "install_exit_code": 0,
+        "uninstall_exit_code": 0
+      },
+      "installer_authenticode": "NotSigned",
+      "application_launch": "not_run_no_account_or_playback_test",
+      "portable_all_payload_hashes": "passed"
+    }
+  },
+  "runtime_acceptance_bounds": {
+    "functional_code_offline_tests": 379,
+    "functional_code_analyzed_files": 51,
+    "watch_time": "5440 cold-room failed; 5441 same pre-watched/diagnosed sample increased 0/10 to 2/10; not proof for all cold rooms",
+    "single_fan_emote_task": "server-confirmed previous sample completed",
+    "new_like_pace_multiroom_preemption_all_tasks_handoff_sleep_multiple_emote_random": "not_run",
+    "5442_packaging_does_not_upgrade_previous_functional_acceptance": true
+  },
+  "requirement_ids": [
+    "BUILD-REL-01",
+    "BUILD-REL-02",
+    "BUILD-REL-03",
+    "BUILD-REL-04",
+    "BUILD-REL-05"
+  ],
+  "recorded_at_utc": "2026-10-03T09:58:02.733826+00:00",
+  "delivery": {
+    "release_published": true,
+    "prerelease": true,
+    "release_url": "https://github.com/z1braaa/PiliPlus/releases/tag/v2.1.5-live-intimacy-5442-r1",
+    "published_at": "2026-10-03T09:55:30Z",
+    "all_eight_assets_server_digest_and_download_readback_verified": true,
+    "tag_points_to_compiled_source": true,
+    "verified_bytes": 215696544
+  },
+  "cleanup": {
+    "recorded_local_allocated_bytes_removed": 11234328576,
+    "initial_temporary_snapshot_logical_bytes_removed": 24672072,
+    "local_paths_removed_final": 12,
+    "past_5441_installer_and_obsolete_checksums_removed": true,
+    "remote_actions_artifacts_removed": [
+      {
+        "id": 11270853023,
+        "name": "PiliPlus_windows_2.1.5-LIVE-INTIMACY-QUEUE+5442_x64_portable.zip",
+        "bytes": 46214926,
+        "run_id": 37113592991,
+        "reason": "Release-verified duplicate installer"
+      },
+      {
+        "id": 11270548473,
+        "name": "PiliPlus_windows_2.1.5-LIVE-INTIMACY-QUEUE+5442_x64_setup.exe",
+        "bytes": 34124387,
+        "run_id": 37113592991,
+        "reason": "Release-verified duplicate installer"
+      },
+      {
+        "id": 10683958484,
+        "name": "PiliPlus_macos_2.1.4+5399.dmg",
+        "bytes": 52114408,
+        "run_id": 35705032963,
+        "reason": "past installer"
+      }
+    ],
+    "remote_actions_bytes_removed": 132453721,
+    "download_readback_temporary_files_removed": true,
+    "android_release_worktree_archived": true,
+    "active_feature_worktree_retained": true,
+    "small_verification_evidence_and_shared_dependencies_preserved": true,
+    "installed_application_and_account_data_untouched": true
+  },
+  "macos_build_configuration": {
+    "deployment_target": "13.0",
+    "flutter_swift_package_manager": false,
+    "cocoapods_xcconfig_includes": "applied only during build",
+    "seven_tracked_native_configuration_files_restored": true
+  },
+  "verification_record_files": {
+    "release_manifest_sha256": "a07e6d35c6498688b954026db15239d819f2d43e1fe7fd3ffe5f66b359206166",
+    "checksums_sha256": "f834bf3e389383055189d4b41c1758df6cf410ebedcbd6f5a8704c805c19331f",
+    "delivery_sha256": "795098cf649f23042865af43e075d5155a9e6c0d7da557dccc1e77e158774ec8"
+  }
+}
