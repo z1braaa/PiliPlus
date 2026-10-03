@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "scope": "two_selected_rooms_likes_first_fan_emote_watch_only",
+  "gui_verified": false,
+  "native_foreground_is_route_hint_simulation": true,
+  "two_room_watch_settlement": "not_observed",
+  "automatic_completion_transfer": "not_observed",
+  "bounded_lighting_phase_stop": false,
+  "new_daily_phase_observed": false,
+  "native_source": "5441-fd05abb3c",
+  "diagnostic_room_entry": false,
+  "requested_window_seconds": 180,
+  "account_confirmed": true,
+  "discovery_evidence": {
+    "live_follow_seeds": 6,
+    "followed_medal_live_candidates": 3,
+    "preferred_a_eligible": null
+  },
+  "selection_checks": {
+    "recheck_eligible": 5,
+    "missing_watchLive": 2,
+    "first_emoticon_available": 1,
+    "three_already_completed": 2,
+    "b_missing_watch_allowed_known_interactions_only": 1,
+    "first_emoticon_unavailable": 1
+  },
+  "failure_stage": "read_only_selection",
+  "error_type": "_Failure",
+  "failure_category": "two_qualified_unfinished_rooms_unavailable",
+  "private_storage_removed": true,
+  "scope_rejected_requests": 0
+}

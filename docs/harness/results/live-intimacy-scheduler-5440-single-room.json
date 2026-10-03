@@ -1,0 +1,757 @@
+{
+  "schema_version": 1,
+  "status": "single_room_partial",
+  "scope": "single_selected_room_background_audio_first_fan_emote_initial_budgets_only",
+  "gui_verified": false,
+  "native_foreground_is_route_hint_simulation": false,
+  "two_room_watch_settlement": "not_exercised_single_room",
+  "automatic_completion_transfer": "not_exercised_single_room",
+  "bounded_lighting_phase_stop": false,
+  "new_daily_phase_observed": false,
+  "native_source": "5440-4c58498d5",
+  "requested_window_seconds": 1200,
+  "account_confirmed": true,
+  "discovery_evidence": {
+    "live_follow_seeds": 7,
+    "followed_medal_live_candidates": 4,
+    "preferred_a_eligible": null
+  },
+  "selection_checks": {
+    "recheck_eligible": 1,
+    "first_emoticon_available": 1
+  },
+  "selected_rooms_count": 1,
+  "selection_follow_medal_live_confirmed": true,
+  "before": {
+    "A": {
+      "like": {
+        "confirmed": true,
+        "completed": true,
+        "current": 10,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true
+      },
+      "sendDanmu": {
+        "confirmed": true,
+        "completed": false,
+        "current": 0,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true
+      },
+      "watchLive": {
+        "confirmed": true,
+        "completed": false,
+        "current": 0,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true,
+        "threshold_seconds": 900
+      }
+    }
+  },
+  "missing_watch_task_before": {
+    "A": false
+  },
+  "lighting_phase_before": {
+    "A": false
+  },
+  "master_off_explicit_grants_confirmed": true,
+  "foreground_hint_cleared_before_run": true,
+  "foreground_player_created": false,
+  "elapsed_seconds": 1200,
+  "single_room_audio_effective_seconds": 1108,
+  "single_room_audio_reported_seconds": 60,
+  "after": {
+    "A": {
+      "like": {
+        "confirmed": true,
+        "completed": true,
+        "current": 10,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true
+      },
+      "sendDanmu": {
+        "confirmed": true,
+        "completed": true,
+        "current": 10,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true
+      },
+      "watchLive": {
+        "confirmed": true,
+        "completed": false,
+        "current": 0,
+        "target": 10,
+        "completion_only": false,
+        "daily_reward_progress": true,
+        "threshold_seconds": 900
+      }
+    }
+  },
+  "interactive_feature_evidence": {
+    "A": {
+      "like": {
+        "exercised": false,
+        "accepted_amount": 0,
+        "official_progress_increased": false,
+        "already_complete_stayed_stopped": true,
+        "official_confirmed": true,
+        "state": "already_complete_no_send"
+      },
+      "sendDanmu": {
+        "exercised": true,
+        "accepted_amount": 10,
+        "official_progress_increased": true,
+        "already_complete_stayed_stopped": false,
+        "official_confirmed": true,
+        "state": "exercised_official_progress_confirmed"
+      }
+    }
+  },
+  "watch_feature_evidence": {
+    "A": {
+      "baseline_available": true,
+      "watch_task_after_confirmed": true,
+      "official_round_gain_confirmed": false
+    }
+  },
+  "single_room_feature_results": {
+    "like": "not_run",
+    "sendDanmu": "verified_official_progress",
+    "watchLive": "not_observed"
+  },
+  "accepted_requests_not_task_completion": {
+    "A": {
+      "accepted_watch_entries": 2,
+      "accepted_emote_requests": 10,
+      "accepted_watch_seconds": 1020
+    }
+  },
+  "acceptance_scope_result": "single_room_only_no_two_room_transfer_or_gui_acceptance",
+  "harness_completed": true,
+  "private_storage_removed": true,
+  "scope_rejected_requests": 0,
+  "timeline_samples_count": 239,
+  "timeline_state_changes": [
+    {
+      "elapsed_seconds": 5,
+      "background_target": null,
+      "background_owns_watch": false,
+      "effective_seconds": 0,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 10,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 0,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": false
+        },
+        "sendDanmu": {
+          "confirmed": false
+        },
+        "watchLive": {
+          "confirmed": false
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 15,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 4,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 55,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 44,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 1,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 90,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 80,
+      "reported_seconds": 60,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 2,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 150,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 139,
+      "reported_seconds": 120,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 3,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 185,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 174,
+      "reported_seconds": 120,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 4,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 215,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 203,
+      "reported_seconds": 180,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 5,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 265,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 253,
+      "reported_seconds": 240,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 6,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 305,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 293,
+      "reported_seconds": 240,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 7,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 345,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 332,
+      "reported_seconds": 300,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 8,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 395,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 382,
+      "reported_seconds": 360,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": false,
+          "current": 9,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 425,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 410,
+      "reported_seconds": 360,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 1025,
+      "background_target": null,
+      "background_owns_watch": false,
+      "effective_seconds": 1006,
+      "reported_seconds": 960,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": "watch_rule_or_settlement_unconfirmed"
+    },
+    {
+      "elapsed_seconds": 1090,
+      "background_target": null,
+      "background_owns_watch": false,
+      "effective_seconds": 1006,
+      "reported_seconds": 960,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 1095,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 1006,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": false
+        },
+        "sendDanmu": {
+          "confirmed": false
+        },
+        "watchLive": {
+          "confirmed": false
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 1100,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 1009,
+      "reported_seconds": 0,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    },
+    {
+      "elapsed_seconds": 1200,
+      "background_target": "A",
+      "background_owns_watch": true,
+      "effective_seconds": 1108,
+      "reported_seconds": 60,
+      "official_tasks": {
+        "like": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "sendDanmu": {
+          "confirmed": true,
+          "completed": true,
+          "current": 10,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true
+        },
+        "watchLive": {
+          "confirmed": true,
+          "completed": false,
+          "current": 0,
+          "target": 10,
+          "completion_only": false,
+          "daily_reward_progress": true,
+          "threshold_seconds": 900
+        }
+      },
+      "official_three_completed": false,
+      "pause_category": null
+    }
+  ]
+}

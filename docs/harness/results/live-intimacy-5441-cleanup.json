@@ -1,0 +1,64 @@
+{
+  "removed": [
+    {
+      "name": "PiliPlus-2.1.5-CDN-AUTO-LIVE-TASK-FIX+5439-macos-universal.dmg",
+      "bytes": 60561610
+    },
+    {
+      "name": "PiliPlus-2.1.5-CDN-AUTO-LIVE-TASK-FIX+5439-macos-universal.sha256",
+      "bytes": 129
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5440-macos-universal.dmg",
+      "bytes": 61089895
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5440-macos-universal.dmg.sha256",
+      "bytes": 126
+    },
+    {
+      "name": "outputs/live-intimacy-5440/package-stage",
+      "bytes": 140237287
+    },
+    {
+      "name": "outputs/live-intimacy-5441/package-stage",
+      "bytes": 140237287
+    }
+  ],
+  "latest_package_retained": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5441-macos-universal.dmg",
+  "latest_hash_verified": true,
+  "reclaimed_bytes": 402126334,
+  "build_cache_cleanup": "complete",
+  "additional_removed": [
+    {
+      "name": "build",
+      "verified_absent": true,
+      "before_directory_usage": "3.2G"
+    },
+    {
+      "name": ".dart_tool/flutter_build",
+      "verified_absent": true,
+      "before_directory_usage": "1.0G"
+    },
+    {
+      "name": "isolated_gui_application",
+      "verified_absent": true,
+      "before_directory_usage": "134M"
+    },
+    {
+      "name": "isolated_gui_data",
+      "verified_absent": true,
+      "before_directory_usage": "6.5M"
+    }
+  ],
+  "isolated_gui_application_removed": true,
+  "isolated_gui_data_removed": true,
+  "isolated_gui_container_removed": false,
+  "remaining_protected_system_metadata": [
+    ".com.apple.containermanagerd.metadata.plist"
+  ],
+  "original_storage_unchanged_before_app_restore": true,
+  "original_storage_files_checked": 3,
+  "space_evidence": "Exact file bytes for packages/stages; prior directory usage for later caches. No claim of exact APFS free-space gain.",
+  "private_integrity_fingerprint_removed": true
+}

@@ -1,0 +1,518 @@
+{
+  "source_commit": "fd05abb3c6c10cd271a78a9cf14dfa6307090f84",
+  "build": 5441,
+  "version": "2.1.5-LIVE-INTIMACY-QUEUE",
+  "build_time": 1791011887,
+  "build_exit": 0,
+  "minimum_macos": "13.0",
+  "mach_o_count": 45,
+  "all_universal": true,
+  "mach_o": [
+    {
+      "path": "Contents/MacOS/PiliPlus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/App.framework/App",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Ass.framework/Ass",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avcodec.framework/Avcodec",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avfilter.framework/Avfilter",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avformat.framework/Avformat",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Avutil.framework/Avutil",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Dav1d.framework/Dav1d",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "12.0",
+        "12.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Freetype.framework/Freetype",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Fribidi.framework/Fribidi",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Harfbuzz.framework/Harfbuzz",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedcrypto.framework/Mbedcrypto",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedtls.framework/Mbedtls",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mbedx509.framework/Mbedx509",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Mpv.framework/Mpv",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/OrderedSet.framework/OrderedSet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Png16.framework/Png16",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swresample.framework/Swresample",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Swscale.framework/Swscale",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Uchardet.framework/Uchardet",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/Xml2.framework/Xml2",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "10.9",
+        "11.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/app_links.framework/app_links",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_service.framework/audio_service",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/audio_session.framework/audio_session",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/battery_plus.framework/battery_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/connectivity_plus.framework/connectivity_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/device_info_plus.framework/device_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/dynamic_color.framework/dynamic_color",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_picker_darwin.framework/file_picker_darwin",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/file_selector_macos.framework/file_selector_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_inappwebview_macos.framework/flutter_inappwebview_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/flutter_volume_controller.framework/flutter_volume_controller",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_libs_macos_video.framework/media_kit_libs_macos_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_native_event_loop.framework/media_kit_native_event_loop",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/media_kit_video.framework/media_kit_video",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/objective_c.framework/objective_c",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/package_info_plus.framework/package_info_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/screen_retriever_macos.framework/screen_retriever_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/share_plus.framework/share_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/shared_preferences_foundation.framework/shared_preferences_foundation",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/tray_manager.framework/tray_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/wakelock_plus.framework/wakelock_plus",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    },
+    {
+      "path": "Contents/Frameworks/window_manager.framework/window_manager",
+      "architectures": [
+        "x86_64",
+        "arm64"
+      ],
+      "minimum_macos": [
+        "13.0",
+        "13.0"
+      ]
+    }
+  ],
+  "mounted_hashes": {
+    "Contents/MacOS/PiliPlus": "00f7cc07f16ff7b3ff80fca9706588486439d7326e6f7ed58de1da919f9a4203",
+    "Contents/Info.plist": "1c0fbf904b9c9b4bdf9eba3be679ebe84e64e0897ec86a1ee58dc9f69e40b86a",
+    "Contents/Frameworks/App.framework/App": "1cbe22c09eeac0faa539a545ecfbf218d7d87b2ef3736962ad49d82288e73dfb"
+  },
+  "embedded_source_hash_verified": true,
+  "dmg_sha256": "40e50af1a3d55f188a93bb863094bfeccc2a6366b805c8e36b9914d8fa969242",
+  "dmg_bytes": 61091053,
+  "signature": "ad-hoc deep strict verified",
+  "tracked_native_config_restored": true,
+  "dmg_basename": "PiliPlus-2.1.5-LIVE-INTIMACY-QUEUE+5441-macos-universal.dmg"
+}

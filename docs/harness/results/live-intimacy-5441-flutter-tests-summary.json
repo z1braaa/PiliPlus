@@ -1,0 +1,16 @@
+{
+  "source_commit": "fd05abb3c6c10cd271a78a9cf14dfa6307090f84",
+  "test_cases": 379,
+  "passed": 379,
+  "skipped": 0,
+  "errors": 0,
+  "framework_events_excluded": 58,
+  "process_exit": 0,
+  "done": [
+    {
+      "success": true,
+      "type": "done",
+      "time": 30367
+    }
+  ]
+}

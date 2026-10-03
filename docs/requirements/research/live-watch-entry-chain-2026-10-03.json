@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "requirement_id": "LIVE-WATCH-01",
+  "reviewed_at_utc": "2026-10-03T07:16:22.474820+00:00",
+  "scope": "Public official HTML/CDN GETs plus read-only current repository comparison. No account credentials, authenticated request, business POST, WebSocket connection, player execution, Flutter execution, or production edit.",
+  "authenticated_protocol_verified_by_this_research": false,
+  "intimacy_settlement_verified_by_this_research": false,
+  "source_chain": "81004 HTML -> current app/bilibili bundles; fanspanel HTML -> index -> FansHome -> reqfansGroup/index-D1DYlSRj. Source hashes are current retrievals, not guessed old resource URLs.",
+  "sources": [
+    {
+      "id": "room_html",
+      "url": "https://live.bilibili.com/81004",
+      "http_status": 200,
+      "bytes": 106986,
+      "sha256": "882791fb947cf1865b0108733f0d71dc3da059a0f55b74cd311581ab1dd87c7d"
+    },
+    {
+      "id": "app",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.3b48f866e1563d25d39c.js",
+      "http_status": 200,
+      "bytes": 3525464,
+      "sha256": "fb51c9acf90afc446bc4a82ae6c5e55fc22ff5219aaf0f4cf152aa705506de82"
+    },
+    {
+      "id": "bilibili",
+      "url": "https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/bilibili.db8b38549c9cc2a44dc5.js",
+      "http_status": 200,
+      "bytes": 2946742,
+      "sha256": "b4fa0b8cab5dd5c0fe178e3c22a882a88129a388983bb76c171f07f7e29eb4b6"
+    },
+    {
+      "id": "fans_html",
+      "url": "https://live.bilibili.com/p/html/live-app-fanspanel/index.html",
+      "http_status": 200,
+      "bytes": 4328,
+      "sha256": "47478b600b2cf677a1a3ac0cd276b242ddda298e7409635ece0abb9a9a24566f"
+    },
+    {
+      "id": "fans_index",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-CmJdpsDS.js",
+      "http_status": 200,
+      "bytes": 916872,
+      "sha256": "cc2fd1a787b94ea3558824e4738dd8afa9e9133d374fe50d11426551512a946b"
+    },
+    {
+      "id": "fans_home",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/FansHome-CyGh9iPX.js",
+      "http_status": 200,
+      "bytes": 21431,
+      "sha256": "8311bfa0ca42d873070fb4d972c56d4a207764c7a8d2a108188b5dd9d84d3490"
+    },
+    {
+      "id": "fans_request",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/reqfansGroup-Bj8HbEMm.js",
+      "http_status": 200,
+      "bytes": 114286,
+      "sha256": "86a2c88ed4eefd859ac0ee3b8f9f65e8407493f97865db8cf9489894ecee1ddf"
+    },
+    {
+      "id": "fans_scene",
+      "url": "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/index-D1DYlSRj.js",
+      "http_status": 200,
+      "bytes": 52979,
+      "sha256": "d20ee71d0c4ccd517e86d780f72de58b5ddfa3682261f294b79597b26e7ff0cb"
+    },
+    {
+      "id": "wasm",
+      "url": "https://i0.hdslb.com/bfs/live/e791556706f88d88b4846a61a583b31db007f83d.wasm",
+      "http_status": 200,
+      "bytes": 239236,
+      "sha256": "22d5483eb75e46725342e5e61ef1384678962cb7de5fdcc61b79017fa9524717"
+    }
+  ],
+  "observations": [
+    {
+      "id": "player_watch_start",
+      "evidence": {
+        "source_id": "app",
+        "selector": "t.on(\"playing\"",
+        "unicode_codepoint_offset": 1358423
+      },
+      "finding": "Player playing event calls app module 7798 uS; pause calls TA; live status change starts or stops the same tracker.",
+      "kind": "static_call_chain"
+    },
+    {
+      "id": "watch_outer",
+      "evidence": {
+        "source_id": "app",
+        "selector": "38147:function",
+        "unicode_codepoint_offset": 1458503,
+        "webpack_module": 38147
+      },
+      "finding": "U/Oo checks actual room live state, WASM support, login, and duplicate-start state; updates room_id, area_id, parent_area_id, ruid, trackid and calls module 46653 C.start. No message WebSocket state or roomEntryAction response is checked in this function.",
+      "kind": "static_call_chain"
+    },
+    {
+      "id": "normal_entry",
+      "evidence": {
+        "source_id": "app",
+        "selector": "roomEntryAction",
+        "unicode_codepoint_offset": 1512629,
+        "webpack_module": 87654
+      },
+      "finding": "Module 87654 exports gF/G: POST roomEntryAction with body room_id and platform pc. The two imports of this module located in the current main app bundle call lk (statistics initialization), not gF; no caller of gF was located in the searched main bundles. Dynamic chunks and server dependencies remain unproven.",
+      "kind": "static_export_not_verified_prerequisite"
+    },
+    {
+      "id": "watch_service",
+      "evidence": {
+        "source_id": "bilibili",
+        "selector": "46653:function",
+        "unicode_codepoint_offset": 2645012,
+        "webpack_module": 46653
+      },
+      "finding": "Watcher init/checkAndFixRoomInfo use getRoomBaseInfo with req_biz web_heartbeat only when room metadata is invalid. reportEnter establishes server interval/rules/key/timestamp; reportHeartBeat uses interval and checks response code==0 before reporting success. No response s field comparison was found.",
+      "kind": "static_call_chain"
+    },
+    {
+      "id": "enter_fields",
+      "evidence": {
+        "source_id": "bilibili",
+        "selector": "e.prototype.checkExceed=function",
+        "unicode_codepoint_offset": 2682960,
+        "webpack_module": 46653
+      },
+      "finding": "E fields: id [parent_id,area_id,page-global seq,room_id], device [LIVE_BUVID string,page-global UUID string], ruid, ts milliseconds, is_patch, heart_beat serialized patch data, ua. First seq is zero. No ws token, live_key, up_session or media play URL is present.",
+      "kind": "static_request_construction"
+    },
+    {
+      "id": "heartbeat_fields",
+      "evidence": {
+        "source_id": "bilibili",
+        "selector": "this.heartBeatInfo.parent_id,this.heartBeatInfo.area_id,Lt.get()",
+        "unicode_codepoint_offset": 2680483,
+        "webpack_module": 46653
+      },
+      "finding": "X adds ets, benchmark, time, ts milliseconds, ua, trackid default -999998, and spyder signature s. body is signed from the current server secret_rule/key; server timestamp/rules/key/interval can rotate after X.",
+      "kind": "static_request_construction"
+    },
+    {
+      "id": "telemetry_up_session",
+      "evidence": {
+        "source_id": "app",
+        "selector": "up_session:i.M.getters.appStatus.upSession",
+        "unicode_codepoint_offset": 1421305,
+        "webpack_module": 7798
+      },
+      "finding": "up_session appears in a separate periodic statistics record logId 000916 along with live_key/sub_session_key and media play URL. Its appearance in telemetry does not establish that it is required for E/X intimacy settlement.",
+      "kind": "static_separate_telemetry"
+    },
+    {
+      "id": "task_scene",
+      "evidence": {
+        "source_id": "fans_home",
+        "selector": "scene:cs.CLUB",
+        "unicode_codepoint_offset": 13231
+      },
+      "finding": "FansGroup reads GetActivatedMedalInfo with target_id, platform, scene club. reqfansGroup wrapper adds env.origin_room_id as room_id, and adds a native build only when getSystemInfo returns a positive build; browser fallback can omit build. Current repo loadFanTasks uses target_id, room_id, platform pc, scene club.",
+      "kind": "static_getter_comparison"
+    },
+    {
+      "id": "task_server_defined",
+      "evidence": {
+        "source_id": "fans_home",
+        "selector": "Y.value=Cs||[]",
+        "unicode_codepoint_offset": 14041
+      },
+      "finding": "task_info is copied directly to task list and rendered title/add_text/sub_title/is_done/jump_type. No 5-minute/15-minute, 2-round/10-round client branch or locally synthesized task period was found in this component or its request wrapper.",
+      "kind": "static_server_defined_presentation"
+    },
+    {
+      "id": "watch_button",
+      "evidence": {
+        "source_id": "fans_request",
+        "selector": "watchLive:{btnText:",
+        "unicode_codepoint_offset": 110663
+      },
+      "finding": "The watchLive task button invokes ue(), the environment-specific panel-close helper. It does not invoke a new watch-activation/claim endpoint in this task mapping.",
+      "kind": "static_callback"
+    },
+    {
+      "id": "medal_state",
+      "evidence": {
+        "source_id": "fans_home",
+        "selector": "n.value.is_light=Number(Is)",
+        "unicode_codepoint_offset": 13815
+      },
+      "finding": "Getter reads is_lighted, free_intimacy, light_source and reach_free_intimacy_limit; it does not wear or activate a medal. The UI gates the completed label and rights on is_lighted and displays savings-to-claim text when unlit. Task list is still supplied by server while unlit. This is not proof that watch counter requires wearing or lighting.",
+      "kind": "static_presentation_not_backend_rule"
+    },
+    {
+      "id": "version_gate",
+      "evidence": {
+        "source_id": "fans_index",
+        "selector": "e.value.fansActive=e.value.fans_club_info.level>0",
+        "unicode_codepoint_offset": 670874
+      },
+      "finding": "FansHome component selection uses existing fan-club level; this is not a viewer watch heartbeat protocol-version switch.",
+      "kind": "static_presentation"
+    },
+    {
+      "id": "watch_button_close_resolution",
+      "evidence": {
+        "source_id": "fans_index",
+        "selector": "function WB(){const{env:e}=Gl();e.platformInfo.isPC?",
+        "unicode_codepoint_offset": 669069
+      },
+      "finding": "reqfansGroup imports N as ue; index exports WB as N. WB emits parent close when PC, otherwise calls native closeView. This resolves watchLive callback to panel closing only.",
+      "kind": "static_import_export_resolution"
+    }
+  ],
+  "repo_comparison": {
+    "e_and_x_first_continuous_session": "Parameter names, identity arrays, millisecond ts, server interval/time, challenge and native WASM signature match current public construction; existing offline vectors establish signature parity only.",
+    "lifecycle_differences": [
+      "Web page UUID and seq survive same-page pause/room updates; repo uses fresh UUID and seq0 for new E session.",
+      "Web stop uses a random 10-60 second delay and submits a partial tail; repo stops immediately and discards interrupted tail.",
+      "Web can retry failures and synthesize ets when server timestamp is lost; repo does neither and fails closed."
+    ],
+    "insufficient_to_explain_reported_cold_failure": "These lifecycle differences do not by themselves explain a continuous accepted 960 seconds with a 900-second task round. No unverified workaround was implemented.",
+    "signature_confirmation": "Public WASM was re-fetched this run with unchanged SHA256 22d5483eb75e46725342e5e61ef1384678962cb7de5fdcc61b79017fa9524717. Current repo canonical platform/identity/time fields remain as its 16 existing official-WASM offline vectors; no authenticated signing experiment was run here."
+  },
+  "parent_report_context_not_independently_run": {
+    "cold_task": "15 minutes per round, daily 10 rounds; native audio playback 1006 valid seconds, E/X accepted seconds 960, watch remained 0/10; first fan emote task reached 10/10.",
+    "hot_task": "81004 uses 5-minute rounds, daily two rounds; same implementation previously observed 0/2 -> 1/2.",
+    "boundary": "Different room/task definitions are not a controlled paired protocol comparison; accepted E/X response does not certify task settlement."
+  },
+  "unknowns": [
+    "Backend joining of E/X, regular room entry, message presence and separate telemetry is not visible in these public modules.",
+    "Dynamic chunk callers of the exported roomEntryAction helper were not exhaustively enumerated.",
+    "Current-account is_lighted/medal-wearing/free-intimacy-cap/task-period state was not read by this research.",
+    "Server rollout, anti-abuse filtering, credit batching/delay and task-period semantics cannot be derived from presentation code."
+  ],
+  "next_minimal_readonly_comparison": [
+    "Record safe boolean/state fields from already authorized task snapshots: is_lighted, free_intimacy, reach_free_intimacy_limit, level, jump_type, raw goal/progress/period fields; do not expose cookies/keys.",
+    "Keep room, actual room id, anchor id, task definition, source mode (audio vs video), accepted E/X seconds and refresh delay explicit; compare same account/room with ordinary client playback.",
+    "A single normal roomEntryAction experiment may test an association, but one outcome must not turn a static export into a proven universal prerequisite. No automatic medal wearing or paid lighting is justified."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "exit": 0,
+  "entrypoints": [
+    "tool/live_medal_pagination_account_test.dart",
+    "tool/live_account_acceptance_test.dart",
+    "tool/live_native_audio_api_test.dart",
+    "tool/live_intimacy_scheduler_account_test.dart",
+    "tool/live_discovery_schema_account_test.dart",
+    "tool/live_audio_account_acceptance_test.dart"
+  ],
+  "cases": 6,
+  "skipped": 6,
+  "done": [
+    {
+      "success": true,
+      "type": "done",
+      "time": 5068
+    }
+  ]
+}
