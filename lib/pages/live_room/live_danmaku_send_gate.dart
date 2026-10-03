@@ -9,6 +9,9 @@ typedef LiveDanmakuSendAttempt = ({
 /// One in-flight live message per room, across route and inline composers.
 /// A successful response only clears the draft generation that was submitted.
 class LiveDanmakuSendGate extends ChangeNotifier {
+  LiveDanmakuSendGate({DateTime Function()? now}) : _now = now ?? DateTime.now;
+  final DateTime Function() _now;
+  DateTime? _lastAttemptAt;
   bool _pending = false;
   bool _disposed = false;
   int _draftRevision = 0;
@@ -19,6 +22,7 @@ class LiveDanmakuSendGate extends ChangeNotifier {
   int get draftRevision => _draftRevision;
   int get successSerial => _successSerial;
   int? get successfulRevision => _successfulRevision;
+  DateTime? get lastAttemptAt => _lastAttemptAt;
 
   void markDraftChanged() {
     ++_draftRevision;
@@ -29,15 +33,25 @@ class LiveDanmakuSendGate extends ChangeNotifier {
     Future<LoadingState<void>> Function() request, {
     required bool clearDraftOnSuccess,
     void Function(int revision)? onDraftSuccess,
+    Duration minimumInterval = Duration.zero,
+    bool Function()? stillCurrent,
   }) async {
     if (_pending || _disposed) return null;
+    if (_lastAttemptAt case final previous?) {
+      if (_now().difference(previous) < minimumInterval) return null;
+    }
+    if (stillCurrent?.call() == false) return null;
     _pending = true;
     final revision = _draftRevision;
     if (!_disposed) notifyListeners();
     try {
+      if (_disposed || stillCurrent?.call() == false) return null;
+      _lastAttemptAt = _now();
       final response = await request();
       if (_disposed) return null;
-      if (response.isSuccess && clearDraftOnSuccess) {
+      if (response.isSuccess &&
+          clearDraftOnSuccess &&
+          stillCurrent?.call() != false) {
         _successfulRevision = revision;
         ++_successSerial;
         onDraftSuccess?.call(revision);

@@ -32,6 +32,7 @@ import 'package:PiliPlus/pages/live_room/widgets/bottom_control.dart';
 import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/enhancement_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
+import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_focus_boundary.dart';
 import 'package:PiliPlus/pages/live_room/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
@@ -42,6 +43,7 @@ import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
+import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
 import 'package:PiliPlus/services/in_app_mini_player.dart';
 import 'package:PiliPlus/services/live_watch_reporter.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -377,6 +379,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               isPortrait: isPortrait,
               liveController: _liveRoomController,
               onlineWidget: onlineWidget,
+              onIntimacySettings: _showIntimacySettings,
             ),
             bottomControl: BottomControl(
               plPlayerController: plPlayerController,
@@ -809,6 +812,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             final liveUrl =
                 'https://live.bilibili.com/${_liveRoomController.roomId}';
             return <PopupMenuEntry>[
+              PopupMenuItem(
+                onTap: () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _showIntimacySettings();
+                }),
+                child: const Row(
+                  spacing: 10,
+                  children: [
+                    Icon(Icons.workspace_premium_outlined, size: 19),
+                    Text('此房间亲密度任务'),
+                  ],
+                ),
+              ),
               CheckedPopupMenuItem<bool>(
                 checked: _enhancementEnabled,
                 onTap: () => GStorage.setting.put(
@@ -1016,20 +1031,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     final session = _sessionFor(anchorUid);
     final viewing = plPlayerController.liveViewingSession;
     Widget panel() {
-      final preferenceAccount = Accounts.main;
       return LiveInteractionPanel(
         key: ObjectKey(session),
         session: session,
-        taskAutomation: viewing?.tasks,
-        automationPreferences:
-            viewing?.preferences ?? const LiveTaskAutomationPreferences(),
-        onAutomationPreferencesChanged: viewing == null
-            ? null
-            : (value) {
-                if (identical(preferenceAccount, Accounts.main)) {
-                  viewing.savePreferences(value);
-                }
-              },
+        intimacyControls: LiveIntimacyRoomPanel(
+          roomId: _liveRoomController.roomId,
+          anchorUid: anchorUid,
+          anchorName: room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
+        ),
+        intimacyUpdates: LiveIntimacyScheduler.instance,
+        intimacyTasks: () => LiveIntimacyScheduler.instance
+            .stateFor(_liveRoomController.roomId, anchorUid)
+            ?.tasks,
         watchStatusText: viewing?.watchStatusText,
         onWatchRetry: viewing?.watch.restart,
         watchCanRetry:
@@ -1052,6 +1065,45 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Future<void> _openOfficialRecharge() async {
     await _openOfficialWeb('https://link.bilibili.com/p/live-h5-recharge/');
+  }
+
+  Future<void> _showIntimacySettings() async {
+    final room = _liveRoomController.roomInfoH5.value;
+    final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '此房间亲密度任务',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              TextButton(
+                onPressed: () => Get.toNamed('/liveIntimacySettings'),
+                child: const Text('总开关与后台队列'),
+              ),
+              if (anchorUid == null || anchorUid <= 0)
+                const Text('等待官方主播和真实房间信息，当前不能授权。')
+              else
+                LiveIntimacyRoomPanel(
+                  roomId: _liveRoomController.roomId,
+                  anchorUid: anchorUid,
+                  anchorName:
+                      room?.anchorInfo?.baseInfo?.uname ?? '主播 UID $anchorUid',
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openOfficialGuard(int anchorUid) async {

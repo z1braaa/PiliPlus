@@ -38,6 +38,7 @@ import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
+import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -1056,6 +1057,28 @@ abstract final class Pref {
     SettingBoxKey.showBatteryLevel,
     defaultValue: PlatformUtils.isMobile,
   );
+
+  static String liveIntimacyPreferencesStorageKey(int uid) =>
+      '${SettingBoxKey.liveIntimacyByAccount}:$uid';
+
+  static LiveIntimacyPreferences liveIntimacyPreferencesFor(int uid) => uid > 0
+      ? LiveIntimacyPreferences.fromJson(
+          _setting.get(liveIntimacyPreferencesStorageKey(uid)),
+        )
+      : const LiveIntimacyPreferences();
+
+  static Future<void> saveLiveIntimacyPreferencesFor(
+    int uid,
+    LiveIntimacyPreferences value,
+  ) async {
+    if (uid <= 0) return;
+    final normalized = LiveIntimacyPreferences.fromJson(value.toJson());
+    await _setting.put(
+      liveIntimacyPreferencesStorageKey(uid),
+      normalized.toJson(),
+    );
+    await _setting.flush();
+  }
 
   static FollowOrderType get followOrderType =>
       FollowOrderType.values[_setting.get(

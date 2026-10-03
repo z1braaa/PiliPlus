@@ -64,6 +64,9 @@ class _Harness {
   List<LiveFanTask>? tasksOverride;
   Future<LiveFanTaskSnapshot> Function()? loadOverride;
   int Function(int)? random;
+  bool paceLikes = false;
+  bool permitted = true;
+  LiveTaskDanmakuSelector? chooseDanmaku;
   late LiveTaskAutomationService service;
 
   LiveFanTask task(String type, int current, int target) => LiveFanTask(
@@ -143,6 +146,9 @@ class _Harness {
       now: () => now,
       randomInt: random ?? (_) => 0,
       journal: journal,
+      paceLikes: paceLikes,
+      mayRun: () => permitted,
+      chooseDanmaku: chooseDanmaku,
     );
   }
 
@@ -1011,4 +1017,137 @@ void main() {
     expect(h.service.statusText, contains('等待官方'));
     h.service.dispose();
   });
+  for (final delay in [1, 3]) {
+    testWidgets(
+      'paced likes require 30 individual $delay-second intervals before one reward batch',
+      (tester) async {
+        final h = _Harness()
+          ..paceLikes = true
+          ..dailyRewardProgress = true
+          ..actionsPerProgress = 30
+          ..likeTarget = 1
+          ..random = (upper) => delay == 1 ? 0 : upper - 1;
+        h.create();
+        h.update(autoLike: true);
+        await tester.pump();
+        for (var second = 0; second < 30 * delay - 1; second++) {
+          await h.advance(tester, 1);
+          expect(h.likes, 0);
+        }
+        await h.advance(tester, 1);
+        expect(h.likeBatches, [30]);
+        expect(h.durableBeforeSend, isTrue);
+        for (var second = 0; second < 6; second++) {
+          await h.advance(tester, 1);
+        }
+        expect(h.service.state, LiveTaskAutomationState.completed);
+        h.service.dispose();
+      },
+    );
+  }
+
+  testWidgets(
+    'due danmaku proceeds while slow reward-round clicks accumulate',
+    (tester) async {
+      final h = _Harness()
+        ..paceLikes = true
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 1
+        ..random = (upper) => upper == 3 ? 2 : 0;
+      h.create();
+      h.update(autoLike: true, autoDanmaku: true);
+      await tester.pump();
+      for (var i = 0; i < 30; i++) {
+        await h.advance(tester, 1);
+      }
+      expect(h.messages, 1);
+      expect(h.likes, 0);
+      for (var i = 0; i < 62; i++) {
+        await h.advance(tester, 1);
+      }
+      expect(h.messages, 2);
+      expect(h.likeBatches, [30]);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'cancelled paced accumulation never submits or consumes a durable budget',
+    (tester) async {
+      final h = _Harness()
+        ..paceLikes = true
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 1;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump();
+      for (var i = 0; i < 20; i++) {
+        await h.advance(tester, 1);
+      }
+      h.service.stop();
+      await h.advance(tester, 120);
+      expect(h.likes, 0);
+      expect(
+        h.journal.records.values.where(
+          (record) => (record['sent'] as int? ?? 0) > 0,
+        ),
+        isEmpty,
+      );
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'unknown selected emote is reconciled without another random choice',
+    (tester) async {
+      final h = _Harness()
+        ..returnUnknown = true
+        ..reflectProgress = false;
+      var choices = 0;
+      h.chooseDanmaku = (identity, allowed) async {
+        choices++;
+        return const LiveTaskDanmakuMessage.emoticon(
+          emoticonUnique: 'selected-a',
+          roomId: 6,
+          anchorUid: 20,
+        );
+      };
+      h.create();
+      h.update(autoDanmaku: true);
+      await tester.pump();
+      await h.advance(tester, 30);
+      expect(choices, 1);
+      for (var i = 0; i < 5; i++) {
+        await h.advance(tester, 30);
+      }
+      expect(choices, 1);
+      expect(h.messageAttempts, 1);
+      h.service.dispose();
+    },
+  );
+
+  testWidgets(
+    'privacy change during candidate selection cancels before journaling or submission',
+    (tester) async {
+      final h = _Harness();
+      h.chooseDanmaku = (identity, allowed) async {
+        h.permitted = false;
+        return const LiveTaskDanmakuMessage.text('selected');
+      };
+      h.create();
+      h.update(autoDanmaku: true);
+      await tester.pump();
+      await h.advance(tester, 30);
+      expect(h.messageAttempts, 0);
+      expect(
+        h.journal.records.values.where(
+          (record) => (record['pending_count'] as int? ?? 0) > 0,
+        ),
+        isEmpty,
+      );
+      h.service.dispose();
+    },
+  );
 }

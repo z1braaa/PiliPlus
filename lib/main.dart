@@ -16,6 +16,7 @@ import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/services/in_app_mini_player.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/live_intimacy_lifecycle.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/calc_window_position.dart';
@@ -136,6 +137,7 @@ void main() async {
   Request();
   Request.setCookie();
   RequestUtils.syncHistoryStatus();
+  LiveIntimacyLifecycle.instance.initialize();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 

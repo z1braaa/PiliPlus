@@ -4,7 +4,8 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| [后台亲密度队列最终需求](../requirements/15-live-intimacy-background-scheduler.md) | 2026-10-03需求对齐结果、拟定默认值和LIVE-SCHED-01～12验收计划，含实时观时与1～5表情随机；用户已批准正式实施，新功能尚未交付／未验证 |
+| [后台亲密度队列最终需求](../requirements/15-live-intimacy-background-scheduler.md) | 2026-10-03需求对齐结果、拟定默认值和LIVE-SCHED-01～12验收计划，含实时观时与1～5表情随机；批准范围已实现，371项离线回归通过；5440实机／GUI验收单列 |
+| [音频与发现先行验证](live-intimacy-discovery-audio-gate-20261003.md) | 静音仅音频有效播放／官方结算及真实勋章完整分页，明确不替代5440新队列验收 |
 | [需求追踪表](traceability.md) | 每个稳定 ID 的阶段、来源、验证方法与当前状态 |
 | [证据规则](evidence.md) | BTR、项目源码、官方直播静态资源的证据等级及重新核对要求 |
 | [验收矩阵](validation.md) | 测试场景、测量口径、性能提案与结果记录模板 |

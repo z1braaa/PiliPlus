@@ -32,6 +32,7 @@ import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/live_viewing_session.dart';
+import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
 import 'package:PiliPlus/services/live_playback_gate.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
@@ -114,6 +115,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     liveViewingSession?.dispose();
     liveViewingSession = null;
     livePlaybackGate.clear();
+    LiveIntimacyScheduler.instance.updateForeground();
   }
 
   void markLiveRoomEnded() {
@@ -131,6 +133,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required int parentAreaId,
   }) {
     if (!livePlaybackGate.accepts(lease)) return;
+    LiveIntimacyScheduler.instance.updateForeground(
+      roomId: roomId,
+      anchorUid: anchorUid,
+    );
     livePlaybackGate.confirmRoom(lease, live: true);
     final previous = liveViewingSession;
     if (previous?.roomId == roomId && previous?.anchorUid == anchorUid) {

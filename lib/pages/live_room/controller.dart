@@ -32,6 +32,7 @@ import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/in_app_mini_player.dart';
 import 'package:PiliPlus/services/live_task_automation.dart';
+import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
 import 'package:PiliPlus/services/live_playback_gate.dart';
 import 'package:PiliPlus/tcp/live.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -118,6 +119,10 @@ class LiveRoomController extends GetxController {
   LiveDmInfoData? dmInfo;
   List<RichTextItem>? savedDanmaku;
   final _fallbackDanmakuSendGate = LiveDanmakuSendGate();
+  Object get danmakuAccountIdentity => Accounts.main;
+  int get danmakuAccountGeneration => Accounts.mainChangeGeneration;
+  bool get danmakuAccountStable =>
+      !_closed && !Accounts.mainIdentityChangeInProgress;
   LiveDanmakuSendGate get danmakuSendGate =>
       plPlayerController.liveViewingSession?.danmakuSendGate ??
       _fallbackDanmakuSendGate;
@@ -326,6 +331,12 @@ class LiveRoomController extends GetxController {
       return;
     }
     if (res case Success(:final response)) {
+      ruid = response.uid;
+      if (response.roomId case final canonical?) roomId = canonical;
+      LiveIntimacyScheduler.instance.updateForeground(
+        roomId: roomId,
+        anchorUid: ruid,
+      );
       if (response.liveStatus != 1) {
         _hasRoomPlayInfo = false;
         plPlayerController.markLiveRoomEnded();
@@ -1007,15 +1018,24 @@ class LiveRoomController extends GetxController {
     int replyMid = 0,
     String replayDmid = '',
   }) async {
+    final account = Accounts.main;
+    final generation = Accounts.mainChangeGeneration;
+    final room = roomId;
     final result = await LiveHttp.sendLiveMsg(
-      roomId: roomId,
+      roomId: room,
       msg: message,
       dmType: dmType,
       emoticonOptions: emoticonOptions,
       replyMid: replyMid,
       replayDmid: replayDmid,
     );
-    if (result.isSuccess) liveTasks?.refreshTasks();
+    if (result.isSuccess &&
+        identical(account, Accounts.main) &&
+        generation == Accounts.mainChangeGeneration &&
+        room == roomId &&
+        !_closed) {
+      LiveIntimacyScheduler.instance.refresh();
+    }
     return result;
   }
 

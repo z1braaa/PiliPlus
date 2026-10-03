@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/live_room/live_danmaku_send_gate.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
+import 'package:PiliPlus/services/live_automation_coordinator.dart';
+import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
+import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:PiliPlus/services/live_task_automation.dart';
 import 'package:PiliPlus/services/live_watch_reporter.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -39,6 +42,9 @@ class LiveViewingSession extends ChangeNotifier {
     );
     tasks.addListener(_notify);
     watch.status.addListener(_notify);
+    LiveAutomationCoordinator.instance
+      ..registerForeground(_surrenderWatch)
+      ..addListener(_synchronize);
     _settings = GStorage.setting.watch().listen((_) => _synchronize());
     Accounts.addMainIdentityChangeListener(_beforeMainIdentityChange);
     Accounts.addMainIdentitySettledListener(_synchronize);
@@ -57,7 +63,10 @@ class LiveViewingSession extends ChangeNotifier {
   final LiveInteractionService interaction;
   final LiveWatchReporter watch;
   late final LiveTaskAutomationService tasks;
-  final danmakuSendGate = LiveDanmakuSendGate();
+  final _fallbackDanmakuSendGate = LiveDanmakuSendGate();
+  LiveDanmakuGateLease? _gateLease;
+  LiveDanmakuSendGate get danmakuSendGate =>
+      _gateLease?.gate ?? _fallbackDanmakuSendGate;
   LiveTaskAutomationPreferences preferences =
       const LiveTaskAutomationPreferences();
   StreamSubscription<dynamic>? _settings;
@@ -88,6 +97,12 @@ class LiveViewingSession extends ChangeNotifier {
     );
     tasks.stop();
     _notify();
+    await watch.settled;
+  }
+
+  Future<void> _surrenderWatch() async {
+    if (!_disposed) _apply();
+    await watch.settled;
   }
 
   void updateRoomDetails({required int areaId, required int parentAreaId}) {
@@ -123,12 +138,17 @@ class LiveViewingSession extends ChangeNotifier {
         !identical(_identity, account)) {
       return;
     }
-    final uid = account.mid;
     // Fixed UID prevents a delayed write being stored under a newly chosen user.
     preferences = value;
     _apply();
     _notify();
-    await Pref.saveLiveTaskAutomationFor(uid, value);
+    final scheduler = LiveIntimacyScheduler.instance;
+    final previous = scheduler.preferences.roomFor(roomId, anchorUid);
+    await scheduler.saveRoomPreferences(
+      (previous ??
+              LiveIntimacyRoomPreferences(roomId: roomId, anchorUid: anchorUid))
+          .copyWith(automation: value),
+    );
     if (!_disposed && identical(account, Accounts.main)) _synchronize();
   }
 
@@ -139,6 +159,12 @@ class LiveViewingSession extends ChangeNotifier {
     final changed =
         !identical(_identity, account) || _accountGeneration != generation;
     if (changed) {
+      _gateLease?.release();
+      _gateLease = LiveAutomationCoordinator.instance.acquireDanmakuGate(
+        account,
+        account.isLogin ? account.mid : 0,
+        roomId,
+      );
       _identity = account;
       _accountGeneration = generation;
       watch.updatePlayback(
@@ -150,7 +176,11 @@ class LiveViewingSession extends ChangeNotifier {
       watch.accountChanged();
     }
     final previous = preferences;
-    preferences = Pref.liveTaskAutomationFor(account.isLogin ? account.mid : 0);
+    preferences =
+        Pref.liveIntimacyPreferencesFor(account.isLogin ? account.mid : 0)
+            .roomFor(roomId, anchorUid)
+            ?.automation ??
+        const LiveTaskAutomationPreferences();
     _apply();
     if (changed || previous != preferences) _notify();
   }
@@ -171,6 +201,12 @@ class LiveViewingSession extends ChangeNotifier {
         ? '观看账号与任务账号不同，观看上报已暂停'
         : _areaId <= 0 || _parentAreaId <= 0
         ? '等待直播间观看信息'
+        : LiveAutomationCoordinator.instance.foregroundWatchSuspended
+        ? '应用退出或系统休眠，观看上报已暂停'
+        : LiveAutomationCoordinator.instance.foregroundWatchDraining
+        ? '正在结束上一直播间的观看上报'
+        : LiveAutomationCoordinator.instance.backgroundWatchClaimed
+        ? '后台任务正在独立上报观时，前台播放保持正常'
         : null;
     watch.updatePlayback(
       enabled: _watchUnavailable == null,
@@ -178,13 +214,11 @@ class LiveViewingSession extends ChangeNotifier {
       buffering: _buffering,
       live: _live,
     );
+    // The application scheduler is the sole automatic interaction owner.
+    // Legacy account preferences and enhanced UI cannot bypass room consent.
     tasks.update(
-      playing:
-          !Accounts.mainIdentityChangeInProgress &&
-          _playing &&
-          !_buffering &&
-          _live,
-      enhancementEnabled: Pref.liveRoomEnhancement,
+      playing: false,
+      enhancementEnabled: false,
       autoLike: preferences.autoLike,
       autoDanmaku: preferences.autoDanmaku,
       defaultMessage: preferences.defaultMessage,
@@ -207,16 +241,21 @@ class LiveViewingSession extends ChangeNotifier {
     bool Function() stillAllowed,
   ) async {
     LiveTaskWriteResult? result;
-    final attempt = await danmakuSendGate.trySend(() async {
-      result = await interaction.sendTaskDanmaku(
-        taskMessage: message,
-        expectedAccountIdentity: identity,
-        stillAllowed: stillAllowed,
-      );
-      return result!.state == LiveTaskWriteState.accepted
-          ? const Success(null)
-          : Error(result!.message);
-    }, clearDraftOnSuccess: false);
+    final attempt = await danmakuSendGate.trySend(
+      () async {
+        result = await interaction.sendTaskDanmaku(
+          taskMessage: message,
+          expectedAccountIdentity: identity,
+          stillAllowed: stillAllowed,
+        );
+        return result!.state == LiveTaskWriteState.accepted
+            ? const Success(null)
+            : Error(result!.message);
+      },
+      clearDraftOnSuccess: false,
+      minimumInterval: const Duration(seconds: 30),
+      stillCurrent: stillAllowed,
+    );
     return attempt == null
         ? const LiveTaskWriteResult(LiveTaskWriteState.deferred)
         : result!;
@@ -231,12 +270,27 @@ class LiveViewingSession extends ChangeNotifier {
     Accounts.removeMainIdentityChangeListener(_beforeMainIdentityChange);
     Accounts.removeMainIdentitySettledListener(_synchronize);
     Accounts.removeAccountRoleChangeListener(_synchronize);
+    LiveAutomationCoordinator.instance.removeListener(_synchronize);
     tasks.removeListener(_notify);
     watch.status.removeListener(_notify);
     tasks.dispose();
     watch.dispose();
+    LiveAutomationCoordinator.instance.retireForeground(watch.settled);
+    unawaited(
+      watch.settled.then(
+        (_) => LiveAutomationCoordinator.instance.unregisterForeground(
+          _surrenderWatch,
+        ),
+        onError: (Object _, StackTrace _) {
+          LiveAutomationCoordinator.instance.unregisterForeground(
+            _surrenderWatch,
+          );
+        },
+      ),
+    );
     interaction.dispose();
-    danmakuSendGate.dispose();
+    _gateLease?.release();
+    _fallbackDanmakuSendGate.dispose();
     super.dispose();
   }
 }

@@ -221,6 +221,9 @@ class LiveInteractionPanel extends StatefulWidget {
     this.watchStatusText,
     this.onWatchRetry,
     this.watchCanRetry = true,
+    this.intimacyControls,
+    this.intimacyTasks,
+    this.intimacyUpdates,
   });
 
   final LiveInteractionSession session;
@@ -238,6 +241,9 @@ class LiveInteractionPanel extends StatefulWidget {
   final String? watchStatusText;
   final VoidCallback? onWatchRetry;
   final bool watchCanRetry;
+  final Widget? intimacyControls;
+  final ValueGetter<List<LiveFanTask>?>? intimacyTasks;
+  final Listenable? intimacyUpdates;
 
   @override
   State<LiveInteractionPanel> createState() => _LiveInteractionPanelState();
@@ -311,7 +317,11 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([widget.session, widget.taskAutomation]),
+    animation: Listenable.merge([
+      widget.session,
+      widget.taskAutomation,
+      widget.intimacyUpdates,
+    ]),
     builder: (context, _) {
       final session = widget.session;
       final data = session.snapshotAccountChanged ? null : session.snapshot;
@@ -634,9 +644,11 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
   Widget _fans(LiveInteractionSnapshot data) {
     final status = data.fanStatus;
     final refreshedTasks = widget.taskAutomation?.tasks;
-    final tasks = refreshedTasks != null && refreshedTasks.isNotEmpty
-        ? refreshedTasks
-        : status?.tasks ?? const <LiveFanTask>[];
+    final tasks =
+        widget.intimacyTasks?.call() ??
+        (refreshedTasks != null && refreshedTasks.isNotEmpty
+            ? refreshedTasks
+            : status?.tasks ?? const <LiveFanTask>[]);
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
       children: [
@@ -727,11 +739,11 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
               trailing: Text(_state(task.completed, '已完成', '待完成')),
             ),
           ),
-        if (widget.watchStatusText case final statusText?)
+        if (widget.watchStatusText != null)
           ListTile(
             leading: const Icon(Icons.timer_outlined),
-            title: const Text('观看时长'),
-            subtitle: Text(statusText),
+            title: Text(widget.intimacyControls == null ? '观看时长' : '正常观看上报'),
+            subtitle: Text(widget.watchStatusText!),
             trailing: widget.watchCanRetry && widget.onWatchRetry != null
                 ? IconButton(
                     tooltip: '重试观看上报',
@@ -740,7 +752,9 @@ class _LiveInteractionPanelState extends State<LiveInteractionPanel> {
                   )
                 : null,
           ),
-        if (widget.taskAutomation case final automation?)
+        if (widget.intimacyControls case final controls?)
+          controls
+        else if (widget.taskAutomation case final automation?)
           LiveTaskAutomationControls(
             key: ValueKey('live-task-automation:${data.accountUid}'),
             service: automation,

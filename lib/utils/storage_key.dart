@@ -248,6 +248,7 @@ abstract final class SettingBoxKey {
       liveCdnUrl = 'liveCdnUrl',
       liveRoomEnhancement = 'liveRoomEnhancement',
       liveTaskAutomationByAccount = 'liveTaskAutomationByAccount',
+      liveIntimacyByAccount = 'liveIntimacyByAccount',
       saveReply = 'saveReply',
       appFont = 'appFont';
 }

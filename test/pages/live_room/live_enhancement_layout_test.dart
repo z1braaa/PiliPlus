@@ -16,6 +16,12 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class _Room extends Fake implements LiveRoomController {
+  @override
+  final Object danmakuAccountIdentity = Object();
+  @override
+  int get danmakuAccountGeneration => 0;
+  @override
+  bool get danmakuAccountStable => true;
   bool login = true;
   @override
   final messageConnectionState = LiveMessageConnectionState.connected.obs;
@@ -31,8 +37,9 @@ class _Room extends Fake implements LiveRoomController {
   int chatSimpleIndex = 0;
   @override
   List<RichTextItem>? savedDanmaku;
+  DateTime _now = DateTime.utc(2026, 10, 3);
   @override
-  final danmakuSendGate = LiveDanmakuSendGate();
+  late final danmakuSendGate = LiveDanmakuSendGate(now: () => _now);
   Completer<LoadingState<void>>? sendResult;
   int writes = 0;
   @override
@@ -61,6 +68,8 @@ class _Room extends Fake implements LiveRoomController {
     int replyMid = 0,
     String replayDmid = '',
   }) {
+    // Model an ordinary request round trip. Cooldown bounds have separate tests.
+    _now = _now.add(const Duration(seconds: 3));
     writes++;
     return sendResult?.future ?? Future.value(const Success<void>(null));
   }

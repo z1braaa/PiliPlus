@@ -1,11 +1,12 @@
 // 定时关闭服务
 
-import 'dart:async' show Timer;
+import 'dart:async' show Timer, unawaited;
 import 'dart:io' show exit;
 
 import 'package:PiliPlus/models/common/enum_with_label.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/services/live_intimacy_lifecycle.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -102,7 +103,7 @@ class ShutdownTimerService {
             return;
           }
         }
-        _syncProgressAndExit();
+        unawaited(_syncProgressAndExit());
     }
   }
 
@@ -113,11 +114,12 @@ class ShutdownTimerService {
         _durationInMinutes = 0;
         SmartDialog.showToast('定时时间已到，已暂停');
       case .exit:
-        _syncProgressAndExit();
+        unawaited(_syncProgressAndExit());
     }
   }
 
-  void _syncProgressAndExit() {
+  Future<void> _syncProgressAndExit() async {
+    await LiveIntimacyLifecycle.instance.shutdownForExit();
     if (PlPlayerController.instance case final player?) {
       final res = player.makeHeartBeat(
         player.position.value,
@@ -125,7 +127,7 @@ class ShutdownTimerService {
         isManual: true,
       );
       if (res != null) {
-        res.whenComplete(() => exit(0));
+        await res.whenComplete(() => exit(0));
         return;
       }
     }

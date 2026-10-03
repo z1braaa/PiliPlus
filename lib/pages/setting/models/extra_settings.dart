@@ -55,6 +55,12 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 
 List<SettingsModel> get extraSettings => [
+  NormalModel(
+    title: '后台亲密度任务',
+    subtitle: '配置总开关、勋章顺序及已授权房间队列',
+    leading: const Icon(Icons.workspace_premium_outlined),
+    onTap: (_, _) => Get.toNamed('/liveIntimacySettings'),
+  ),
   if (PlatformUtils.isDesktop) ...[
     SwitchModel(
       title: '退出时最小化',

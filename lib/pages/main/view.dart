@@ -12,6 +12,7 @@ import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/services/live_intimacy_lifecycle.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -47,6 +48,7 @@ class _MainAppState extends PopScopeState<MainApp>
   late EdgeInsets _padding;
   late ColorScheme _colorScheme;
   Brightness? _brightness;
+  bool _closingWindow = false;
 
   @override
   bool get initCanPop => false;
@@ -181,6 +183,9 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Future<void> _onClose() async {
+    if (_closingWindow) return;
+    _closingWindow = true;
+    await LiveIntimacyLifecycle.instance.shutdownForExit();
     await GStorage.compact();
     await GStorage.close();
     await trayManager.destroy();

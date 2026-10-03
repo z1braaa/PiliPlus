@@ -463,4 +463,76 @@ void main() {
     expect(service.disposed, isFalse);
     session.dispose();
   });
+
+  testWidgets(
+    'scheduler task updates replace legacy display, including an unknown empty response',
+    (tester) async {
+      final session = LiveInteractionSession(
+        service: _Interactions(),
+        isEnabled: () => true,
+      );
+      service.currentTasks = const [
+        LiveFanTask(
+          name: '旧任务',
+          description: '',
+          jumpType: 'like',
+          currentCount: 1,
+          targetCount: 10,
+        ),
+      ];
+      final latest = ValueNotifier<List<LiveFanTask>>(const [
+        LiveFanTask(
+          name: '当前任务',
+          description: '',
+          jumpType: 'like',
+          currentCount: 3,
+          targetCount: 10,
+        ),
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LiveInteractionPanel(
+              session: session,
+              anchorName: '主播',
+              initialTab: 2,
+              taskAutomation: service,
+              intimacyControls: const Text('此房间独立配置'),
+              watchStatusText: '观看上报交由后台亲密度任务',
+              intimacyUpdates: latest,
+              intimacyTasks: () => latest.value,
+              onLogin: () {},
+              onRecharge: () async {},
+              onOpenGuard: () async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('进度 3 / 10'), findsOneWidget);
+      expect(find.text('旧任务'), findsNothing);
+      expect(find.text('正常观看上报'), findsOneWidget);
+      expect(find.text('观看上报交由后台亲密度任务'), findsOneWidget);
+      latest.value = const [
+        LiveFanTask(
+          name: '当前任务',
+          description: '',
+          jumpType: 'like',
+          currentCount: 10,
+          targetCount: 10,
+          completed: true,
+        ),
+      ];
+      await tester.pumpAndSettle();
+      expect(find.text('进度 10 / 10'), findsOneWidget);
+      latest.value = const [];
+      await tester.pumpAndSettle();
+      expect(find.text('进度 10 / 10'), findsNothing);
+      expect(find.text('旧任务'), findsNothing);
+      expect(find.text('当前没有可展示的任务；每日规则以官方页面为准。'), findsOneWidget);
+      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      session.dispose();
+      latest.dispose();
+    },
+  );
 }

@@ -57,6 +57,7 @@ import 'package:PiliPlus/pages/setting/pages/color_select.dart';
 import 'package:PiliPlus/pages/setting/pages/display_mode.dart';
 import 'package:PiliPlus/pages/setting/pages/font_setting.dart';
 import 'package:PiliPlus/pages/setting/pages/logs.dart';
+import 'package:PiliPlus/pages/setting/pages/live_intimacy.dart';
 import 'package:PiliPlus/pages/setting/pages/play_speed_set.dart';
 import 'package:PiliPlus/pages/setting/view.dart';
 import 'package:PiliPlus/pages/temporary_queue/view.dart';
@@ -84,6 +85,10 @@ class Routes {
     GetPage(name: '/webview', page: () => const WebviewPage()),
     // 设置
     GetPage(name: '/setting', page: () => const SettingPage()),
+    GetPage(
+      name: '/liveIntimacySettings',
+      page: () => const LiveIntimacySettingsPage(),
+    ),
     //
     GetPage(name: '/fav', page: () => const FavPage()),
     //

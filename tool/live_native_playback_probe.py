@@ -26,6 +26,7 @@ from native_mpv_probe import (
     MPV_EVENT_END_FILE,
     MPV_EVENT_SHUTDOWN,
     MPV_FORMAT_FLAG,
+    MPV_FORMAT_INT64,
     MpvEndFile,
     NativePlayer,
     ProbeFailure,
@@ -108,11 +109,26 @@ def emit(output, snapshot: dict) -> None:
     output.flush()
 
 
-def snapshot(player: NativePlayer, previous: float | None) -> tuple[dict, float | None]:
+def snapshot(
+    player: NativePlayer, previous: float | None, audio_only: bool = False
+) -> tuple[dict, float | None]:
     position = player.number("time-pos")
     cache_pause = player.number("paused-for-cache", MPV_FORMAT_FLAG)
     paused = player.number("pause", MPV_FORMAT_FLAG)
     decoded = player.tracks_decoded()
+    audio_decoded = player.number("audio-params/samplerate", MPV_FORMAT_INT64)
+    audio_decoded = audio_decoded is not None and audio_decoded > 0
+    count = player.number("track-list/count", MPV_FORMAT_INT64)
+    types = (
+        {player.string(f"track-list/{index}/type") for index in range(count)}
+        if count is not None and 0 < count <= 100
+        else set()
+    )
+    muted = player.number("mute", MPV_FORMAT_FLAG)
+    volume = player.number("volume")
+    silent = muted is True and volume == 0
+    if audio_only:
+        decoded = audio_decoded and "audio" in types and "video" not in types
     # Unknown cache state cannot establish uninterrupted watching time. Decode
     # parameters alone are insufficient: every sample needs fresh progression.
     buffering = cache_pause is not False
@@ -120,10 +136,17 @@ def snapshot(player: NativePlayer, previous: float | None) -> tuple[dict, float 
         position is not None and previous is not None and position > previous + 0.01
     )
     return {
-        "playing": advancing and decoded and not buffering and paused is False,
+        "playing": advancing and decoded and not buffering and paused is False
+        and (silent or not audio_only),
         "buffering": buffering,
         "position": round(position, 4) if position is not None else None,
         "tracks_decoded": decoded,
+        "audio_decoded": audio_decoded,
+        "audio_track_present": "audio" in types,
+        "video_track_present": "video" in types,
+        "muted": muted,
+        "volume": volume,
+        "silent_output_confirmed": silent,
     }, position
 
 
@@ -135,6 +158,8 @@ def run(args, live_url: str, output) -> None:
         player = NativePlayer(library)
         # Process-local defaults only; no app preferences or source are changed.
         APP_OPTIONS["referrer"] = "https://live.bilibili.com/"
+        if args.audio_only:
+            APP_OPTIONS.update({"vid": "no", "aid": "auto", "volume": "0", "mute": "yes"})
         player.initialize()
         player.command(["loadfile", live_url, "replace"])
         threading.Thread(target=receive_controls, args=(stopped,), daemon=True).start()
@@ -157,7 +182,7 @@ def run(args, live_url: str, output) -> None:
                     raise ProbeFailure("player_shutdown")
             now = time.monotonic()
             if now >= next_sample:
-                current, previous = snapshot(player, previous)
+                current, previous = snapshot(player, previous, args.audio_only)
                 emit(output, current)
                 next_sample = now + 1.0
     finally:
@@ -177,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
                 parser = SafeArgumentParser(description=__doc__)
                 parser.add_argument("--library", required=True)
                 parser.add_argument("--duration-seconds", type=duration, default=1200.0)
+                parser.add_argument("--audio-only", action="store_true")
                 args = parser.parse_args(argv)
                 live_url = read_url()
                 run(args, live_url, output)

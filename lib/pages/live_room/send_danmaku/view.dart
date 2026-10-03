@@ -46,10 +46,32 @@ class LiveSendDmPanel extends CommonRichTextPubPage {
 
 class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   LiveRoomController get liveRoomController => widget.liveRoomController;
-  LiveDanmakuSendGate get _sendGate => liveRoomController.danmakuSendGate;
+  LiveDanmakuSendGate? _observedGate;
+  LiveDanmakuSendGate get _sendGate {
+    _bindSendGate();
+    return _observedGate!;
+  }
+
   bool _inlineEmoji = false;
   late int _lastEditRevision;
   late int _seenSuccessSerial;
+  Object? _draftAccount;
+  int? _draftAccountGeneration;
+
+  void _bindSendGate() {
+    final gate = liveRoomController.danmakuSendGate;
+    if (identical(gate, _observedGate)) return;
+    _observedGate?.removeListener(_onSendGateChanged);
+    _observedGate = gate;
+    _seenSuccessSerial = gate.successSerial;
+    _lastEditRevision = gate.draftRevision;
+    gate.addListener(_onSendGateChanged);
+  }
+
+  void _bindDraftAccount() {
+    _draftAccount = liveRoomController.danmakuAccountIdentity;
+    _draftAccountGeneration = liveRoomController.danmakuAccountGeneration;
+  }
 
   void _onSendGateChanged() {
     if (!mounted) return;
@@ -57,6 +79,9 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     if (_seenSuccessSerial != gate.successSerial) {
       _seenSuccessSerial = gate.successSerial;
       if (gate.successfulRevision == gate.draftRevision &&
+          identical(_draftAccount, liveRoomController.danmakuAccountIdentity) &&
+          _draftAccountGeneration ==
+              liveRoomController.danmakuAccountGeneration &&
           _lastEditRevision == gate.draftRevision) {
         editController.clear();
         enablePublish.value = false;
@@ -68,6 +93,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   void onChanged(String value) {
     super.onChanged(value);
+    _bindDraftAccount();
     _sendGate.markDraftChanged();
     _lastEditRevision = _sendGate.draftRevision;
   }
@@ -75,6 +101,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   void onChooseEmote(dynamic emote, double? width, double? height) {
     super.onChooseEmote(emote, width, height);
+    _bindDraftAccount();
     _sendGate.markDraftChanged();
     _lastEditRevision = _sendGate.draftRevision;
   }
@@ -82,7 +109,12 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   void onSave() {
     // A composer disposed after a newer draft was edited must not overwrite it.
-    if (_lastEditRevision == _sendGate.draftRevision) super.onSave();
+    if (identical(_draftAccount, liveRoomController.danmakuAccountIdentity) &&
+        _draftAccountGeneration ==
+            liveRoomController.danmakuAccountGeneration &&
+        _lastEditRevision == _sendGate.draftRevision) {
+      super.onSave();
+    }
   }
 
   void _setInlineEmoji(bool value) {
@@ -106,6 +138,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   }
 
   void mention(DanmakuMsg item) {
+    _bindDraftAccount();
     onInsertText(
       '@${item.name} ',
       RichTextType.at,
@@ -126,9 +159,8 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   @override
   void initState() {
     super.initState();
-    _lastEditRevision = _sendGate.draftRevision;
-    _seenSuccessSerial = _sendGate.successSerial;
-    _sendGate.addListener(_onSendGateChanged);
+    _bindSendGate();
+    _bindDraftAccount();
     focusNode.addListener(_closeInlineEmojiOnFocus);
     if (widget.fromEmote) {
       if (widget.inline) {
@@ -141,7 +173,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
 
   @override
   void dispose() {
-    _sendGate.removeListener(_onSendGateChanged);
+    _observedGate?.removeListener(_onSendGateChanged);
     focusNode.removeListener(_closeInlineEmojiOnFocus);
     if (widget.inline && _inlineEmoji) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -156,6 +188,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
 
   @override
   Widget build(BuildContext context) {
+    _bindSendGate();
     if (widget.inline) {
       return Material(
         color: theme.colorScheme.surface,
@@ -409,9 +442,19 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
       message = buffer.toString();
     }
     final outgoingMessage = message;
+    final gate = _sendGate;
+    final account = liveRoomController.danmakuAccountIdentity;
+    final generation = liveRoomController.danmakuAccountGeneration;
+    final room = liveRoomController.roomId;
+    bool stillCurrent() =>
+        liveRoomController.danmakuAccountStable &&
+        identical(account, liveRoomController.danmakuAccountIdentity) &&
+        generation == liveRoomController.danmakuAccountGeneration &&
+        room == liveRoomController.roomId &&
+        identical(gate, liveRoomController.danmakuSendGate);
     LiveDanmakuSendAttempt? attempt;
     try {
-      attempt = await _sendGate.trySend(
+      attempt = await gate.trySend(
         () => liveRoomController.sendLiveDanmaku(
           message: outgoingMessage,
           dmType: dmType,
@@ -420,8 +463,10 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
           replayDmid: replyDmid,
         ),
         clearDraftOnSuccess: isDraftSend,
+        minimumInterval: const Duration(seconds: 2),
+        stillCurrent: stillCurrent,
         onDraftSuccess: (revision) {
-          if (_sendGate.draftRevision == revision) {
+          if (stillCurrent() && gate.draftRevision == revision) {
             liveRoomController.savedDanmaku = null;
           }
         },
@@ -430,7 +475,13 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
       if (mounted) SmartDialog.showToast('弹幕发送未完成，请确认后再尝试。');
       return;
     }
-    if (attempt == null) return;
+    if (attempt == null) {
+      if (mounted && stillCurrent() && !gate.pending) {
+        SmartDialog.showToast('发送间隔太短，请稍候');
+      }
+      return;
+    }
+    if (!stillCurrent()) return;
     final response = attempt.response;
     if (!response.isSuccess) {
       if (mounted) response.toast();
@@ -438,7 +489,7 @@ class LiveSendDmPanelState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     }
     if (!mounted) return;
     final shouldCloseRoute = isDraftSend
-        ? _sendGate.draftRevision == attempt.draftRevision &&
+        ? gate.draftRevision == attempt.draftRevision &&
               _lastEditRevision == attempt.draftRevision
         : editController.items.isEmpty;
     if (!widget.inline &&

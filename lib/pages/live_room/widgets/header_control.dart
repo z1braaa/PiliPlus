@@ -37,6 +37,7 @@ class LiveHeaderControl extends StatefulWidget {
     required this.isPortrait,
     required this.liveController,
     required this.onlineWidget,
+    this.onIntimacySettings,
   });
 
   final String? title;
@@ -47,6 +48,7 @@ class LiveHeaderControl extends StatefulWidget {
   final bool isPortrait;
   final LiveRoomController liveController;
   final Widget onlineWidget;
+  final VoidCallback? onIntimacySettings;
 
   @override
   State<LiveHeaderControl> createState() => _LiveHeaderControlState();
@@ -162,6 +164,17 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                 color: Colors.white,
               ),
               onTap: widget.onSendDanmaku,
+            ),
+          if (widget.onIntimacySettings case final action?)
+            ComBtn(
+              height: btnHeight,
+              tooltip: '此房间亲密度任务',
+              icon: const Icon(
+                Icons.workspace_premium_outlined,
+                size: 18,
+                color: Colors.white,
+              ),
+              onTap: action,
             ),
           if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
             ComBtn(
