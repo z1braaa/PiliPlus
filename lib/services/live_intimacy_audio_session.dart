@@ -193,9 +193,9 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
       _guard();
       await player.setVolume(0);
       await player.setVideoTrack(const VideoTrack('no', null, null));
-      player.setProperty(
-        'http-header-fields',
-        'User-Agent: ${BrowserUa.pc},Referer: https://live.bilibili.com/${candidate.roomId}',
+      player.setMediaHeader(
+        userAgent: BrowserUa.pc,
+        referer: 'https://live.bilibili.com/${candidate.roomId}',
       );
       await player.open(Media(url), play: false);
       _guard();

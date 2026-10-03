@@ -1,20 +1,22 @@
 // Optional local-media probe. No accounts, remote URLs or interaction writes.
 // Separate header fields keep the WAV fixture offsets legible.
 // ignore_for_file: cascade_invocations
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
   test('fork native audio player decodes while muted', () async {
     final library = Platform.environment['LIVE_AUDIO_MPV'];
     expect(library, isNotNull);
     MediaKit.ensureInitialized(libmpv: library);
     final directory = await Directory.systemTemp.createTemp('pili-audio-api-');
     Player? player;
+    HttpServer? server;
     try {
       const sampleRate = 8000;
       const samples = sampleRate * 6;
@@ -45,7 +47,38 @@ void main() {
         ),
       );
       await player.setVolume(0);
-      await player.open(Media(file.path), play: false);
+      await player.setVideoTrack(const VideoTrack('no', null, null));
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final headers = Completer<Map<String, String?>>();
+      server.listen((request) async {
+        if (!headers.isCompleted) {
+          headers.complete({
+            'user-agent': request.headers.value('user-agent'),
+            'referer': request.headers.value('referer'),
+          });
+        }
+        request.response
+          ..headers.contentType = ContentType('audio', 'wav')
+          ..contentLength = bytes.lengthInBytes
+          ..add(await file.readAsBytes());
+        await request.response.close();
+      });
+      const referer = 'https://live.bilibili.com/10';
+      if (Platform.environment['LIVE_NATIVE_AUDIO_HEADERS_RAW'] == 'true') {
+        player.setProperty(
+          'http-header-fields',
+          'User-Agent: ${BrowserUa.pc},Referer: $referer',
+        );
+      } else {
+        player.setMediaHeader(userAgent: BrowserUa.pc, referer: referer);
+      }
+      await player.open(
+        Media('http://127.0.0.1:${server.port}/silent.wav'),
+        play: false,
+      );
+      final sent = await headers.future.timeout(const Duration(seconds: 12));
+      expect(sent['user-agent'], BrowserUa.pc);
+      expect(sent['referer'], referer);
       expect(double.parse(player.getProperty('volume')), 0);
       expect(player.getProperty('mute'), 'yes');
       await player.play();
@@ -72,6 +105,7 @@ void main() {
       );
     } finally {
       await player?.dispose();
+      await server?.close(force: true);
       await directory.delete(recursive: true);
     }
   }, skip: !const bool.fromEnvironment('LIVE_NATIVE_AUDIO_API_PROBE'));
