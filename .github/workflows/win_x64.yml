@@ -8,12 +8,55 @@ on:
         required: false
         default: ""
         type: string
+      build_number:
+        description: "Optional native build number"
+        required: false
+        default: ""
+        type: string
+      build_name:
+        description: "Optional native version name (major.minor.patch)"
+        required: false
+        default: ""
+        type: string
+      display_name:
+        description: "Optional release version label"
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional draft release tag"
+        required: false
+        default: ""
+        type: string
+      build_number:
+        description: "Optional native build number"
+        required: false
+        default: ""
+        type: string
+      build_name:
+        description: "Optional native version name (major.minor.patch)"
+        required: false
+        default: ""
+        type: string
+      display_name:
+        description: "Optional release version label"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build-windows-app:
     name: Release Windows x64
     runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -28,47 +71,87 @@ jobs:
 
       - name: Add fastforge and Inno Setup
         run: |
-          dart pub global activate fastforge
-          choco install innosetup
+          $ErrorActionPreference = 'Stop'
+          # Confirmed available at https://pub.dev/api/packages/fastforge.
+          dart pub global activate fastforge 0.6.12
+          if ($LASTEXITCODE -ne 0) { throw 'fastforge installation failed' }
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          Join-Path $env:LOCALAPPDATA 'Pub\Cache\bin' | Add-Content $env:GITHUB_PATH
 
       - name: Add Chinese language file for Inno Setup
         run: |
-          Copy-Item "windows/packaging/exe/ChineseSimplified.isl" "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
-        shell: pwsh
+          $ErrorActionPreference = 'Stop'
+          $inno = Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'Inno Setup *' |
+            Where-Object { Test-Path (Join-Path $_.FullName 'ISCC.exe') } |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if ($null -eq $inno) { throw 'Inno Setup compiler missing' }
+          Copy-Item 'windows/packaging/exe/ChineseSimplified.isl' (Join-Path $inno.FullName 'Languages/ChineseSimplified.isl')
+          "INNO_SETUP_PATH=$($inno.FullName)" | Add-Content $env:GITHUB_ENV
 
       - name: Set and Extract version
-        shell: pwsh
-        run: lib/scripts/build.ps1
+        env:
+          REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+          REQUESTED_BUILD_NAME: ${{ inputs.build_name }}
+          REQUESTED_DISPLAY_NAME: ${{ inputs.display_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & lib/scripts/build.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Original version preparation failed' }
+          $metadata = Get-Content 'pili_release.json' -Raw | ConvertFrom-Json -AsHashtable
+          $nativeName = [string]$metadata['pili.name']
+          $nativeCode = [string]$metadata['pili.code']
+          if ($env:REQUESTED_BUILD_NAME -ne '') { $nativeName = $env:REQUESTED_BUILD_NAME }
+          if ($env:REQUESTED_BUILD_NUMBER -ne '') { $nativeCode = $env:REQUESTED_BUILD_NUMBER }
+          if ($nativeName -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}$') { throw 'build_name must be major.minor.patch' }
+          if (@($nativeName.Split('.') | Where-Object { [int]$_ -gt 65535 }).Count -ne 0) { throw 'Windows version component exceeds 65535' }
+          if ($nativeCode -notmatch '^[1-9]\d{0,4}$' -or [int]$nativeCode -gt 65535) { throw 'build_number must be between 1 and 65535' }
+          $displayName = $nativeName
+          if ($env:REQUESTED_DISPLAY_NAME -ne '') { $displayName = $env:REQUESTED_DISPLAY_NAME }
+          if ($displayName -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$') { throw 'display_name contains unsafe filename characters' }
+          $source = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $source -ne $env:GITHUB_SHA) { throw 'Checkout does not match workflow source SHA' }
+          $pubspec = Get-Content 'pubspec.yaml' -Raw
+          if ([regex]::Matches($pubspec, '(?m)^version:.*$').Count -ne 1) { throw 'Expected one pubspec version' }
+          [regex]::Replace($pubspec, '(?m)^version:.*$', "version: $nativeName+$nativeCode") |
+            Set-Content 'pubspec.yaml' -Encoding utf8NoBOM -NoNewline
+          $metadata['pili.name'] = $displayName
+          $metadata['pili.code'] = [int]$nativeCode
+          $metadata['pili.hash'] = $source
+          $metadata['pili.time'] = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          $metadata | ConvertTo-Json -Compress | Set-Content 'pili_release.json' -Encoding utf8NoBOM
+          "version=$displayName+$nativeCode" | Add-Content $env:GITHUB_ENV
+          "NATIVE_BUILD_NAME=$nativeName" | Add-Content $env:GITHUB_ENV
+          "NATIVE_BUILD_NUMBER=$nativeCode" | Add-Content $env:GITHUB_ENV
+          "RELEASE_DISPLAY_NAME=$displayName" | Add-Content $env:GITHUB_ENV
 
       - name: Apply Patch
-        shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
       - name: Build Windows
         run: |
-          fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
+          $ErrorActionPreference = 'Stop'
+          fastforge package --platform windows --targets exe --flutter-build-args="build-name=$env:NATIVE_BUILD_NAME,build-number=$env:NATIVE_BUILD_NUMBER,dart-define-from-file=pili_release.json,no-pub" --skip-clean
+          if ($LASTEXITCODE -ne 0) { throw 'Windows package build failed' }
 
-      - name: Prepare Upload
-        run: |
-          mkdir -p Release/PiliPlus-Win
-          mkdir -p PiliPlus-Win-Setup
-          mv build/windows/x64/runner/Release/* Release/PiliPlus-Win/
-          mv dist/**/*.exe PiliPlus-Win-Setup/PiliPlus_windows_${{env.version}}_x64_setup.exe
-
-      - name: Compress
-        run: |
-          Compress-Archive -Path "Release/PiliPlus-Win" -DestinationPath "PiliPlus_windows_${{env.version}}_x64_portable.zip"
-        shell: pwsh
+      - name: Verify, package and test isolated installation
+        run: lib/scripts/windows_release_verify.ps1
 
       - name: Release
-        if: ${{ github.event.inputs.tag != '' }}
+        if: ${{ inputs.tag != '' }}
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          target_commitish: ${{ github.sha }}
+          draft: true
+          prerelease: true
+          fail_on_unmatched_files: true
           files: |
             PiliPlus_windows_*.zip
             PiliPlus-Win-Setup/PiliPlus_windows_*.exe
+            PiliPlus_windows_*_x64_SHA256SUMS.txt
+            PiliPlus_windows_*_x64_build-report.json
 
       - name: Upload windows file release
         uses: actions/upload-artifact@v7
@@ -76,6 +159,7 @@ jobs:
           archive: false
           name: Windows-file-x64-release
           path: PiliPlus_windows_*.zip
+          if-no-files-found: error
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7
@@ -83,3 +167,15 @@ jobs:
           archive: false
           name: Windows-setup-x64-release
           path: PiliPlus-Win-Setup/PiliPlus_windows_*.exe
+          if-no-files-found: error
+
+      - name: Upload Windows build verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-x64-build-verification
+          if-no-files-found: warn
+          path: |
+            PiliPlus_windows_*_x64_build-report.json
+            PiliPlus_windows_*_x64_SHA256SUMS.txt
+            PiliPlus-Windows-Verification/*.log

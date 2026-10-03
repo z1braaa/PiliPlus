@@ -1,5 +1,17 @@
 # 需求追踪表
 
+## 2026-10-03 三平台安装包与 GitHub 交付
+
+用户已授权[三平台交付范围](../requirements/16-cross-platform-release.md)。统一版本5442；具体源码身份、构建结果、发布与清理记录将写入[本轮交付记录](cross-platform-release-5442.md)。本项构建验收不覆盖未完成的真实直播功能验收。
+
+| ID | 最小验收 | 当前状态 |
+| --- | --- | --- |
+| BUILD-REL-01 | Android三ABI Release APK、版本／签名／mpv／16KiB核对 | 实现中；构建待运行，设备功能未运行 |
+| BUILD-REL-02 | Windows x64 EXE及ZIP、完整性／源码／隔离安装卸载 | 实现中；Windows runner待运行，真实直播功能未运行 |
+| BUILD-REL-03 | macOS通用DMG、13+／源码／签名／只读挂载摘要 | 实现中；5442构建待运行，既有5441证据另列 |
+| BUILD-REL-04 | 固定源码标签、全附件／SHA256、GitHub回读确认 | 实现中；源码与Release交付待运行 |
+| BUILD-REL-05 | 新包保留、旧包／临时构建清理、有明确清单 | 已完成只读盘点；新包验证后执行 |
+
 ## 2026-10-03 后台亲密度任务队列：已实现，分层验收中
 
 用户于需求修订2后明确要求“根据需求文档开始实现”。[最终需求文档](../requirements/15-live-intimacy-background-scheduler.md)为本轮批准范围，基线 `7f41612ff`。生产实现、最终379项离线回归、5440／5441构建和部分GUI配置已验证；5440冷房间官方观时未结算；5441复测0/10→2/10，但两房／全部任务转房仍未实测通过。各层证据见[本轮验收记录](live-intimacy-scheduler-20261003.md)，[先行音频样本](live-intimacy-discovery-audio-gate-20261003.md)不替代新版队列与两房对照。

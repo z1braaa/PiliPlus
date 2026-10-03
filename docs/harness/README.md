@@ -4,6 +4,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
+| [5442三平台交付](cross-platform-release-5442.md) | Android／Windows／macOS同源构建、安装包校验、GitHub Release及清理；真实平台功能验收另列 |
 | [后台亲密度队列最终需求](../requirements/15-live-intimacy-background-scheduler.md) | 2026-10-03需求对齐结果、拟定默认值和LIVE-SCHED-01～12验收计划，含实时观时与1～5表情随机；批准范围已实现；离线、构建、部分GUI与真实互动分别记录；5440冷房失败与5441观时增长分别记录 |
 | [音频与发现先行验证](live-intimacy-discovery-audio-gate-20261003.md) | 静音仅音频有效播放／官方结算及真实勋章完整分页，明确不替代5440新队列验收 |
 | [后台队列实现与验收](live-intimacy-scheduler-20261003.md) | 5440／5441源码与构建对应；单表情官方进度、5440冷房失败、5441观时增长及未完成的双房／系统休眠验收明确区分 |
