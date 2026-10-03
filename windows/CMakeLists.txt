@@ -74,6 +74,32 @@ endif()
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
+# App-local MSVC runtimes are required on machines without Visual Studio.
+# https://cmake.org/cmake/help/latest/module/InstallRequiredSystemLibraries.html
+# https://docs.flutter.dev/platform-integration/windows/building
+if(MSVC)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+  set(CMAKE_INSTALL_DEBUG_LIBRARIES FALSE)
+  set(CMAKE_INSTALL_DEBUG_LIBRARIES_ONLY FALSE)
+  include(InstallRequiredSystemLibraries)
+  foreach(REQUIRED_CRT IN ITEMS msvcp140.dll vcruntime140.dll vcruntime140_1.dll)
+    set(REQUIRED_CRT_FOUND FALSE)
+    foreach(CRT_PATH IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+      get_filename_component(CRT_NAME "${CRT_PATH}" NAME)
+      if("${CRT_NAME}" STREQUAL "${REQUIRED_CRT}" AND EXISTS "${CRT_PATH}")
+        set(REQUIRED_CRT_FOUND TRUE)
+      endif()
+    endforeach()
+    if(NOT REQUIRED_CRT_FOUND)
+      message(FATAL_ERROR "Required redistributable MSVC runtime not found: ${REQUIRED_CRT}")
+    endif()
+  endforeach()
+  install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    CONFIGURATIONS Profile;Release
+    COMPONENT Runtime)
+endif()
+
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 

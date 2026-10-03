@@ -97,7 +97,8 @@ try {
     $report.metadata_verified = $true
     $report.release_metadata = $metadata
 
-    $requiredFiles = @('piliplus.exe', 'flutter_windows.dll', 'data/app.so', 'data/icudtl.dat', 'libmpv-2.dll')
+    $requiredCrtFiles = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+    $requiredFiles = @('piliplus.exe', 'flutter_windows.dll', 'data/app.so', 'data/icudtl.dat', 'libmpv-2.dll') + $requiredCrtFiles
     foreach ($relative in $requiredFiles) {
         $path = Join-Path $bundle $relative
         if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Item -LiteralPath $path).Length -le 0) { throw "Required bundle file missing or empty: $relative" }
@@ -112,11 +113,35 @@ try {
         $fullPath = [IO.Path]::GetFullPath($file)
         if (-not $fullPath.StartsWith($bundle + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { throw 'CMake manifest entry missing or outside bundle' }
     }
+    $manifestFullPaths = @($manifestFiles | ForEach-Object { [IO.Path]::GetFullPath($_) })
+    foreach ($requiredCrt in $requiredCrtFiles) {
+        if ($manifestFullPaths -notcontains (Join-Path $bundle $requiredCrt)) { throw "Required CRT DLL missing from CMake installation manifest: $requiredCrt" }
+    }
     foreach ($peFile in @(Get-ChildItem $bundle -Recurse -File | Where-Object { $_.Extension -in @('.exe', '.dll') })) {
         Assert-X64PE $peFile.FullName
     }
     Assert-X64Aot (Join-Path $bundle 'data/app.so')
     $report.native_dll_files = @(Get-ChildItem $bundle -Recurse -File -Filter '*.dll' | ForEach-Object { [IO.Path]::GetRelativePath($bundle, $_.FullName).Replace('\', '/') } | Sort-Object)
+    $report.msvc_runtime = [ordered]@{
+        deployment = 'app-local'
+        discovery = 'CMake InstallRequiredSystemLibraries from compiler redistributable directory'
+        documentation = @('https://cmake.org/cmake/help/latest/module/InstallRequiredSystemLibraries.html', 'https://docs.flutter.dev/platform-integration/windows/building#building-your-own-zip-file-for-windows', 'https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp')
+        required_files = $requiredCrtFiles
+        files = @(Get-ChildItem $bundle -File -Filter '*.dll' | Where-Object { $_.Name -match '^(msvcp|vcruntime|concrt)\d+.*\.dll$' } | Sort-Object Name | ForEach-Object {
+            $dllVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($_.FullName)
+            $dllSignature = Get-AuthenticodeSignature -FilePath $_.FullName
+            [ordered]@{
+                name = $_.Name
+                size = $_.Length
+                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                file_version = $dllVersion.FileVersion
+                product_version = $dllVersion.ProductVersion
+                company = $dllVersion.CompanyName
+                authenticode_status = [string]$dllSignature.Status
+                cmake_manifest_entry = $manifestFullPaths -contains $_.FullName
+            }
+        })
+    }
     $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $bundle 'piliplus.exe'))
     $actualVersion = @($versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart, $versionInfo.FilePrivatePart) -join '.'
     $expectedVersion = "$($env:NATIVE_BUILD_NAME).$($env:NATIVE_BUILD_NUMBER)"
