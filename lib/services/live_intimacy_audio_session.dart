@@ -1,20 +1,17 @@
 // Testing-friendly public callbacks intentionally differ from private fields.
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/services/live_automation_coordinator.dart';
 import 'package:PiliPlus/services/live_intimacy_discovery.dart';
 import 'package:PiliPlus/services/live_intimacy_watch_progress.dart';
+import 'package:PiliPlus/services/live_intimacy_startup_gate.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
-import 'package:PiliPlus/services/live_task_automation.dart';
 import 'package:PiliPlus/services/live_watch_reporter.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
-import 'package:PiliPlus/utils/live_viewer_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -27,6 +24,7 @@ abstract class LiveIntimacyTaskSession extends ChangeNotifier {
   Future<void> start();
   Future<void> refresh();
   Future<void> close();
+  void setOfficialTasks(List<LiveFanTask> value) {}
 }
 
 /// Select from saved, room-scoped choices only. Native permissions must have
@@ -64,35 +62,16 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
     required this.watchProgress,
     required bool Function() stillAllowed,
     int Function(int)? randomInt,
-  }) : _stillAllowed = stillAllowed,
-       _randomInt = randomInt ?? math.Random().nextInt {
+  }) : _stillAllowed = stillAllowed {
     _identity = Accounts.main;
     _settlement = LiveIntimacyAudioSettlementGuard(watchProgress);
     _accountGeneration = Accounts.mainChangeGeneration;
-    _interaction = LiveInteractionService(
-      roomId: candidate.roomId,
-      anchorUid: candidate.anchorUid,
-    );
     _watch = LiveWatchReporter(
       roomId: candidate.roomId,
       anchorUid: candidate.anchorUid,
       areaId: candidate.areaId,
       parentAreaId: candidate.parentAreaId,
     );
-    _lease = LiveAutomationCoordinator.instance.acquireDanmakuGate(
-      _identity,
-      Accounts.main.mid,
-      candidate.roomId,
-    );
-    _automation = LiveTaskAutomationService.production(
-      roomId: candidate.roomId,
-      anchorUid: candidate.anchorUid,
-      taskService: _interaction,
-      chooseDanmaku: _chooseDanmaku,
-      sendDanmaku: _sendDanmaku,
-      mayRun: () => _allowed && _pauseReason == null,
-    );
-    _automation.addListener(_taskChanged);
     _watch.status.addListener(_watchChanged);
   }
 
@@ -101,17 +80,12 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
   @override
   final LiveIntimacyWatchProgress watchProgress;
   final bool Function() _stillAllowed;
-  final int Function(int) _randomInt;
   late final Object _identity;
   late final LiveIntimacyAudioSettlementGuard _settlement;
   late final int _accountGeneration;
-  late final LiveInteractionService _interaction;
   late final LiveWatchReporter _watch;
-  late final LiveTaskAutomationService _automation;
-  late final LiveDanmakuGateLease _lease;
   Player? _player;
   Timer? _clockTimer;
-  Timer? _readTimer;
   final Stopwatch _clock = Stopwatch()..start();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   bool _closed = false;
@@ -123,11 +97,15 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
   String _status = '准备独立静音音频';
   Future<void>? _closeFuture;
   Future<void>? _startFuture;
+  Future<void>? _stopFuture;
+  LiveIntimacyStartupGate? _startup;
+  Duration? _firstEffectiveDeadline;
   int _missingWatchReads = 0;
-  List<LiveFanTask>? _lastTaskRead;
+  List<LiveFanTask> _tasks = const [];
+  int _lastReportedSeconds = 0;
 
   @override
-  List<LiveFanTask> get tasks => _automation.tasks;
+  List<LiveFanTask> get tasks => _tasks;
   @override
   bool get actualPlayback => _actualPlayback;
   @override
@@ -149,12 +127,16 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
   @override
   Future<void> start() => _startFuture ??= _start();
   Future<void> _start() async {
+    final startup = _startup = LiveIntimacyStartupGate();
+    _firstEffectiveDeadline = _clock.elapsed + const Duration(seconds: 20);
     try {
       _guard();
-      final result = await LiveHttp.liveRoomInfo(
-        roomId: candidate.roomId,
-        qn: 80,
-        onlyAudio: true,
+      final result = await startup.run(
+        LiveHttp.liveRoomInfo(
+          roomId: candidate.roomId,
+          qn: 80,
+          onlyAudio: true,
+        ),
       );
       _guard();
       if (result is! Success || result.dataOrNull == null) {
@@ -181,23 +163,31 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
         if (url != null) break;
       }
       if (url == null) throw const LiveInteractionException('官方未提供仅音频地址');
-      final player = await Player.create(
-        configuration: const PlayerConfiguration(
-          title: 'PiliPlus 后台亲密度音频',
-          options: {'vid': 'no', 'volume': '0', 'mute': 'yes'},
+      final player = await startup.run(
+        Player.create(
+          configuration: const PlayerConfiguration(
+            title: 'PiliPlus 后台亲密度音频',
+            options: {'vid': 'no', 'volume': '0', 'mute': 'yes'},
+          ),
+        ),
+        onAbandoned: (player) => player.dispose().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {},
         ),
       );
       // Cancellation may occur while native initialization awaits. Retain this
       // reference first so the local cleanup always releases the created player.
       _player = player;
       _guard();
-      await player.setVolume(0);
-      await player.setVideoTrack(const VideoTrack('no', null, null));
+      await startup.run(player.setVolume(0));
+      await startup.run(
+        player.setVideoTrack(const VideoTrack('no', null, null)),
+      );
       player.setMediaHeader(
         userAgent: BrowserUa.pc,
         referer: 'https://live.bilibili.com/${candidate.roomId}',
       );
-      await player.open(Media(url), play: false);
+      await startup.run(player.open(Media(url), play: false));
       _guard();
       // This fork does not observe volume into PlayerState. Query the native
       // properties before play rather than trusting its default state.volume.
@@ -207,7 +197,13 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
       }
       _subscriptions.add(
         player.stream.error.listen((_) {
-          _fail('仅音频播放失败，已暂停此房间');
+          if (!_allowed || _pauseReason != null) return;
+          // Native errors may recover while media continues. Freeze reporting
+          // until a fresh sample confirms progress, and let the existing media
+          // deadlines decide whether this room actually needs to be paused.
+          _freezePlayback();
+          _status = '音频出现异常，正在核对有效播放';
+          notifyListeners();
         }),
       );
       _subscriptions.add(
@@ -225,10 +221,7 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
         const Duration(seconds: 1),
         (_) => _sample(),
       );
-      _readTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-        unawaited(refresh());
-      });
-      await player.play();
+      await startup.run(player.play());
       _guard();
       _status = '等待音频就绪及有效进度';
       notifyListeners();
@@ -272,14 +265,20 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
       validPlayback: valid,
     );
     _actualPlayback = valid && delta > Duration.zero;
-    if (_actualPlayback) _lastValidAt = _clock.elapsed;
+    if (_actualPlayback) {
+      _lastValidAt = _clock.elapsed;
+      _firstEffectiveDeadline = null;
+    } else if (_firstEffectiveDeadline != null &&
+        _clock.elapsed >= _firstEffectiveDeadline!) {
+      _fail('后台仅音频在20秒内无有效播放，已暂停此房间观时');
+      return;
+    }
     _watch.updatePlayback(
       enabled: _allowed,
       playing: _actualPlayback,
       buffering: !_actualPlayback,
       live: true,
     );
-    _applyAutomation();
     _status = _actualPlayback ? '独立静音音频正在执行任务' : '等待音频有效播放';
     if (_lastValidAt != null &&
         _clock.elapsed - _lastValidAt! > const Duration(seconds: 45)) {
@@ -289,99 +288,23 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
     notifyListeners();
   }
 
-  void _applyAutomation() {
-    final configuration = preferences.automation;
-    final message = configuration.danmakuMode == LiveTaskDanmakuMode.text
-        ? LiveTaskDanmakuMessage.text(configuration.defaultMessage)
-        : LiveTaskDanmakuMessage.emoticon(
-            emoticonUnique: preferences.emoticons.firstOrNull?.unique ?? '',
-            roomId: candidate.roomId,
-            anchorUid: candidate.anchorUid,
-          );
-    _automation.update(
-      playing: _actualPlayback && _allowed && _pauseReason == null,
-      enhancementEnabled: true,
-      autoLike: configuration.autoLike,
-      autoDanmaku: configuration.autoDanmaku,
-      defaultMessage: configuration.defaultMessage,
-      danmakuMessage: message,
-      minIntervalSeconds: 30,
-      maxIntervalSeconds: 60,
-    );
-  }
-
-  Future<LiveTaskDanmakuMessage?> _chooseDanmaku(
-    Object identity,
-    bool Function() stillAllowed,
-  ) async {
-    _guard();
-    if (!identical(identity, _identity) || !stillAllowed()) return null;
-    final configuration = preferences.automation;
-    if (configuration.danmakuMode == LiveTaskDanmakuMode.text) {
-      return LiveTaskDanmakuMessage.text(configuration.defaultMessage);
-    }
-    final options = await _interaction.loadTaskEmoticons();
-    _guard();
-    if (!stillAllowed()) return null;
-    return chooseLiveIntimacyEmoticon(
-      preferences: preferences.copyWith(roomId: candidate.roomId),
-      options: options,
-      randomInt: _randomInt,
-    );
-  }
-
-  Future<LiveTaskWriteResult> _sendDanmaku(
-    LiveTaskDanmakuMessage message,
-    Object identity,
-    bool Function() allowed,
-  ) async {
-    LiveTaskWriteResult? result;
-    final attempt = await _lease.gate.trySend(
-      () async {
-        result = await _interaction.sendTaskDanmaku(
-          taskMessage: message,
-          expectedAccountIdentity: identity,
-          stillAllowed: () => _allowed && allowed(),
-        );
-        return result!.state == LiveTaskWriteState.accepted
-            ? const Success(null)
-            : Error(result!.message);
-      },
-      clearDraftOnSuccess: false,
-      minimumInterval: const Duration(seconds: 30),
-      stillCurrent: () => _allowed && allowed(),
-    );
-    return attempt == null
-        ? const LiveTaskWriteResult(LiveTaskWriteState.deferred)
-        : result!;
-  }
-
-  void _taskChanged() {
+  @override
+  void setOfficialTasks(List<LiveFanTask> value) {
     if (_closed || _closing) return;
-    if (_automation.tasks.isNotEmpty &&
-        !identical(_lastTaskRead, _automation.tasks)) {
-      _lastTaskRead = _automation.tasks;
-      watchProgress.synchronize(_automation.tasks, DateTime.now());
-      final settlementIssue = _settlement.verifyFreshRead(
-        _automation.tasks,
-        watchProgress.effectiveDuration,
-      );
-      if (settlementIssue != null) {
-        _fail(settlementIssue);
-        return;
-      }
-    }
-    if (_actualPlayback &&
-        _automation.state == LiveTaskAutomationState.paused) {
-      _fail(_automation.statusText);
-    } else {
-      notifyListeners();
-    }
+    _tasks = List.unmodifiable(value);
+    final issue = _settlement.verifyFreshRead(
+      value,
+      watchProgress.effectiveDuration,
+    );
+    if (issue != null) _fail(issue);
   }
 
   void _watchChanged() {
     if (_closed || _closing) return;
-    watchProgress.reportedSeconds = _watch.status.value.reportedSeconds;
+    final total = _watch.status.value.reportedSeconds;
+    final delta = total - _lastReportedSeconds;
+    if (delta > 0) watchProgress.reportedSeconds += delta;
+    _lastReportedSeconds = total;
     final state = _watch.status.value.state;
     if (state == LiveWatchState.unsupported || state == LiveWatchState.error) {
       _fail(_watch.status.value.message);
@@ -396,7 +319,6 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
     _refreshing = true;
     try {
       // Only read; this call cannot reset a durable unresolved interaction.
-      await _automation.refreshTasks();
       if (!_allowed) return;
       final watches = tasks.where((task) => task.jumpType == 'watchLive');
       if (watches.length != 1) {
@@ -422,7 +344,6 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
       buffering: true,
       live: true,
     );
-    _automation.stop();
   }
 
   void _fail(String reason) {
@@ -432,19 +353,23 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
     notifyListeners();
   }
 
-  Future<void> _stopMedia() async {
+  Future<void> _stopMedia() => _stopFuture ??= _stopMediaBody();
+  Future<void> _stopMediaBody() async {
     _clockTimer?.cancel();
-    _readTimer?.cancel();
     _freezePlayback();
     await _watch.settled;
-    await _automation.settled;
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
     _subscriptions.clear();
     final player = _player;
     _player = null;
-    if (player != null) await player.dispose();
+    if (player != null) {
+      await player.dispose().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {},
+      );
+    }
   }
 
   @override
@@ -452,16 +377,13 @@ class LiveIntimacyAudioSession extends LiveIntimacyTaskSession {
   Future<void> _close() async {
     if (_closed) return;
     _closing = true;
+    _startup?.cancel();
     _freezePlayback();
     await _startFuture;
     await _stopMedia();
     _closed = true;
-    _automation.removeListener(_taskChanged);
     _watch.status.removeListener(_watchChanged);
-    _automation.dispose();
     _watch.dispose();
-    _interaction.dispose();
-    _lease.release();
     super.dispose();
   }
 }

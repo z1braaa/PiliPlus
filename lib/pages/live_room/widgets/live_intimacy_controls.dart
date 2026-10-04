@@ -104,6 +104,7 @@ class _LiveIntimacyRoomControlsState extends State<LiveIntimacyRoomControls> {
       var issue = enabled ? preferences.configurationIssue() : null;
       if (enabled &&
           issue == null &&
+          preferences.mode == LiveIntimacyRoomMode.full &&
           preferences.automation.danmakuMode == LiveTaskDanmakuMode.emoticon) {
         final options = await widget.loadEmoticons();
         if (!mounted || scope != _scope) return;
@@ -235,6 +236,31 @@ class _LiveIntimacyRoomControlsState extends State<LiveIntimacyRoomControls> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
+          ListTile(
+            title: const Text('自动任务范围'),
+            subtitle: const Text('更改范围后需重新授权，已保存的发送内容保留'),
+            trailing: DropdownButton<LiveIntimacyRoomMode>(
+              key: const ValueKey('live-intimacy-room-mode'),
+              value: room.mode,
+              items: const [
+                DropdownMenuItem(
+                  value: LiveIntimacyRoomMode.full,
+                  child: Text('完整任务'),
+                ),
+                DropdownMenuItem(
+                  value: LiveIntimacyRoomMode.likeOnly,
+                  child: Text('仅自动点赞'),
+                ),
+              ],
+              onChanged: _editable
+                  ? (mode) {
+                      if (mode != null && mode != room.mode) {
+                        _save(room.copyWith(mode: mode, authorized: false));
+                      }
+                    }
+                  : null,
+            ),
+          ),
           SwitchListTile(
             key: const ValueKey('live-intimacy-auto-like'),
             title: const Text('自动点赞'),
@@ -248,63 +274,69 @@ class _LiveIntimacyRoomControlsState extends State<LiveIntimacyRoomControls> {
                   )
                 : null,
           ),
-          SwitchListTile(
-            key: const ValueKey('live-intimacy-auto-danmaku'),
-            title: const Text('自动弹幕'),
-            subtitle: const Text('每次随机间隔30～60秒，每次发送一条'),
-            value: automation.autoDanmaku,
-            onChanged: _editable
-                ? (value) => _save(
-                    room.copyWith(
-                      automation: automation.copyWith(autoDanmaku: value),
-                    ),
-                  )
-                : null,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<LiveTaskDanmakuMode>(
-              segments: const [
-                ButtonSegment(
-                  value: LiveTaskDanmakuMode.text,
-                  label: Text('文字'),
-                  icon: Icon(Icons.text_fields),
-                ),
-                ButtonSegment(
-                  value: LiveTaskDanmakuMode.emoticon,
-                  label: Text('表情'),
-                  icon: Icon(Icons.emoji_emotions_outlined),
-                ),
-              ],
-              selected: {automation.danmakuMode},
-              onSelectionChanged: _editable
-                  ? (values) => _save(
+          if (room.mode == LiveIntimacyRoomMode.full) ...[
+            SwitchListTile(
+              key: const ValueKey('live-intimacy-auto-danmaku'),
+              title: const Text('自动弹幕'),
+              subtitle: const Text('所有授权房间共用30～60秒随机间隔，每次轮到一房发送一条'),
+              value: automation.autoDanmaku,
+              onChanged: _editable
+                  ? (value) => _save(
                       room.copyWith(
-                        automation: automation.copyWith(
-                          danmakuMode: values.single,
-                        ),
+                        automation: automation.copyWith(autoDanmaku: value),
                       ),
                     )
                   : null,
             ),
-          ),
-          ListTile(
-            key: const ValueKey('live-intimacy-content'),
-            title: Text(emotes ? '随机发送表情（1～5个）' : '自动发送文字'),
-            subtitle: Text(
-              emotes
-                  ? '${room.emoticons.length}/5 已选 · ${room.emoticons.isEmpty ? "尚未设置" : room.emoticons.map((e) => e.label.isEmpty ? "已选表情" : e.label).join("、")}'
-                  : automation.defaultMessage.isEmpty
-                  ? '尚未设置'
-                  : automation.defaultMessage,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<LiveTaskDanmakuMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: LiveTaskDanmakuMode.text,
+                    label: Text('文字'),
+                    icon: Icon(Icons.text_fields),
+                  ),
+                  ButtonSegment(
+                    value: LiveTaskDanmakuMode.emoticon,
+                    label: Text('表情'),
+                    icon: Icon(Icons.emoji_emotions_outlined),
+                  ),
+                ],
+                selected: {automation.danmakuMode},
+                onSelectionChanged: _editable
+                    ? (values) => _save(
+                        room.copyWith(
+                          automation: automation.copyWith(
+                            danmakuMode: values.single,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
             ),
-            trailing: const Icon(Icons.edit_outlined),
-            onTap: _editable
-                ? emotes
-                      ? _editEmoticons
-                      : _editText
-                : null,
-          ),
+            ListTile(
+              key: const ValueKey('live-intimacy-content'),
+              title: Text(emotes ? '随机发送表情（1～5个）' : '自动发送文字'),
+              subtitle: Text(
+                emotes
+                    ? '${room.emoticons.length}/5 已选 · ${room.emoticons.isEmpty ? "尚未设置" : room.emoticons.map((e) => e.label.isEmpty ? "已选表情" : e.label).join("、")}'
+                    : automation.defaultMessage.isEmpty
+                    ? '尚未设置'
+                    : automation.defaultMessage,
+              ),
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: _editable
+                  ? emotes
+                        ? _editEmoticons
+                        : _editText
+                  : null,
+            ),
+          ] else
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('仅执行免费点赞。无需设置弹幕；点亮后不会自动开启弹幕或观时。'),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Text(widget.statusText ?? '只完成点赞、弹幕和观时。内容逐房间保存，手动弹幕草稿独立。'),
@@ -501,7 +533,7 @@ class LiveIntimacyWatchProgressView extends StatelessWidget {
                 ? '官方轮数待同步'
                 : '官方已完成$completedRounds/${dailyRounds ?? "?"}轮',
           ),
-          Text('本次有效观时 ${formatSeconds(effectiveDuration.inSeconds)}'),
+          Text('当前周期有效观时 ${formatSeconds(effectiveDuration.inSeconds)}（本地记录）'),
           if (known) ...[
             Text(
               '${officialSeconds == null ? "本轮估算" : "官方当前轮"} ${formatSeconds(seconds)} / ${formatSeconds(thresholdSeconds!)}',

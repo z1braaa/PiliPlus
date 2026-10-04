@@ -83,6 +83,10 @@ class _Fixture {
     csrf: 'fixture-csrf',
   );
   final timers = <_Timer>[];
+  bool _enabled = true;
+  bool _playing = true;
+  bool _buffering = false;
+  bool _live = true;
   late final reporter = LiveWatchReporter.testing(
     roomId: 21452505,
     anchorUid: 434334701,
@@ -105,6 +109,10 @@ class _Fixture {
     bool buffering = false,
     bool live = true,
   }) async {
+    _enabled = enabled;
+    _playing = playing;
+    _buffering = buffering;
+    _live = live;
     reporter.updatePlayback(
       enabled: enabled,
       playing: playing,
@@ -115,8 +123,16 @@ class _Fixture {
   }
 
   Future<void> advance(int seconds) async {
-    elapsed += Duration(seconds: seconds);
-    wall = wall.add(Duration(seconds: seconds));
+    for (var second = 0; second < seconds; ++second) {
+      elapsed += const Duration(seconds: 1);
+      wall = wall.add(const Duration(seconds: 1));
+      reporter.updatePlayback(
+        enabled: _enabled,
+        playing: _playing,
+        buffering: _buffering,
+        live: _live,
+      );
+    }
     timers.last.fire();
     await reporter.settled;
   }
@@ -125,6 +141,42 @@ class _Fixture {
 }
 
 void main() {
+  test(
+    'Native watch samples reject stalled positions, seeks and missing media',
+    () {
+      final observation = LiveWatchMediaObservation()
+        ..observe(position: Duration.zero, clock: Duration.zero)
+        ..observe(
+          position: Duration.zero,
+          clock: const Duration(seconds: 1),
+        );
+      expect(observation.advancingAt(const Duration(seconds: 1)), isFalse);
+      observation.observe(
+        position: const Duration(seconds: 1),
+        clock: const Duration(seconds: 2),
+      );
+      expect(observation.advancingAt(const Duration(seconds: 2)), isTrue);
+      expect(observation.advancingAt(const Duration(seconds: 6)), isFalse);
+      observation.observe(
+        position: const Duration(seconds: 600),
+        clock: const Duration(seconds: 602),
+      );
+      expect(observation.advancingAt(const Duration(seconds: 602)), isFalse);
+      observation.observe(
+        position: const Duration(seconds: 601),
+        clock: const Duration(seconds: 603),
+      );
+      expect(observation.advancingAt(const Duration(seconds: 603)), isTrue);
+      observation.observe(
+        position: const Duration(seconds: 900),
+        clock: const Duration(seconds: 604),
+      );
+      expect(observation.advancingAt(const Duration(seconds: 604)), isFalse);
+      observation.freeze();
+      expect(observation.advancingAt(const Duration(seconds: 604)), isFalse);
+    },
+  );
+
   Map<String, Object> navigation({int code = 0, int uid = 123}) => {
     'code': code,
     'data': {
@@ -625,16 +677,66 @@ void main() {
   });
 
   test(
-    'Delayed timers report at most one real interval without replay',
+    'Heartbeat callback before resumed playback never credits a sleep gap',
     () async {
       final fixture = _Fixture();
       addTearDown(fixture.dispose);
       await fixture.play();
-      await fixture.advance(30000);
+      await fixture.advance(10);
+      fixture.elapsed += const Duration(minutes: 10);
+      fixture.wall = fixture.wall.add(const Duration(minutes: 10));
+      fixture.timers.last.fire();
+      await fixture.reporter.settled;
+      expect(fixture.transport.paths.length, 1);
+      expect(fixture.reporter.status.value.reportedSeconds, 0);
+      expect(fixture.reporter.status.value.state, LiveWatchState.paused);
+      await fixture.play();
+      await fixture.advance(59);
       expect(fixture.transport.paths.length, 2);
+      await fixture.advance(1);
       expect(fixture.transport.queries.last['time'], 60);
+    },
+  );
+
+  test(
+    'Playback callback before a delayed heartbeat starts a new segment',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      await fixture.play();
+      await fixture.advance(10);
+      final staleTimer = fixture.timers.last;
+      fixture.elapsed += const Duration(minutes: 10);
+      fixture.wall = fixture.wall.add(const Duration(minutes: 10));
+      await fixture.play();
+      staleTimer.fire();
+      await fixture.reporter.settled;
+      expect(fixture.transport.paths.length, 2);
+      expect(
+        fixture.transport.paths,
+        everyElement(LiveWatchReporter.enterPath),
+      );
+      expect(fixture.reporter.status.value.reportedSeconds, 0);
+      await fixture.advance(60);
       expect(fixture.reporter.status.value.reportedSeconds, 60);
-      expect(fixture.timers.last.delay, const Duration(seconds: 60));
+    },
+  );
+
+  test(
+    'Sleep gap is excluded even if the monotonic clock did not advance',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      await fixture.play();
+      await fixture.advance(10);
+      fixture.wall = fixture.wall.add(const Duration(minutes: 10));
+      fixture.timers.last.fire();
+      await fixture.reporter.settled;
+      expect(fixture.transport.paths.length, 1);
+      expect(fixture.reporter.status.value.reportedSeconds, 0);
+      await fixture.play();
+      await fixture.advance(60);
+      expect(fixture.reporter.status.value.reportedSeconds, 60);
     },
   );
 

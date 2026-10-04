@@ -304,6 +304,9 @@ void main() {
                 playing: playing,
                 buffering: buffering,
                 live: true,
+                position: position != null && position!.isFinite
+                    ? Duration(microseconds: (position! * 1000000).round())
+                    : null,
               );
               if (playing && !started.isCompleted) started.complete();
             });
@@ -333,6 +336,9 @@ void main() {
           playing: playing,
           buffering: buffering,
           live: true,
+          position: position != null && position!.isFinite
+              ? Duration(microseconds: (position! * 1000000).round())
+              : null,
         );
         final timeline = <Map<String, dynamic>>[];
         result['timeline'] = timeline;
@@ -392,11 +398,11 @@ void main() {
           await private.delete(recursive: true);
         }
         record();
-      // Output only the public sanitized report.
-      print(jsonEncode(result));
-      if (result['status'] == 'failed') {
-        fail('Live acceptance failed at $stage; see the sanitized report.');
-      }
+        // Output only the public sanitized report.
+        print(jsonEncode(result));
+        if (result['status'] == 'failed') {
+          fail('Live acceptance failed at $stage; see the sanitized report.');
+        }
       }
     },
     skip: !const bool.fromEnvironment('LIVE_ACCOUNT_ACCEPTANCE'),

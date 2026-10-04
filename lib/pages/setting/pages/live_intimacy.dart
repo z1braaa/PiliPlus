@@ -1,19 +1,24 @@
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_controls.dart';
+import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_progress_widgets.dart';
+import 'package:PiliPlus/pages/setting/pages/live_intimacy_statistics.dart';
 import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
-import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
+import 'package:PiliPlus/utils/live_intimacy_statistics_preferences.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+export 'package:PiliPlus/pages/live_room/widgets/live_intimacy_progress_widgets.dart';
+
 class LiveIntimacySettingsPage extends StatelessWidget {
-  const LiveIntimacySettingsPage({super.key, this.scheduler});
+  const LiveIntimacySettingsPage({super.key, this.scheduler, this.display});
   final LiveIntimacyScheduler? scheduler;
+  final LiveIntimacyStatisticsPreferences? display;
 
   @override
   Widget build(BuildContext context) {
     final scheduler = this.scheduler ?? LiveIntimacyScheduler.instance;
+    final display = this.display ?? LiveIntimacyStatisticsPreferences.instance;
     return SimpleScaffold(
       appBar: AppBar(
         title: const Text('后台亲密度任务'),
@@ -26,7 +31,7 @@ class LiveIntimacySettingsPage extends StatelessWidget {
         ],
       ),
       body: AnimatedBuilder(
-        animation: scheduler,
+        animation: Listenable.merge([scheduler, display]),
         builder: (context, _) {
           final account = Accounts.main;
           final generation = Accounts.mainChangeGeneration;
@@ -41,7 +46,7 @@ class LiveIntimacySettingsPage extends StatelessWidget {
               SwitchListTile(
                 key: const ValueKey('live-intimacy-master-switch'),
                 title: const Text('后台亲密度任务'),
-                subtitle: const Text('独立静音播放音频，依次完成已授权房间的点赞、弹幕和观时'),
+                subtitle: const Text('互动轮流推进，观时逐房进行；独立静音播放音频'),
                 value: preferences.enabled,
                 onChanged: scheduler.isLoggedIn
                     ? (value) {
@@ -53,6 +58,38 @@ class LiveIntimacySettingsPage extends StatelessWidget {
                       }
                     : null,
               ),
+              SwitchListTile(
+                key: const ValueKey('live-intimacy-statistics-display-switch'),
+                title: const Text('显示亲密度任务统计'),
+                subtitle: const Text('动态入口同时需开启“动态页展开正在直播UP列表”；隐藏统计不停止任务'),
+                value: display.enabledFor(scheduler.accountUid),
+                onChanged: scheduler.isLoggedIn
+                    ? (value) {
+                        if (currentAccount()) {
+                          display.setEnabled(scheduler.accountUid, value);
+                        }
+                      }
+                    : null,
+              ),
+              if (display.enabledFor(scheduler.accountUid))
+                ListTile(
+                  key: const ValueKey('live-intimacy-statistics-open'),
+                  leading: const Icon(Icons.insights_outlined),
+                  title: const Text('打开实时任务统计'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    if (currentAccount()) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => LiveIntimacyStatisticsPage(
+                            scheduler: scheduler,
+                            display: display,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
               if (!scheduler.isLoggedIn)
                 ListTile(
                   title: const Text('登录后才能配置后台任务'),
@@ -98,10 +135,18 @@ class LiveIntimacySettingsPage extends StatelessWidget {
                   subtitle: const Text('应用仍运行时继续；真正退出或系统休眠时暂停。'),
                 ),
               ),
+              LiveIntimacyRecordSaveWarning(scheduler: scheduler),
               if (scheduler.currentRoom case final room?) ...[
                 const Padding(
                   padding: EdgeInsets.all(12),
-                  child: Text('正在执行'),
+                  child: Text('当前观时房间'),
+                ),
+                _RoomStatusCard(room: room),
+              ],
+              if (scheduler.currentInteractionRoom case final room?) ...[
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('当前互动房间'),
                 ),
                 _RoomStatusCard(room: room),
               ],
@@ -109,6 +154,14 @@ class LiveIntimacySettingsPage extends StatelessWidget {
               if (scheduler.queue.isEmpty)
                 const ListTile(title: Text('暂无等待中的合格房间')),
               for (final room in scheduler.queue) _RoomStatusCard(room: room),
+              if (scheduler.interactionQueue.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('互动轮转队列'),
+                ),
+                for (final room in scheduler.interactionQueue)
+                  _RoomStatusCard(room: room),
+              ],
               const Padding(
                 padding: EdgeInsets.all(12),
                 child: Text('房间配置与授权'),
@@ -189,7 +242,7 @@ class _RoomStatusCard extends StatelessWidget {
       children: [
         ListTile(
           leading: Icon(
-            room.completed
+            room.allTasksCompletedConfirmed
                 ? Icons.check_circle_outline
                 : room.running
                 ? Icons.headphones
@@ -204,8 +257,15 @@ class _RoomStatusCard extends StatelessWidget {
             [
               '房间 ${room.roomId} · 勋章 Lv.${room.medalLevel ?? "待同步"}',
               preferences.authorized ? '已授权' : '未授权',
+              preferences.mode == LiveIntimacyRoomMode.likeOnly
+                  ? '仅自动点赞'
+                  : '完整任务',
               if (room.pauseReason != null) room.pauseReason!,
-              if (room.completed) '三项任务均已由官方确认完成',
+              if (room.watchPauseReason != null) '观时：${room.watchPauseReason!}',
+              if (room.interactionPauseReason != null)
+                '互动：${room.interactionPauseReason!}',
+              if (!room.officialFresh || !room.periodConfirmed) '官方进度或周期待核对',
+              if (room.allTasksCompletedConfirmed) '三项任务均已由官方确认完成',
             ].join('\n'),
           ),
         ),
@@ -218,37 +278,4 @@ class _RoomStatusCard extends StatelessWidget {
     );
     return card ? Card(child: child) : child;
   }
-}
-
-String liveIntimacyTaskSummary(List<LiveFanTask> tasks) {
-  final names = {'like': '点赞', 'sendDanmu': '弹幕', 'watchLive': '观时'};
-  return names.entries
-      .map((entry) {
-        final matches = tasks.where((task) => task.jumpType == entry.key);
-        if (matches.isEmpty) return '${entry.value}：待确认';
-        final task = matches.first;
-        final progress = task.currentCount != null && task.targetCount != null
-            ? '${task.currentCount}/${task.targetCount}'
-            : task.progressText;
-        return '${entry.value}：${task.completed == true
-            ? "已完成"
-            : progress.isNotEmpty
-            ? progress
-            : "待确认"}';
-      })
-      .join(' · ');
-}
-
-Widget liveIntimacyProgressView(LiveIntimacyRoomState room) {
-  final progress = room.watchProgress;
-  return LiveIntimacyWatchProgressView(
-    effectiveDuration: progress.effectiveDuration,
-    completedRounds: progress.completedRounds,
-    dailyRounds: progress.dailyRounds,
-    thresholdSeconds: progress.thresholdSeconds,
-    officialSeconds: progress.officialSeconds,
-    currentRoundEstimateSeconds: progress.currentRoundEstimateSeconds,
-    waitingConfirmation: progress.waitingConfirmation,
-    progressValue: progress.progressValue,
-  );
 }

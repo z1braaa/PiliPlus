@@ -42,8 +42,8 @@ enum LiveTaskAutomationState {
   paused,
 }
 
-/// Owned by a media task session, never by a fan-panel widget. Actual playback
-/// and the scheduler's current consent/identity guard gate every interaction.
+/// Owned by a foreground media session or by the independent account queue.
+/// Every dispatch uses the current consent and identity guard.
 class LiveTaskAutomationService extends ChangeNotifier {
   factory LiveTaskAutomationService.production({
     required int roomId,
@@ -52,6 +52,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
     LiveTaskDanmakuSender? sendDanmaku,
     LiveTaskDanmakuSelector? chooseDanmaku,
     bool Function()? mayRun,
+    Future<LiveFanTaskSnapshot> Function()? loadTasks,
+    bool externalScheduling = false,
+    bool Function()? mayResetUnknownPeriod,
   }) {
     final service =
         taskService ??
@@ -59,7 +62,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
     final automation = LiveTaskAutomationService.testing(
       roomId: roomId,
       anchorUid: anchorUid,
-      loadTasks: service.loadFanTasks,
+      loadTasks: loadTasks ?? service.loadFanTasks,
       sendLike: (count, identity, allowed) => service.sendTaskLikes(
         clickTime: count,
         expectedAccountIdentity: identity,
@@ -79,6 +82,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
       journal: _HiveTaskJournal(),
       chooseDanmaku: chooseDanmaku,
       mayRun: mayRun,
+      externalScheduling: externalScheduling,
+      mayResetUnknownPeriod:
+          mayResetUnknownPeriod ?? (externalScheduling ? mayRun : null),
     );
     automation
       .._productionService = taskService == null ? service : null
@@ -103,6 +109,8 @@ class LiveTaskAutomationService extends ChangeNotifier {
     LiveTaskDanmakuSelector? chooseDanmaku,
     bool Function()? mayRun,
     bool paceLikes = true,
+    this.externalScheduling = false,
+    bool Function()? mayResetUnknownPeriod,
   }) : _loadTasks = loadTasks,
        _sendLike = sendLike,
        _sendDanmaku = sendDanmaku,
@@ -115,7 +123,8 @@ class LiveTaskAutomationService extends ChangeNotifier {
        _journal = journal ?? _MemoryTaskJournal(),
        _chooseDanmaku = chooseDanmaku,
        _mayRun = mayRun ?? (() => true),
-       _paceLikes = paceLikes;
+       _paceLikes = paceLikes,
+       _mayResetUnknownPeriod = mayResetUnknownPeriod ?? (() => false);
 
   final int roomId;
   final int anchorUid;
@@ -132,9 +141,16 @@ class LiveTaskAutomationService extends ChangeNotifier {
   final LiveTaskDanmakuSelector? _chooseDanmaku;
   final bool Function() _mayRun;
   final bool _paceLikes;
+  final bool externalScheduling;
+  final bool Function() _mayResetUnknownPeriod;
+  bool _queueLike = false;
+  bool _queueDanmaku = false;
+  int issuedLikes = 0;
+  int issuedDanmaku = 0;
   _LikePreparation? _likePreparation;
   Timer? _likeTimer;
   final Map<String, _TaskBudget> _budgets = {};
+  Map<String, int> _confirmedLocalCycles = const {};
   static final Set<String> _activeWrites = {};
   LiveInteractionService? _productionService;
   Future<void> Function()? _accountListener;
@@ -327,6 +343,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
         clicks,
         task.currentCount,
       );
+      if (externalScheduling) return false;
       void accumulate() {
         if (!_validRun(epoch) || !identical(_likePreparation, preparation)) {
           _cancelLikePreparation();
@@ -357,12 +374,80 @@ class LiveTaskAutomationService extends ChangeNotifier {
   }
 
   void _schedule(Duration delay) {
+    if (externalScheduling) return;
     if (!_eligible || !_sameAccount) return;
     _timer?.cancel();
     _timer = Timer(delay, () {
       _timer = null;
       unawaited(_operation = _tick());
     });
+  }
+
+  /// The account queue supplies one paced click opportunity or one message
+  /// opportunity. Room timers cannot race to create a burst across rooms.
+  Future<void> tickFromQueue({bool like = false, bool danmaku = false}) async {
+    if (!externalScheduling || !_eligible || _busy) return;
+    if (_tasks.isEmpty) await refreshTasks();
+    if (!_eligible || _busy) return;
+    if (like && !danmaku && _verification == null) {
+      final matches = _tasks.where((task) => task.jumpType == 'like').toList();
+      if (matches.length == 1 &&
+          matches.single.completed == false &&
+          matches.single.remainingCount != null &&
+          matches.single.remainingCount! > 0 &&
+          matches.single.actionsPerProgress != null) {
+        final task = matches.single;
+        _likePrepared(task, _epoch);
+        final preparation = _likePreparation;
+        if (preparation != null) {
+          ++preparation.accumulated;
+          if (preparation.accumulated < preparation.clicks) {
+            _show(LiveTaskAutomationState.waiting, '按账号1～3秒节奏累计任务点赞');
+            return;
+          }
+        }
+      }
+    }
+    _queueLike = like;
+    _queueDanmaku = danmaku;
+    try {
+      await (_operation = _tick());
+    } finally {
+      _queueLike = false;
+      _queueDanmaku = false;
+    }
+  }
+
+  static Future<void> clearAccountJournal(int uid) async {
+    if (uid <= 0) return;
+    final box = await _HiveTaskJournal().box;
+    final accountKeys = box.keys
+        .where((key) => '$key'.startsWith('$uid:'))
+        .toList();
+    final protected = <String>{};
+    for (final key in accountKeys) {
+      if ('$key'.endsWith(':index')) continue;
+      final value = box.get(key);
+      final pending = value is Map ? liveInt(value['pending_count']) : null;
+      if (pending == null || pending > 0) protected.add('$key');
+    }
+    for (final key in accountKeys) {
+      if ('$key'.endsWith(':index')) {
+        final value = box.get(key);
+        if (value is! Map || value['keys'] is! List) continue;
+        final retained = (value['keys'] as List)
+            .where((key) => protected.contains('$key'))
+            .toList();
+        if (retained.isEmpty) {
+          await box.delete(key);
+        } else {
+          await box.put(key, {'keys': retained});
+        }
+      } else if (!protected.contains('$key')) {
+        await box.delete(key);
+      }
+    }
+    await box.flush();
   }
 
   /// A manual refresh only reads. It cannot reset an unresolved write budget.
@@ -379,8 +464,11 @@ class LiveTaskAutomationService extends ChangeNotifier {
 
   String get _scope => '$_boundUid:$roomId:$anchorUid:';
 
-  String _period(LiveFanTask task) =>
-      task.period.isEmpty ? 'unknown-period' : task.period;
+  String _period(LiveFanTask task) => task.period.isNotEmpty
+      ? task.period
+      : (_confirmedLocalCycles[task.jumpType] ?? 0) > 0
+      ? 'confirmed-local-cycle:${_confirmedLocalCycles[task.jumpType]}'
+      : 'unknown-period';
 
   String _key(LiveFanTask task) =>
       '$_scope${_period(task)}:'
@@ -438,8 +526,14 @@ class LiveTaskAutomationService extends ChangeNotifier {
           task.completed == false &&
           task.currentCount != null &&
           (budget.target == 0 || task.currentCount! < budget.highestObserved)) {
-        // Only server completion followed by a reset count establishes another
-        // cycle. Local midnight alone can never reset this durable budget.
+        if (task.period.isNotEmpty || !_mayResetUnknownPeriod()) {
+          budget.halted = task.period.isNotEmpty
+              ? '官方同周期任务进度发生校正，自动操作暂停'
+              : '官方任务周期待核对，自动操作暂停';
+          continue;
+        }
+        // A different explicit period already has its own key and budget.
+        // Only a separately certified unnumbered cycle can reuse this key.
         _budgets[key] = _TaskBudget(
           key: key,
           type: task.jumpType,
@@ -544,6 +638,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
         return;
       }
       _tasks = List.unmodifiable(snapshot.tasks);
+      _confirmedLocalCycles = Map.unmodifiable(snapshot.confirmedLocalCycles);
       if (snapshot.joined != true) {
         _show(
           LiveTaskAutomationState.paused,
@@ -563,6 +658,10 @@ class LiveTaskAutomationService extends ChangeNotifier {
       final notices = <String>[];
       for (final type in ['like', 'sendDanmu']) {
         if (type == 'like' ? !_autoLike : !_autoDanmaku) continue;
+        if (externalScheduling &&
+            (type == 'like' ? !_queueLike : !_queueDanmaku)) {
+          continue;
+        }
         final matches = _tasks.where((task) => task.jumpType == type).toList();
         final label = type == 'like' ? '点赞' : '弹幕';
         if (matches.isEmpty) {
@@ -599,7 +698,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
             task.completionOnly != budget.completionOnly ||
             (task.currentCount != null &&
                 task.currentCount! < budget.highestObserved)) {
-          budget.halted = '$label任务目标或进度发生变化，自动操作暂停';
+          budget.halted ??= '$label任务目标或进度发生变化，自动操作暂停';
         }
         budget.highestObserved = math.max(
           budget.highestObserved,
@@ -637,11 +736,13 @@ class LiveTaskAutomationService extends ChangeNotifier {
           .where((task) => task.jumpType == 'sendDanmu')
           .firstOrNull;
       final now = _now();
-      if (like == null) _cancelLikePreparation();
+      if (like == null && !externalScheduling) _cancelLikePreparation();
       _nextDanmakuAt ??= now.add(_randomDelay());
       final likeReady = like != null && !readOnly && _likePrepared(like, epoch);
       // Slow click accumulation never starves a due message in the same room.
-      final chosen = danmaku != null && !now.isBefore(_nextDanmakuAt!)
+      final chosen =
+          danmaku != null &&
+              (externalScheduling || !now.isBefore(_nextDanmakuAt!))
           ? danmaku
           : likeReady
           ? like
@@ -712,6 +813,14 @@ class LiveTaskAutomationService extends ChangeNotifier {
                 allowed,
               )
             : await _sendDanmaku(message, identity, allowed);
+        if (result.state == LiveTaskWriteState.accepted ||
+            result.state == LiveTaskWriteState.unknown) {
+          if (chosen.jumpType == 'like') {
+            issuedLikes += count * chosen.actionsPerProgress!;
+          } else {
+            ++issuedDanmaku;
+          }
+        }
       } catch (_) {
         result = const LiveTaskWriteResult(
           LiveTaskWriteState.unknown,
@@ -812,11 +921,13 @@ class LiveTaskAutomationService extends ChangeNotifier {
           _tasks.any(
             (task) => task.jumpType == budget.type && task.dailyRewardProgress,
           );
-      // Otherwise only a different explicit server period can retire it.
+      // A named server period or independently certified local cycle retires
+      // the old phase without claiming its unresolved write succeeded.
       final newPeriod = _tasks.any(
         (task) =>
             task.jumpType == budget.type &&
-            task.period.isNotEmpty &&
+            (task.period.isNotEmpty ||
+                (_confirmedLocalCycles[task.jumpType] ?? 0) > 0) &&
             _period(task) != budget.period,
       );
       if (completedLightingPhase || newPeriod) {

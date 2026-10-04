@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show listEquals;
 
 enum LiveIntimacySort { medalHighToLow, medalLowToHigh }
 
+enum LiveIntimacyRoomMode { full, likeOnly }
+
 class LiveIntimacyEmoticonSelection {
   const LiveIntimacyEmoticonSelection({
     required this.unique,
@@ -40,6 +42,7 @@ class LiveIntimacyRoomPreferences {
     required this.roomId,
     this.anchorName = '',
     this.authorized = false,
+    this.mode = LiveIntimacyRoomMode.full,
     this.automation = const LiveTaskAutomationPreferences(),
     this.emoticons = const [],
   });
@@ -48,6 +51,7 @@ class LiveIntimacyRoomPreferences {
   final int roomId;
   final String anchorName;
   final bool authorized;
+  final LiveIntimacyRoomMode mode;
   final LiveTaskAutomationPreferences automation;
   final List<LiveIntimacyEmoticonSelection> emoticons;
   String get key => '$anchorUid:$roomId';
@@ -72,6 +76,9 @@ class LiveIntimacyRoomPreferences {
     }
     // A malformed oversized import cannot silently authorize a shortened pool.
     final oversized = selections.length > 5;
+    final knownMode =
+        !value.containsKey('mode') ||
+        LiveIntimacyRoomMode.values.any((mode) => mode.name == value['mode']);
     return LiveIntimacyRoomPreferences(
       anchorUid: anchor,
       roomId: room,
@@ -80,8 +87,12 @@ class LiveIntimacyRoomPreferences {
           : '',
       authorized:
           !oversized &&
+          knownMode &&
           value['authorized'] is bool &&
           value['authorized'] == true,
+      mode: value['mode'] == LiveIntimacyRoomMode.likeOnly.name
+          ? LiveIntimacyRoomMode.likeOnly
+          : LiveIntimacyRoomMode.full,
       automation: LiveTaskAutomationPreferences.fromJson(value['automation']),
       emoticons: List.unmodifiable(selections.take(5)),
     );
@@ -90,6 +101,7 @@ class LiveIntimacyRoomPreferences {
   String? configurationIssue({Iterable<String>? availableEmoticons}) {
     if (anchorUid <= 0 || roomId <= 0) return '等待官方主播和真实房间信息';
     if (!automation.autoLike) return '请先开启自动点赞';
+    if (mode == LiveIntimacyRoomMode.likeOnly) return null;
     if (!automation.autoDanmaku) return '请先开启自动弹幕';
     if (automation.danmakuMode == LiveTaskDanmakuMode.text) {
       return automation.defaultMessage.trim().isEmpty ? '请先设置自动发送文字' : null;
@@ -111,6 +123,7 @@ class LiveIntimacyRoomPreferences {
     int? roomId,
     String? anchorName,
     bool? authorized,
+    LiveIntimacyRoomMode? mode,
     LiveTaskAutomationPreferences? automation,
     List<LiveIntimacyEmoticonSelection>? emoticons,
   }) => LiveIntimacyRoomPreferences(
@@ -118,6 +131,7 @@ class LiveIntimacyRoomPreferences {
     roomId: roomId ?? this.roomId,
     anchorName: anchorName ?? this.anchorName,
     authorized: authorized ?? this.authorized,
+    mode: mode ?? this.mode,
     automation: automation ?? this.automation,
     emoticons: emoticons ?? this.emoticons,
   );
@@ -127,6 +141,7 @@ class LiveIntimacyRoomPreferences {
     'roomId': roomId,
     'anchorName': anchorName,
     'authorized': authorized,
+    'mode': mode.name,
     'automation': automation.toJson(),
     'emoticons': emoticons.map((e) => e.toJson()).toList(),
   };
@@ -138,6 +153,7 @@ class LiveIntimacyRoomPreferences {
       roomId == other.roomId &&
       anchorName == other.anchorName &&
       authorized == other.authorized &&
+      mode == other.mode &&
       automation == other.automation &&
       listEquals(emoticons, other.emoticons);
   @override
@@ -146,6 +162,7 @@ class LiveIntimacyRoomPreferences {
     roomId,
     anchorName,
     authorized,
+    mode,
     automation,
     Object.hashAll(emoticons),
   );

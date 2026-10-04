@@ -1,4 +1,4 @@
-import 'dart:async' show Timer, StreamSubscription;
+import 'dart:async' show Timer, StreamSubscription, unawaited;
 import 'dart:convert' show jsonDecode;
 import 'dart:io' show Platform;
 import 'dart:math' as math;
@@ -24,6 +24,8 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/live_room/live_danmaku_send_gate.dart';
 import 'package:PiliPlus/pages/live_room/live_message_session.dart';
+import 'package:PiliPlus/pages/live_room/live_startup_monitor.dart';
+import 'package:PiliPlus/pages/live_room/live_source_selection.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_timeline.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -61,7 +63,13 @@ const int _kTrimCount = _kMaxChatCount + 50;
 const int _kSafeTrimIndex = 200;
 
 class LiveRoomController extends GetxController {
-  LiveRoomController(this.heroTag);
+  LiveRoomController(this.heroTag, {LiveStartupMonitor? startupMonitor})
+    : _startup =
+          startupMonitor ??
+          LiveStartupMonitor(
+            window: const Duration(seconds: 20),
+            maxRetries: 2,
+          );
   final String heroTag;
 
   final int requestedRoomId = Get.arguments;
@@ -130,6 +138,13 @@ class LiveRoomController extends GetxController {
       plPlayerController.liveViewingSession?.tasks;
   bool _hasRoomPlayInfo = false;
   int _playInfoGeneration = 0;
+  final LiveStartupMonitor? _startup;
+  Timer? _startupTimer;
+  bool _startupSawPlayIntent = false;
+  bool _startupAutoplay = false;
+  final startupPhase = LiveStartupPhase.cancelled.obs;
+  final startupDiagnostics = <Map<String, Object>>[];
+  final _startupClock = Stopwatch();
   final _liveOwner = Object();
   late LivePlaybackLease _liveLease;
   bool get ownsLiveViewing =>
@@ -276,6 +291,7 @@ class LiveRoomController extends GetxController {
       routeName: '/liveRoom',
     );
     claimLiveViewing(preserve: adoptedMiniPlayer);
+    plPlayerController.addPauseIntentListener(_onPauseIntent);
     if (adoptedMiniPlayer) isLoaded.value = true;
     queryLiveUrl(
       autoFullScreenFlag: !adoptedMiniPlayer,
@@ -301,12 +317,134 @@ class LiveRoomController extends GetxController {
     if (videoUrl == null || _closed || !ownsLiveViewing) {
       return null;
     }
+    final generation = _playInfoGeneration;
+    final lease = _liveLease;
+    final monitoredAutoplay = _startupAutoplay;
     return plPlayerController.setDataSource(
       NetworkSource(videoSource: videoUrl!, audioSource: null),
       isLive: true,
       autoplay: autoplay,
       isVertical: isPortrait.value,
       autoFullScreenFlag: autoFullScreenFlag,
+      stillAllowed: () =>
+          _playRequestCurrent(generation, lease) &&
+          (!monitoredAutoplay ||
+              (_startup?.phase != LiveStartupPhase.failed &&
+                  _startup?.phase != LiveStartupPhase.cancelled)),
+    );
+  }
+
+  bool _playRequestCurrent(int generation, LivePlaybackLease lease) =>
+      !_closed &&
+      generation == _playInfoGeneration &&
+      plPlayerController.livePlaybackGate.accepts(lease);
+
+  void _recordStartup(String stage) {
+    if (startupDiagnostics.length >= 32) startupDiagnostics.removeAt(0);
+    startupDiagnostics.add({
+      'stage': stage,
+      'elapsed_ms': _startupClock.elapsedMilliseconds,
+      'retry': _startup?.retries ?? 0,
+    });
+    startupPhase.value = _startup?.phase ?? LiveStartupPhase.cancelled;
+  }
+
+  void _cancelStartup() {
+    _startupTimer?.cancel();
+    _startupTimer = null;
+    _startup?.cancel();
+    _startupAutoplay = false;
+    startupPhase.value = LiveStartupPhase.cancelled;
+  }
+
+  void _onPauseIntent() {
+    if (!_closed && ownsLiveViewing && _startup?.active == true) {
+      ++_playInfoGeneration;
+      _cancelStartup();
+      _recordStartup('user_paused');
+    }
+  }
+
+  void _monitorStartup({required bool autoplay, required bool preserve}) {
+    if (!autoplay || preserve || _startup == null) {
+      _cancelStartup();
+      return;
+    }
+    _startupTimer?.cancel();
+    _startupClock
+      ..reset()
+      ..start();
+    startupDiagnostics.clear();
+    _startupSawPlayIntent = false;
+    _startupAutoplay = true;
+    _startup.begin();
+    _recordStartup('url_request_start');
+    _startupTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_closed || !ownsLiveViewing) {
+        _cancelStartup();
+        return;
+      }
+      final native = plPlayerController.videoPlayerController?.state;
+      if (_startup.phase == LiveStartupPhase.waitingMedia) {
+        if (plPlayerController.requestedPlaying) _startupSawPlayIntent = true;
+        if (_startupSawPlayIntent && !plPlayerController.requestedPlaying) {
+          ++_playInfoGeneration;
+          _cancelStartup();
+          _recordStartup('user_paused');
+          return;
+        }
+      }
+      final decoded = plPlayerController.onlyPlayAudio.value
+          ? (native?.audioParams.sampleRate ?? 0) > 0
+          : (native?.videoParams.w ?? 0) > 0 &&
+                (native?.videoParams.h ?? 0) > 0;
+      final decision = _startup.observe(
+        position: native?.position ?? Duration.zero,
+        playing: native?.playing ?? false,
+        buffering: native?.buffering ?? true,
+        decoded: decoded,
+      );
+      switch (decision) {
+        case LiveStartupDecision.waiting:
+          break;
+        case LiveStartupDecision.progressing:
+          _startupTimer?.cancel();
+          _startupTimer = null;
+          _recordStartup('valid_media_progress');
+          // Native media parameters and advancing time are observable. These
+          // callbacks cannot prove a first visible frame or audible sample.
+          _recordStartup('visible_frame_measurement_unavailable');
+        case LiveStartupDecision.retry:
+          _recordStartup('same_selection_retry');
+          unawaited(queryLiveUrl(automaticRecovery: true));
+        case LiveStartupDecision.failed:
+          ++_playInfoGeneration;
+          _startupTimer?.cancel();
+          _startupTimer = null;
+          _recordStartup('startup_budget_exhausted');
+          plPlayerController.livePlaybackGate.sourceFailed();
+          plPlayerController.dataStatus.value = .error;
+          unawaited(plPlayerController.pause(notify: false));
+          _showStartupFailure();
+      }
+    });
+  }
+
+  void _showStartupFailure() {
+    if (_closed || !ownsLiveViewing) return;
+    final stage = switch (_startup?.failureAt) {
+      LiveStartupPhase.requestingSource ||
+      LiveStartupPhase.retrying => '获取播放地址',
+      LiveStartupPhase.preparingPlayer => '启动播放器',
+      LiveStartupPhase.waitingMedia => '等待有效媒体播放',
+      _ => '直播加载',
+    };
+    _showDialog(
+      '$stage未能恢复，请重试。当前画质和CDN选择已保留。',
+      retry: () {
+        Get.back();
+        queryLiveUrl();
+      },
     );
   }
 
@@ -314,65 +452,114 @@ class LiveRoomController extends GetxController {
     bool autoFullScreenFlag = false,
     bool preservePlayer = false,
     bool autoplay = true,
+    bool automaticRecovery = false,
   }) async {
-    final lease = _liveLease;
-    final requestGeneration = ++_playInfoGeneration;
-    currentQn ??= await ConnectivityUtils.isWiFi
-        ? Pref.liveQuality
-        : Pref.liveQualityCellular;
-    final res = await LiveHttp.liveRoomInfo(
-      roomId: roomId,
-      qn: currentQn,
-      onlyAudio: plPlayerController.onlyPlayAudio.value,
-    );
     if (_closed ||
-        requestGeneration != _playInfoGeneration ||
-        !plPlayerController.livePlaybackGate.accepts(lease)) {
+        !ownsLiveViewing ||
+        (automaticRecovery && _startup?.active != true)) {
       return;
     }
-    if (res case Success(:final response)) {
-      ruid = response.uid;
-      if (response.roomId case final canonical?) roomId = canonical;
-      LiveIntimacyScheduler.instance.updateForeground(
+    final lease = _liveLease;
+    final requestGeneration = ++_playInfoGeneration;
+    if (!automaticRecovery) {
+      _monitorStartup(autoplay: autoplay, preserve: preservePlayer);
+    }
+    final previousSelection = automaticRecovery ? _selectedSource : null;
+    try {
+      currentQn ??= await ConnectivityUtils.isWiFi
+          ? Pref.liveQuality
+          : Pref.liveQualityCellular;
+      final res = await LiveHttp.liveRoomInfo(
         roomId: roomId,
-        anchorUid: ruid,
+        qn: currentQn,
+        onlyAudio: plPlayerController.onlyPlayAudio.value,
       );
-      if (response.liveStatus != 1) {
-        _hasRoomPlayInfo = false;
-        plPlayerController.markLiveRoomEnded();
-        _showDialog('当前直播间未开播');
+      if (!_playRequestCurrent(requestGeneration, lease) ||
+          _startup?.phase == LiveStartupPhase.failed) {
         return;
       }
-      final playurl = response.playurlInfo?.playurl;
-      if (playurl == null) {
-        _showDialog('无法获取播放地址');
-        return;
+      if (res case Success(:final response)) {
+        ruid = response.uid;
+        if (response.roomId case final canonical?) roomId = canonical;
+        LiveIntimacyScheduler.instance.updateForeground(
+          roomId: roomId,
+          anchorUid: ruid,
+        );
+        if (response.liveStatus != 1) {
+          _cancelStartup();
+          _hasRoomPlayInfo = false;
+          plPlayerController.markLiveRoomEnded();
+          _showDialog('当前直播间未开播');
+          return;
+        }
+        final playurl = response.playurlInfo?.playurl;
+        if (playurl == null) {
+          throw const FormatException('missing_live_source');
+        }
+        ruid = response.uid;
+        if (response.roomId case final roomId?) {
+          this.roomId = roomId;
+        }
+        _hasRoomPlayInfo = true;
+        _configureLiveViewing();
+        liveTime.value = response.liveTime;
+        startLiveTimer();
+        isPortrait.value = response.isPortrait ?? false;
+        stream = playurl.stream;
+        if (previousSelection != null) {
+          if (!_restoreSourceSelection(previousSelection)) {
+            _cancelStartup();
+            _recordStartup('selected_source_unavailable');
+            plPlayerController.livePlaybackGate.sourceFailed();
+            plPlayerController.dataStatus.value = .error;
+            unawaited(plPlayerController.pause(notify: false));
+            _showDialog(
+              '所选画质或CDN暂时不可用，请手动重选或重试。',
+              retry: () {
+                Get.back();
+                queryLiveUrl();
+              },
+            );
+            return;
+          }
+        } else {
+          _initStreamIndex();
+        }
+        _startup?.sourceSelected();
+        _recordStartup('source_selected');
+        final fetchRules = !isLoaded.value && Accounts.heartbeat.isLogin;
+        final initialization = preservePlayer
+            ? null
+            : initLiveUrl(
+                streamIndex: streamIndex,
+                formatIndex: formatIndex,
+                codecIndex: codecIndex,
+                liveUrlIndex: liveUrlIndex,
+                autoplay: autoplay,
+                startupGeneration: requestGeneration,
+              );
+        // Mount the native video surface and playback controls while native open
+        // is in flight. Neither auxiliary reads nor native open may hold the
+        // entire player widget behind this flag.
+        isLoaded.value = true;
+        if (fetchRules) unawaited(_fetchBlockRules());
+        await initialization;
+        if (_playRequestCurrent(requestGeneration, lease) &&
+            _startup?.active == true) {
+          _startup!.sourceReady(
+            plPlayerController.videoPlayerController?.state.position ??
+                Duration.zero,
+          );
+          _startupSawPlayIntent = plPlayerController.requestedPlaying;
+          _recordStartup('native_open_returned');
+        }
+      } else {
+        throw const FormatException('live_source_failed');
       }
-      ruid = response.uid;
-      if (response.roomId case final roomId?) {
-        this.roomId = roomId;
-      }
-      _hasRoomPlayInfo = true;
-      _configureLiveViewing();
-      liveTime.value = response.liveTime;
-      startLiveTimer();
-      isPortrait.value = response.isPortrait ?? false;
-      stream = playurl.stream;
-      _initStreamIndex();
-      await Future.wait([
-        if (!preservePlayer)
-          ?initLiveUrl(
-            streamIndex: streamIndex,
-            formatIndex: formatIndex,
-            codecIndex: codecIndex,
-            liveUrlIndex: liveUrlIndex,
-            autoplay: autoplay,
-          ),
-        if (!isLoaded.value && Accounts.heartbeat.isLogin) _fetchBlockRules(),
-      ]);
-      isLoaded.value = true;
-    } else {
-      _showDialog(res.toString());
+    } catch (_) {
+      if (!_playRequestCurrent(requestGeneration, lease)) return;
+      _recordStartup('source_request_or_open_failed');
+      if (_startup?.active != true) _showStartupFailure();
     }
   }
 
@@ -381,6 +568,24 @@ class LiveRoomController extends GetxController {
   int formatIndex = 0;
   int codecIndex = 0;
   int liveUrlIndex = 0;
+
+  LiveSourceSelection? get _selectedSource =>
+      LiveSourceSelection.capture(stream, (
+        stream: streamIndex,
+        format: formatIndex,
+        codec: codecIndex,
+        cdn: liveUrlIndex,
+      ));
+
+  bool _restoreSourceSelection(LiveSourceSelection selected) {
+    final indexes = selected.find(stream);
+    if (indexes == null) return false;
+    streamIndex = indexes.stream;
+    formatIndex = indexes.format;
+    codecIndex = indexes.codec;
+    liveUrlIndex = indexes.cdn;
+    return true;
+  }
 
   void _initStreamIndex() {
     final pref = Pref.liveStream;
@@ -415,7 +620,13 @@ class LiveRoomController extends GetxController {
     int codecIndex = 0,
     int liveUrlIndex = 0,
     bool autoplay = true,
+    int? startupGeneration,
   }) {
+    if (startupGeneration == null) {
+      ++_playInfoGeneration;
+      _monitorStartup(autoplay: autoplay, preserve: false);
+      _startup?.sourceSelected();
+    }
     this.streamIndex = streamIndex;
     this.formatIndex = formatIndex;
     this.codecIndex = codecIndex;
@@ -438,7 +649,20 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    return playerInit(autoplay: autoplay)?.whenComplete(_startSizeSub);
+    final generation = _playInfoGeneration;
+    final lease = _liveLease;
+    return playerInit(autoplay: autoplay)?.whenComplete(() {
+      if (!_playRequestCurrent(generation, lease)) return;
+      _startSizeSub();
+      if (startupGeneration == null && _startup?.active == true) {
+        _startup!.sourceReady(
+          plPlayerController.videoPlayerController?.state.position ??
+              Duration.zero,
+        );
+        _startupSawPlayIntent = plPlayerController.requestedPlaying;
+        _recordStartup('native_open_returned');
+      }
+    });
   }
 
   Future<void> queryLiveInfoH5() async {
@@ -456,12 +680,14 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  void _showDialog(String title) {
+  void _showDialog(String title, {VoidCallback? retry}) {
     showDialog(
       context: Get.context!,
       builder: (_) => AlertDialog(
         title: Text(title),
         actions: [
+          if (retry != null)
+            TextButton(onPressed: retry, child: const Text('重试')),
           TextButton(
             onPressed: Get.back,
             child: Text(
@@ -606,14 +832,28 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> _fetchBlockRules() async {
-    final res = await LiveHttp.getLiveInfoByUser(roomId);
-    if (res case Success(:final response?)) {
-      if (response.keywordList case final keywordList?) {
-        _keywordList = keywordList;
+    final room = roomId;
+    final account = Accounts.heartbeat;
+    final lease = _liveLease;
+    try {
+      final res = await LiveHttp.getLiveInfoByUser(room);
+      if (_closed ||
+          room != roomId ||
+          !identical(account, Accounts.heartbeat) ||
+          !plPlayerController.livePlaybackGate.accepts(lease)) {
+        return;
       }
-      if (response.shieldUserList case final shieldUserList?) {
-        _shieldUids = shieldUserList.map((e) => e.uid).toSet();
+      if (res case Success(:final response?)) {
+        if (response.keywordList case final keywordList?) {
+          _keywordList = keywordList;
+        }
+        if (response.shieldUserList case final shieldUserList?) {
+          _shieldUids = shieldUserList.map((e) => e.uid).toSet();
+        }
       }
+    } catch (_) {
+      // Optional chat filtering cannot fail the media startup. Keep previous
+      // filters and do not emit the original exception or signed request URL.
     }
   }
 
@@ -697,6 +937,9 @@ class LiveRoomController extends GetxController {
   @override
   void onClose() {
     _closed = true;
+    plPlayerController.removePauseIntentListener(_onPauseIntent);
+    ++_playInfoGeneration;
+    _cancelStartup();
     _messageSession.dispose();
     _superChatTimer?.cancel();
     _superChatTimer = null;

@@ -44,9 +44,9 @@ void main() {
                   saves.add(value);
                   setState(() => preferences = value);
                 },
-          onAuthorize: (value, enabled) async {
-            if (authorize != null) return authorize(value, enabled);
-            authorizations.add(enabled);
+                onAuthorize: (value, enabled) async {
+                  if (authorize != null) return authorize(value, enabled);
+                  authorizations.add(enabled);
                   setState(
                     () => preferences = value.copyWith(authorized: enabled),
                   );
@@ -91,6 +91,48 @@ void main() {
     expect(preferences.authorized, isTrue);
     expect(find.text('已授权；在其他设置开启总开关后运行'), findsOneWidget);
   });
+
+  testWidgets(
+    'like-only authorizes without message or emote permission and mode upgrade revokes grant',
+    (tester) async {
+      preferences = preferences.copyWith(
+        mode: LiveIntimacyRoomMode.likeOnly,
+        automation: const LiveTaskAutomationPreferences(autoLike: true),
+      );
+      var loads = 0;
+      await mount(
+        tester,
+        load: () async {
+          ++loads;
+          return [];
+        },
+      );
+      expect(find.byKey(const ValueKey('live-intimacy-content')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('live-intimacy-auto-danmaku')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('live-intimacy-room-authorized')),
+      );
+      await tester.pumpAndSettle();
+      expect(authorizations, [true]);
+      expect(loads, 0);
+      expect(preferences.authorized, isTrue);
+      await tester.tap(find.byKey(const ValueKey('live-intimacy-room-mode')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('完整任务').last);
+      await tester.pumpAndSettle();
+      expect(preferences.mode, LiveIntimacyRoomMode.full);
+      expect(preferences.authorized, isFalse);
+      expect(preferences.automation.autoDanmaku, isFalse);
+      expect(
+        find.byKey(const ValueKey('live-intimacy-auto-danmaku')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('inactive text cannot authorize invalid emoticon pool', (
     tester,
@@ -320,15 +362,26 @@ void main() {
     },
   );
 
-  testWidgets('late authorization error cannot be shown under a new account', (tester) async {
+  testWidgets('late authorization error cannot be shown under a new account', (
+    tester,
+  ) async {
     final result = Completer<String?>();
-    preferences = preferences.copyWith(automation: const LiveTaskAutomationPreferences(
-      autoLike: true, autoDanmaku: true, defaultMessage: 'configured',
-    ));
+    preferences = preferences.copyWith(
+      automation: const LiveTaskAutomationPreferences(
+        autoLike: true,
+        autoDanmaku: true,
+        defaultMessage: 'configured',
+      ),
+    );
     await mount(tester, authorize: (_, _) => result.future);
-    await tester.tap(find.byKey(const ValueKey('live-intimacy-room-authorized')));
+    await tester.tap(
+      find.byKey(const ValueKey('live-intimacy-room-authorized')),
+    );
     await tester.pump();
-    rebuild(() { identity = Object(); ++generation; });
+    rebuild(() {
+      identity = Object();
+      ++generation;
+    });
     await tester.pump();
     result.complete('旧账号授权错误');
     await tester.pumpAndSettle();
@@ -353,7 +406,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('本次有效观时 05:30'), findsOneWidget);
+      expect(find.text('当前周期有效观时 05:30（本地记录）'), findsOneWidget);
       expect(find.text('官方已完成3/10轮'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('live-intimacy-watch-bar')),

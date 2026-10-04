@@ -19,6 +19,86 @@ LiveFanTask watch({
 );
 
 void main() {
+  test(
+    'certified unnumbered reset clears ledger without inventing a round origin',
+    () {
+      final progress = LiveIntimacyWatchProgress()
+        ..synchronize([watch(current: 10, done: true)], DateTime(2026, 10, 3))
+        ..effectiveDuration = const Duration(seconds: 123)
+        ..reportedSeconds = 120
+        ..synchronize([watch(current: 0)], DateTime(2026, 10, 4));
+      expect(progress.effectiveDuration.inSeconds, 123);
+      expect(progress.periodConfirmed, isFalse);
+      progress.synchronize(
+        [watch(current: 0)],
+        DateTime(2026, 10, 4, 0, 0, 30),
+        confirmedUnnumberedReset: true,
+      );
+      expect(progress.effectiveDuration, Duration.zero);
+      expect(progress.reportedSeconds, 0);
+      expect(progress.periodConfirmed, isTrue);
+      expect(progress.completedRounds, 0);
+      expect(progress.currentRoundEstimateSeconds, isNull);
+      expect(progress.period, isNull);
+    },
+  );
+  test('a lower count without explicit period never clears or certifies the saved ledger', () {
+    final progress = LiveIntimacyWatchProgress();
+    LiveFanTask value(int count, {String period = ''}) => LiveFanTask(
+      name: '观看直播满15分钟',
+      description: '',
+      jumpType: 'watchLive',
+      completed: false,
+      currentCount: count,
+      targetCount: 10,
+      dailyRewardProgress: true,
+      period: period,
+    );
+    progress
+      ..synchronize([value(5)], DateTime(2026, 10, 3))
+      ..effectiveDuration = const Duration(seconds: 123)
+      ..reportedSeconds = 120
+      ..synchronize([value(2)], DateTime(2026, 10, 3, 0, 0, 30));
+    expect(progress.effectiveDuration, const Duration(seconds: 123));
+    expect(progress.reportedSeconds, 120);
+    expect(progress.periodConfirmed, isFalse);
+    progress.synchronize([value(2)], DateTime(2026, 10, 3, 0, 1));
+    expect(progress.periodConfirmed, isFalse);
+    final restored = LiveIntimacyWatchProgress()
+      ..restore(progress.toJson())
+      ..synchronize([value(2)], DateTime(2026, 10, 3, 0, 2));
+    expect(restored.periodConfirmed, isFalse);
+  });
+
+  test(
+    'explicit new period resets only that room cumulative and accepted ledger',
+    () {
+      final a = LiveIntimacyWatchProgress();
+      final b = LiveIntimacyWatchProgress();
+      LiveFanTask task(String period) => LiveFanTask(
+        name: '观看直播满15分钟',
+        description: '',
+        jumpType: 'watchLive',
+        completed: false,
+        currentCount: 0,
+        targetCount: 10,
+        dailyRewardProgress: true,
+        period: period,
+      );
+      for (final progress in [a, b]) {
+        progress
+          ..synchronize([task('cycle1')], DateTime(2026, 10, 3))
+          ..effectiveDuration = const Duration(seconds: 123)
+          ..reportedSeconds = 120;
+      }
+      a.synchronize([task('cycle2')], DateTime(2026, 10, 3, 1));
+      expect(a.effectiveDuration, Duration.zero);
+      expect(a.reportedSeconds, 0);
+      expect(b.effectiveDuration, const Duration(seconds: 123));
+      expect(b.reportedSeconds, 120);
+    },
+  );
+
   test('initial round fraction stays unknown despite growing decoded time', () {
     final progress = LiveIntimacyWatchProgress()
       ..synchronize([watch()], DateTime(2026, 10, 3))

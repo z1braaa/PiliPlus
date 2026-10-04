@@ -309,10 +309,14 @@ abstract final class LiveInteractionParser {
     Map<String, dynamic> relation,
     Map<int, Map<String, dynamic>> configs,
     int roomId,
-    int anchorUid,
-  ) {
+    int anchorUid, {
+    List<LiveMedal> ownedMedals = const [],
+  }) {
     final club = liveMap(relation['fans_club_info']);
-    final level = liveInt(activated['level'] ?? club['level']);
+    final owned = ownedMedals
+        .where((medal) => medal.targetUid == anchorUid && medal.level > 0)
+        .firstOrNull;
+    final level = owned?.level ?? liveInt(activated['level'] ?? club['level']);
     LiveGift? ruleGift(Object? value, String discountKey) {
       final raw = liveMap(value);
       final discount = liveMap(raw[discountKey]);
@@ -337,8 +341,8 @@ abstract final class LiveInteractionParser {
     return LiveFanStatus(
       joined: level == null ? null : level > 0,
       level: level,
-      name: activated['medal_name']?.toString() ?? '',
-      isLighted: liveBool(activated['is_lighted']),
+      name: owned?.name ?? activated['medal_name']?.toString() ?? '',
+      isLighted: owned?.isLighted ?? liveBool(activated['is_lighted']),
       intimacy: liveInt(activated['intimacy']),
       nextIntimacy: liveInt(activated['next_intimacy']),
       joinGift: ruleGift(club['fans_club_gift'], 'discount_info'),

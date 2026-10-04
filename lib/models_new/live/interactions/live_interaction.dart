@@ -210,7 +210,12 @@ class LiveFanTaskSnapshot {
   final int accountUid;
   final Object accountIdentity;
   final bool? joined;
+  final bool? medalLighted;
   final List<LiveFanTask> tasks;
+
+  /// Certified by two independent reads when the server supplies no period.
+  /// Internal journal namespaces only; these are not official period IDs.
+  final Map<String, int> confirmedLocalCycles;
   const LiveFanTaskSnapshot({
     required this.roomId,
     required this.anchorUid,
@@ -218,6 +223,8 @@ class LiveFanTaskSnapshot {
     required this.accountIdentity,
     required this.tasks,
     this.joined,
+    this.medalLighted,
+    this.confirmedLocalCycles = const {},
   });
 }
 

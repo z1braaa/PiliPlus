@@ -11,6 +11,8 @@ import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/accounts/saved_account_profile.dart';
+import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -101,9 +103,24 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   }
 
   Future<void> queryUserInfo() async {
+    final account = Accounts.main;
     final res = await UserHttp.userInfo();
+    if (!identical(account, Accounts.main)) return;
     if (res case Success(:final response)) {
-      if (response.isLogin == true) {
+      if (response.isLogin == true && response.mid == account.mid) {
+        if (account is LoginAccount) {
+          await Accounts.updateSavedProfile(
+            account,
+            account.profile.copyWith(
+              name: response.uname,
+              avatar: response.face,
+              loginState: SavedAccountLoginState.verified,
+              checkedAt: DateTime.now(),
+              checkFailed: false,
+            ),
+          );
+          if (!identical(account, Accounts.main)) return;
+        }
         userInfo.value = response;
         if (response != Pref.userInfoCache) {
           GStorage.userInfo.put('userInfoCache', response);
@@ -126,10 +143,27 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     queryUserStatOwner();
   }
 
-  void _onLogoutMain() => Accounts.deleteAll({Accounts.main});
+  Future<void> _onLogoutMain() async {
+    final account = Accounts.main;
+    if (account is LoginAccount) {
+      await Accounts.updateSavedProfile(
+        account,
+        account.profile.copyWith(
+          loginState: SavedAccountLoginState.expired,
+          checkedAt: DateTime.now(),
+          checkFailed: false,
+        ),
+      );
+    }
+    if (identical(account, Accounts.main)) {
+      await LoginUtils.onLogoutMain(account);
+    }
+  }
 
   Future<void> queryUserStatOwner() async {
+    final account = Accounts.main;
     final res = await UserHttp.userStatOwner();
+    if (!identical(account, Accounts.main)) return;
     if (res case Success(:final response)) {
       userStat.value = response;
     }
@@ -231,8 +265,10 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
         }
         res == true
             ? Accounts.set(AccountType.heartbeat, AnonymousAccount())
-            : Accounts.accountMode[AccountType.heartbeat.index] =
-                  AnonymousAccount();
+            : Accounts.setTemporaryRole(
+                AccountType.heartbeat,
+                AnonymousAccount(),
+              );
       });
     } else {
       Accounts.set(AccountType.heartbeat, Accounts.main);

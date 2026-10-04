@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/grpc_headers.dart';
+import 'package:PiliPlus/utils/accounts/saved_account_profile.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
@@ -55,6 +56,9 @@ class LoginAccount extends Account {
   @HiveField(3)
   final Set<AccountType> type;
 
+  @HiveField(4)
+  SavedAccountProfile profile;
+
   @override
   bool activated = false;
 
@@ -78,16 +82,30 @@ class LoginAccount extends Account {
       cookieJar.domainCookies['bilibili.com']!['/']!['bili_jct']!.cookie.value;
 
   bool _hasDelete = false;
+  bool _superseded = false;
+
+  /// A late cookie/profile response from replaced credentials must not restore
+  /// those credentials over a newer login for the same UID.
+  void markSuperseded() => _superseded = true;
+
+  /// Only used when a replacement could not be durably saved. A deliberate
+  /// removal cannot be reversed by this rollback.
+  bool restoreAfterFailedReplacement() {
+    if (_hasDelete) return false;
+    _superseded = false;
+    return true;
+  }
 
   @override
   Future<void> delete() {
     _hasDelete = true;
+    if (_superseded) return cookieJar.deleteAll();
     return Future.wait([cookieJar.deleteAll(), _box.delete(_midStr)]);
   }
 
   @override
   Future<void>? onChange() {
-    if (_hasDelete) return null;
+    if (_hasDelete || _superseded) return null;
     return _box.put(_midStr, this);
   }
 
@@ -97,6 +115,7 @@ class LoginAccount extends Account {
     'accessKey': accessKey,
     'refresh': refresh,
     'type': type.map((i) => i.index).toList(),
+    'profile': profile.toJson(),
   };
 
   late final String _midStr = cookieJar
@@ -111,7 +130,9 @@ class LoginAccount extends Account {
     this.accessKey,
     this.refresh, [
     Set<AccountType>? type,
-  ]) : type = type ?? {} {
+    SavedAccountProfile? profile,
+  ]) : type = type ?? {},
+       profile = profile ?? const SavedAccountProfile() {
     cookieJar.setBuvid3();
   }
 
@@ -120,6 +141,7 @@ class LoginAccount extends Account {
     json['accessKey'],
     json['refresh'],
     (json['type'] as Iterable?)?.map((i) => AccountType.values[i]).toSet(),
+    SavedAccountProfile.fromJson(json['profile'] as Map?),
   );
 
   @override

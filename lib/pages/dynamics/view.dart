@@ -6,6 +6,7 @@ import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/up_panel.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/live_intimacy_statistics_entry.dart';
 import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_tab/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
@@ -78,18 +79,44 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
 
   Widget _buildUpPanel(LoadingState<FollowUpModel> upState) {
     return switch (upState) {
-      Loading() => const SizedBox.shrink(),
+      Loading() => _upPanelFallback(loading: true),
       Success(:final response) => UpPanel(
         upData: response,
         dynamicsController: _dynamicsController,
       ),
-      Error() => Center(
-        child: IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _dynamicsController.onReload,
-        ),
-      ),
+      Error() => _upPanelFallback(loading: false),
     };
+  }
+
+  Widget _upPanelFallback({required bool loading}) {
+    final isTop = upPanelPosition == .top;
+    return ListView(
+      scrollDirection: isTop ? Axis.horizontal : Axis.vertical,
+      children: [
+        LiveIntimacyStatisticsEntry(
+          expandSetting: _dynamicsController.livePanelExpansionSetting,
+          isTop: isTop,
+        ),
+        if (loading)
+          const SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else
+          IconButton(
+            tooltip: '刷新关注UP列表',
+            icon: const Icon(Icons.refresh),
+            onPressed: _dynamicsController.onReload,
+          ),
+      ],
+    );
   }
 
   bool get checkPage =>

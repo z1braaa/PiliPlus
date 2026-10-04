@@ -7,6 +7,7 @@ import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/retry_interceptor.dart';
 import 'package:PiliPlus/models_new/live/interactions/live_interaction.dart';
 import 'package:PiliPlus/models_new/live/interactions/live_interaction_parser.dart';
+import 'package:PiliPlus/services/live_medal_reader.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
@@ -327,12 +328,34 @@ class LiveInteractionService {
       throw const LiveInteractionException('官方任务字段尚未取得，自动操作暂停');
     }
     final level = liveInt(data['level']);
+    bool? joined = level != null && level > 0 ? true : null;
+    bool? lighted = liveBool(data['is_lighted']);
+    if (joined != true) {
+      try {
+        final medal = await readLiveMedalForAnchor(
+          read: (path, query) async => {
+            'code': 0,
+            'data': await _get(path, query, account),
+          },
+          roomId: roomId,
+          anchorUid: anchorUid,
+        );
+        _guard(account);
+        joined = medal != null;
+        // A personal medal read is authoritative even when its lighted state
+        // differs from the activated-medal endpoint.
+        lighted = medal?.isLighted;
+      } on LiveMedalReadException catch (error) {
+        throw LiveInteractionException(error.message);
+      }
+    }
     return LiveFanTaskSnapshot(
       roomId: roomId,
       anchorUid: anchorUid,
       accountUid: account.uid,
       accountIdentity: account.identity,
-      joined: level == null ? null : level > 0,
+      joined: joined,
+      medalLighted: lighted,
       tasks: LiveInteractionParser.fanTasks(data['task_info']),
     );
   }
@@ -631,6 +654,7 @@ class LiveInteractionService {
               LiveInteractionParser.giftConfigs(catalog),
               roomId,
               anchorUid,
+              ownedMedals: LiveInteractionParser.medals(data[2]),
             )
           : null,
       wallet: wallet.isNotEmpty

@@ -11,6 +11,7 @@ import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
+import 'package:PiliPlus/models_new/live/interactions/live_interaction_parser.dart';
 import 'package:PiliPlus/services/live_automation_coordinator.dart';
 import 'package:PiliPlus/services/live_intimacy_discovery.dart';
 import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
@@ -52,10 +53,16 @@ class _QuietAccountManager extends AccountManager {
 }
 
 class _SelectedRoom {
-  const _SelectedRoom(this.candidate, this.preferences, this.before);
+  const _SelectedRoom(
+    this.candidate,
+    this.preferences,
+    this.before,
+    this.observedAt,
+  );
   final LiveIntimacyCandidate candidate;
   final LiveIntimacyRoomPreferences preferences;
   final List<LiveFanTask> before;
+  final DateTime observedAt;
 }
 
 Map<String, Object?> _safeTasks(List<LiveFanTask> tasks) => {
@@ -71,6 +78,7 @@ Map<String, Object?> _safeTasks(List<LiveFanTask> tasks) => {
         'target': task.targetCount,
         'completion_only': task.completionOnly,
         'daily_reward_progress': task.dailyRewardProgress,
+        'has_explicit_period': task.period.isNotEmpty,
         if (kind == 'watchLive')
           'threshold_seconds': LiveIntimacyWatchProgress.thresholdFor(task),
       };
@@ -143,35 +151,35 @@ Map<String, Object?> _featureEvidence(
     }(),
 };
 
-String? _pauseCategory(String? reason) {
-  if (reason == null) return null;
-  const audioReasons = {
-    '仅音频会话初始化失败，已暂停此房间': 'audio_initialization_failed',
-    '后台音频静音状态未确认': 'audio_silent_output_unconfirmed',
-    '仅音频流暂时不可用': 'audio_stream_unavailable',
-    '官方未提供仅音频地址': 'audio_address_missing',
-    '仅音频请求返回了视频轨道，已暂停此房间': 'audio_video_track_returned',
-    '仅音频播放失败，已暂停此房间': 'audio_playback_failed',
-    // Production intentionally exposes one combined message. Do not infer
-    // whether the failed prerequisite was stream continuity or audio decode.
-    '仅音频持续断流或无法确认解码，已暂停此房间': 'audio_stream_or_decode_unconfirmed',
-    '音频房间身份或开播状态已变化': 'audio_room_identity_or_live_state_changed',
+String? _pauseCategory(String? reason) =>
+    liveSchedulerSafeStateReason(reason)['category'] as String?;
+
+Map<String, Object?> _roomDiagnostics(LiveIntimacyRoomState? state) {
+  final reasons = {
+    'watch_pause': state?.watchPauseReason,
+    'common_pause': state?.pauseReason,
+    'interaction_pause': state?.interactionPauseReason,
+    'record_restore_error': state?.recordRestoreError,
+    'record_save_error': state?.recordSaveError,
   };
-  final audio = audioReasons[reason];
-  if (audio != null) return audio;
-  if (reason.contains('观时') || reason.contains('观看')) {
-    return 'watch_rule_or_settlement_unconfirmed';
-  }
-  if (reason.contains('表情')) {
-    return 'emoticon_permission_unconfirmed';
-  }
-  if (reason.contains('账号')) {
-    return 'account_identity_or_privacy_changed';
-  }
-  if (reason.contains('资格')) {
-    return 'room_qualification_unconfirmed';
-  }
-  return 'task_paused';
+  return {
+    for (final entry in reasons.entries) ...{
+      '${entry.key}_present': entry.value != null,
+      '${entry.key}_category': liveSchedulerSafeStateReason(
+        entry.value,
+      )['category'],
+      '${entry.key}_reason': liveSchedulerSafeStateReason(
+        entry.value,
+      )['message'],
+    },
+    'watch_running': state?.watchRunning,
+    'interaction_running': state?.interactionRunning,
+    'official_fresh': state?.officialFresh,
+    'official_cycle_uncertain': state?.officialCycle.uncertain,
+    'candidate_live': state?.candidate?.live,
+    'candidate_followed': state?.candidate?.followed,
+    'candidate_medal_owned': state?.candidate?.medalOwned,
+  };
 }
 
 void main() {
@@ -179,13 +187,20 @@ void main() {
     'explicitly authorized native background scheduler acceptance',
     () async {
       final result = <String, dynamic>{
-        'schema_version': 1,
+        'schema_version': 3,
         'status': 'starting',
-        'scope': 'two_selected_rooms_likes_first_fan_emote_watch_only',
+        'started_utc': DateTime.now().toUtc().toIso8601String(),
+        'started_client_calendar_utc_plus_8': DateTime.now()
+            .toUtc()
+            .add(const Duration(hours: 8))
+            .toIso8601String()
+            .substring(0, 10),
+        'scope': 'two_selected_rooms_independent_interactions_single_watch_first_fan_emote',
         'gui_verified': false,
         'native_foreground_is_route_hint_simulation': true,
         'two_room_watch_settlement': 'not_observed',
         'automatic_completion_transfer': 'not_observed',
+        'dual_queue_interactions_during_other_room_watch': 'not_observed',
         'bounded_lighting_phase_stop': false,
         'new_daily_phase_observed': false,
       };
@@ -202,6 +217,7 @@ void main() {
       var stage = 'explicit_authorization';
       final requestClock = Stopwatch()..start();
       final aliases = <int, String>{};
+      final medalLightingByAnchor = <int, bool?>{};
       LiveSchedulerAcceptanceWriteGuard? writeGuard;
       LoginAccount? authorizedAccount;
       int? authorizedGeneration;
@@ -210,12 +226,35 @@ void main() {
       void Function()? inspectBoundedLighting;
       Future<void>? boundedLightingStop;
       var boundedLightingStopFailed = false;
-      int? previousActivatedRoom;
+      final activatedInteractionRooms = <int>{};
       int? frontRoomId;
       final writeStatistics = <String, Map<String, int>>{};
+      final acceptedEvents = <Map<String, Object?>>[];
+      result['accepted_request_events_not_official_progress'] = acceptedEvents;
+      final requestCounts = <String, int>{};
+      result['allowed_request_method_counts'] = requestCounts;
       var writesEnabled = false;
       var rejectedRequests = 0;
-      var nativeError = false;
+      final nativeErrorMonitor = LiveSchedulerNativeErrorMonitor();
+      final nativeErrorEvents = <Map<String, Object?>>[];
+      result['native_error_events'] = nativeErrorEvents;
+      var frontUserPaused = false;
+      final roomReasonEvents = <Map<String, Object?>>[];
+      final lastRoomDiagnostics = <int, String>{};
+      result['room_reason_change_events'] = roomReasonEvents;
+
+      void activateInteractions() {
+        for (final state in scheduler?.rooms ?? <LiveIntimacyRoomState>[]) {
+          if (state.interactionRunning &&
+              explicitlyAuthorizedRooms.contains(state.roomId) &&
+              activatedInteractionRooms.add(state.roomId)) {
+            writeGuard?.activateRoom(
+              state.roomId,
+              requestClock.elapsedMilliseconds,
+            );
+          }
+        }
+      }
 
       void record() {
         final path = config?.reportPath;
@@ -230,6 +269,57 @@ void main() {
           result['status'] = 'failed';
           result['failure_stage'] = 'report_write';
         }
+      }
+
+      void observeRoomReasons() {
+        final active = scheduler;
+        if (active == null) return;
+        for (final state in active.rooms) {
+          final alias = aliases[state.roomId];
+          if (alias == null) continue;
+          final diagnostics = {
+            ..._roomDiagnostics(state),
+            'background_target': aliases[active.currentRoom?.roomId],
+            'background_owns_watch': active.ownsWatchReporter,
+          };
+          final fingerprint = jsonEncode(diagnostics);
+          if (lastRoomDiagnostics[state.roomId] == fingerprint) continue;
+          lastRoomDiagnostics[state.roomId] = fingerprint;
+          if (roomReasonEvents.length >= 1024) {
+            result['room_reason_change_event_limit_reached'] = true;
+            continue;
+          }
+          roomReasonEvents.add({
+            'request_elapsed_milliseconds': requestClock.elapsedMilliseconds,
+            'room_alias': alias,
+            ...diagnostics,
+          });
+          record();
+        }
+      }
+
+      Future<bool> requestedStop() async {
+        final path = config!.stopMarkerPath;
+        if (Link(path).existsSync()) {
+          throw const _Failure('stop_marker_symlink_rejected');
+        }
+        if (!File(path).existsSync()) return false;
+        result['observation_end'] = 'operator_requested_graceful_stop';
+        result['operator_stop_marker_observed'] = true;
+        frontSamples?.cancel();
+        foreground?.updatePlayback(
+          playing: false,
+          buffering: true,
+          live: true,
+        );
+        final active = scheduler;
+        if (active != null) {
+          await active.savePreferences(
+            active.preferences.copyWith(enabled: false),
+          );
+        }
+        writesEnabled = false;
+        return true;
       }
 
       int? watchRoom(RequestOptions options) =>
@@ -271,17 +361,31 @@ void main() {
                 ? scheduler?.ownsWatchReporter == true &&
                       scheduler?.currentRoom?.roomId == roomId
                 : roomId == frontRoomId;
+            final state = scheduler?.stateFor(roomId, scope.anchorUid);
+            final kind = options.uri.path == '/msg/send' ? 'sendDanmu' : 'like';
+            final matchingTasks = state?.tasks
+                .where((task) => task.jumpType == kind)
+                .toList();
+            final interactionConfirmed =
+                saved.enabled &&
+                state?.candidate?.eligible == true &&
+                state?.officialFresh == true &&
+                state?.officialCycle.uncertain == false &&
+                state?.pauseReason == null &&
+                matchingTasks?.length == 1 &&
+                matchingTasks!.single.completed == false &&
+                (matchingTasks.single.remainingCount ?? 0) > 0;
             return room != null &&
                 room.authorized &&
                 room.automation.autoLike &&
                 room.automation.autoDanmaku &&
                 room.automation.danmakuMode == LiveTaskDanmakuMode.emoticon &&
-                room.emoticons.length == 1 &&
-                room.emoticons.single.unique == scope.emoticon &&
-                (!interactive ||
-                    saved.enabled &&
-                        scheduler?.currentRoom?.roomId == roomId &&
-                        scheduler?.ownsWatchReporter == true) &&
+                room.emoticons.length == scope.permittedEmoticons.length &&
+                room.emoticons.every(
+                  (emoticon) =>
+                      scope.permittedEmoticons.contains(emoticon.unique),
+                ) &&
+                (!interactive || interactionConfirmed) &&
                 (interactive ||
                     watchOwnerConfirmed ||
                     config?.diagnosticRoomEntry == true &&
@@ -296,6 +400,13 @@ void main() {
       void observeResponse(Response<dynamic> response) {
         final options = response.requestOptions;
         if (options.method == 'GET' && _map(response.data)['code'] == 0) {
+          if (options.uri.path == '/xlive/app-ucenter/v1/fansMedal/panel') {
+            for (final medal in LiveInteractionParser.medals(
+              _map(_map(response.data)['data']),
+            )) {
+              medalLightingByAnchor[medal.targetUid] = medal.isLighted;
+            }
+          }
           if (options.uri.path == '/room/v1/Room/room_init') {
             result['room_init_observed'] = true;
           }
@@ -323,7 +434,20 @@ void main() {
             }
           }
         }
-        if (options.method != 'POST' || _map(response.data)['code'] != 0) {
+        if (options.method != 'POST') {
+          return;
+        }
+        if (_map(response.data)['code'] != 0) {
+          (result.putIfAbsent(
+            'server_rejected_posts',
+            () => <Map<String, Object?>>[],
+          ) as List<Map<String, Object?>>).add({
+            'elapsed_milliseconds': requestClock.elapsedMilliseconds,
+            'host': options.uri.host,
+            'path': options.uri.path,
+            'http_status': response.statusCode,
+            'server_code': _integer(_map(response.data)['code']),
+          });
           return;
         }
         final body = _map(options.data);
@@ -348,6 +472,17 @@ void main() {
           options.data,
         );
         statistics[key] = (statistics[key] ?? 0) + amount;
+        acceptedEvents.add({
+          'elapsed_milliseconds': requestClock.elapsedMilliseconds,
+          'room': alias,
+          'kind': key,
+          'accepted_amount': amount,
+          if (options.uri.path == '/msg/send') 'fan_emoticon': body['msg'],
+          'watch_room': aliases[scheduler?.currentRoom?.roomId],
+          'watch_owner': scheduler?.ownsWatchReporter == true,
+          'interaction_room':
+              aliases[scheduler?.currentInteractionRoom?.roomId],
+        });
       }
 
       try {
@@ -357,6 +492,16 @@ void main() {
         result['native_source'] = config.nativeSource;
         result['diagnostic_room_entry'] = config.diagnosticRoomEntry;
         result['requested_window_seconds'] = config.seconds;
+        result['interaction_hard_limits'] = config.interactionLimits;
+        result['requested_fan_emote_pool_size'] = config.fanEmotePoolSize;
+        result['watch_only_no_interaction_writes'] = config.watchOnly;
+        if (config.fanEmotePoolSize > 1) {
+          result['emoticon_test_authorization'] =
+              'one_to_five_available_anchor_fan_club_emoticons_no_text';
+        }
+        result['watch_priority_scenario'] = config.keepBWatchPriority
+            ? 'A_first_180_seconds_then_B_until_observation_end'
+            : 'A_then_B_preemption_then_A_restore';
         if (config.singleRoom) {
           result['scope'] = 'single_selected_room_background_audio_first_fan_emote_initial_budgets_only';
           result['native_foreground_is_route_hint_simulation'] = false;
@@ -434,6 +579,11 @@ void main() {
                   ),
                 );
               } else {
+                requestCounts.update(
+                  options.method,
+                  (count) => count + 1,
+                  ifAbsent: () => 1,
+                );
                 handler.next(options);
               }
             },
@@ -550,6 +700,31 @@ void main() {
               ? null
               : found.any((room) => room.roomId == config!.preferredA),
         };
+        result['eligible_medal_lighting_read_only'] = {
+          'lighting_source': 'existing_complete_personal_medal_panel_reads',
+          'unlit_public_samples': [
+            for (final candidate in found)
+              if (medalLightingByAnchor[candidate.anchorUid] == false)
+                {
+                  'room_id': candidate.roomId,
+                  'anchor_uid': candidate.anchorUid,
+                  'medal_level': candidate.medalLevel,
+                },
+          ],
+          'lighted_count': found
+              .where(
+                (candidate) =>
+                    medalLightingByAnchor[candidate.anchorUid] == true,
+              )
+              .length,
+          'lighting_unconfirmed_count': found
+              .where(
+                (candidate) =>
+                    medalLightingByAnchor[candidate.anchorUid] == null,
+              )
+              .length,
+          'did_not_activate_wear_join_or_send_gifts': true,
+        };
         final selectionChecks = <String, int>{};
         result['selection_checks'] = selectionChecks;
         void checked(String reason) => selectionChecks.update(
@@ -594,6 +769,7 @@ void main() {
           );
           readers.add(reader);
           final tasks = await reader.loadFanTasks();
+          final taskObservedAt = DateTime.now().toUtc();
           final selectingA = selected.isEmpty;
           final watchCount = tasks.tasks
               .where((task) => task.jumpType == 'watchLive')
@@ -621,6 +797,22 @@ void main() {
           if (!selectingA && watchCount == 0) {
             checked('b_missing_watch_allowed_known_interactions_only');
           }
+          if (watchCount == 1 &&
+              liveIntimacyTaskCompleted(tasks.tasks, 'watchLive')) {
+            checked('watch_already_complete_not_watch_queue_sample');
+            continue;
+          }
+          final interactionsComplete = const ['like', 'sendDanmu'].every(
+            (kind) => liveIntimacyTaskCompleted(tasks.tasks, kind),
+          );
+          if (config.watchOnly && !interactionsComplete) {
+            checked('watch_only_requires_both_interactions_complete');
+            continue;
+          }
+          if (!config.watchOnly && interactionsComplete) {
+            checked('interactions_already_complete_not_dual_queue_sample');
+            continue;
+          }
           final expressions = await get(
             '/xlive/web-ucenter/v2/emoticon/GetEmoticons',
             {
@@ -635,25 +827,34 @@ void main() {
           final first = liveSchedulerFirstFanEmoticon(
             _map(expressions['data'])['data'],
           );
-          if (first == null) {
+          if (first == null && config.fanEmotePoolSize == 1) {
             checked('first_emoticon_unavailable');
             continue;
           }
+          final expectedPoolSize = config.fanEmotePoolSize;
           final pool = (await reader.loadTaskEmoticons())
               .where(
                 (option) =>
                     option.available &&
                     option.isFanClub &&
-                    option.unique == first,
+                    (expectedPoolSize > 1 || option.unique == first),
               )
+              .take(config.fanEmotePoolSize)
               .toList();
-          if (pool.length != 1) {
+          if (pool.length != expectedPoolSize ||
+              pool.map((option) => option.unique).toSet().length !=
+                  expectedPoolSize) {
             checked('first_emoticon_recheck_unavailable');
             continue;
           }
           checked('first_emoticon_available');
-          _interactionBudget(tasks.tasks, 'like');
-          _interactionBudget(tasks.tasks, 'sendDanmu');
+          try {
+            _interactionBudget(tasks.tasks, 'like');
+            _interactionBudget(tasks.tasks, 'sendDanmu');
+          } on _Failure {
+            checked('interaction_budget_unconfirmed');
+            continue;
+          }
           final configuration = seed.copyWith(
             roomId: verified.roomId,
             automation: const LiveTaskAutomationPreferences(
@@ -664,10 +865,11 @@ void main() {
               maxIntervalSeconds: 60,
             ),
             emoticons: [
-              LiveIntimacyEmoticonSelection(
-                unique: pool.first.unique,
-                label: pool.first.label,
-              ),
+              for (final expression in pool)
+                LiveIntimacyEmoticonSelection(
+                  unique: expression.unique,
+                  label: expression.label,
+                ),
             ],
           );
           if (reservedB != null &&
@@ -675,7 +877,9 @@ void main() {
               verified.roomId != reservedB) {
             continue;
           }
-          selected.add(_SelectedRoom(verified, configuration, tasks.tasks));
+          selected.add(
+            _SelectedRoom(verified, configuration, tasks.tasks, taskObservedAt),
+          );
           if (selected.length == requiredRooms) break;
         }
         if (selected.length != requiredRooms ||
@@ -696,6 +900,47 @@ void main() {
         }
         result['selected_rooms_count'] = requiredRooms;
         result['selection_follow_medal_live_confirmed'] = true;
+        result['selected_public_rooms'] = [
+          for (var i = 0; i < selected.length; ++i)
+            {
+              'alias': i == 0 ? 'A' : 'B',
+              'room_id': selected[i].candidate.roomId,
+              'anchor_uid': selected[i].candidate.anchorUid,
+              'medal_level': selected[i].candidate.medalLevel,
+              (config.fanEmotePoolSize == 1
+                      ? 'first_fan_emoticon'
+                      : 'selected_first_fan_emoticon'):
+                  selected[i].preferences.emoticons.first.unique,
+              (config.fanEmotePoolSize == 1
+                      ? 'first_fan_emoticon_label'
+                      : 'selected_first_fan_emoticon_label'):
+                  selected[i].preferences.emoticons.first.label,
+              'selected_fan_emoticons': [
+                for (final expression in selected[i].preferences.emoticons)
+                  {'unique': expression.unique, 'label': expression.label},
+              ],
+              'initial_like_click_budget': _interactionBudget(
+                selected[i].before,
+                'like',
+              ),
+              'initial_emote_budget': _interactionBudget(
+                selected[i].before,
+                'sendDanmu',
+              ),
+              'admitted_like_click_budget': config.limitedInteractionBudget(
+                i == 0 ? 'A' : 'B',
+                'like',
+                _interactionBudget(selected[i].before, 'like'),
+              ),
+              'admitted_emote_budget': config.limitedInteractionBudget(
+                i == 0 ? 'A' : 'B',
+                'sendDanmu',
+                _interactionBudget(selected[i].before, 'sendDanmu'),
+              ),
+              'official_read_completed_utc': selected[i].observedAt
+                  .toIso8601String(),
+            },
+        ];
         result['before'] = {
           for (var i = 0; i < selected.length; ++i)
             (i == 0 ? 'A' : 'B'): _safeTasks(selected[i].before),
@@ -716,14 +961,31 @@ void main() {
           result['status'] = 'read_only_selected';
           result['harness_completed'] = true;
         } else if (config.singleRoom) {
+          if (config.watchOnly) {
+            result['scope'] = 'single_selected_room_watch_only_background_audio_no_interactions';
+          } else if (config.fanEmotePoolSize > 1) {
+            result['scope'] = 'single_selected_room_background_audio_selected_fan_emoticon_pool_initial_budgets_only';
+          }
           final a = selected.single;
           aliases[a.candidate.roomId] = 'A';
           writeGuard = LiveSchedulerAcceptanceWriteGuard({
             a.candidate.roomId: LiveSchedulerAcceptanceRoomScope(
               anchorUid: a.candidate.anchorUid,
-              emoticon: a.preferences.emoticons.single.unique,
-              likeClicks: _interactionBudget(a.before, 'like'),
-              danmakuCount: _interactionBudget(a.before, 'sendDanmu'),
+              emoticon: a.preferences.emoticons.first.unique,
+              additionalEmoticons: a.preferences.emoticons
+                  .skip(1)
+                  .map((expression) => expression.unique)
+                  .toSet(),
+              likeClicks: config.limitedInteractionBudget(
+                'A',
+                'like',
+                _interactionBudget(a.before, 'like'),
+              ),
+              danmakuCount: config.limitedInteractionBudget(
+                'A',
+                'sendDanmu',
+                _interactionBudget(a.before, 'sendDanmu'),
+              ),
             ),
           }, diagnosticRoomEntry: config.diagnosticRoomEntry);
           stage = 'explicit_single_room_authorization';
@@ -731,16 +993,8 @@ void main() {
           final activeScheduler = scheduler = LiveIntimacyScheduler.instance
             ..start();
           targetListener = () {
-            final current = activeScheduler.currentRoom?.roomId;
-            if (current != previousActivatedRoom) {
-              previousActivatedRoom = current;
-              if (current != null) {
-                writeGuard!.activateRoom(
-                  current,
-                  requestClock.elapsedMilliseconds,
-                );
-              }
-            }
+            activateInteractions();
+            observeRoomReasons();
           };
           activeScheduler
             ..addListener(targetListener)
@@ -786,11 +1040,13 @@ void main() {
             activeScheduler.preferences.copyWith(enabled: true),
           );
           final run = Stopwatch()..start();
+          result['run_started_utc'] = DateTime.now().toUtc().toIso8601String();
           final timeline = <Map<String, Object?>>[];
           result['timeline'] = timeline;
           stage = 'bounded_single_room_background_audio';
           var everEffectiveAudio = false;
           while (run.elapsed.inSeconds < config.seconds) {
+            if (await requestedStop()) break;
             await Future<void>.delayed(const Duration(seconds: 1));
             final state = activeScheduler.stateFor(
               a.candidate.roomId,
@@ -800,7 +1056,9 @@ void main() {
                 0) {
               everEffectiveAudio = true;
             }
-            final pauseCategory = _pauseCategory(state?.pauseReason);
+            final pauseCategory = _pauseCategory(
+              state?.watchPauseReason ?? state?.pauseReason,
+            );
             if (run.elapsed.inSeconds % 5 == 0) {
               timeline.add({
                 'elapsed_seconds': run.elapsed.inSeconds,
@@ -813,6 +1071,7 @@ void main() {
                 'official_tasks': _safeTasks(state?.tasks ?? []),
                 'official_three_completed': state?.completed,
                 'pause_category': pauseCategory,
+                ..._roomDiagnostics(state),
               });
               result['status'] = 'single_room_running';
               record();
@@ -910,6 +1169,9 @@ void main() {
               'single_room_only_no_two_room_transfer_or_gui_acceptance';
           result['harness_completed'] = true;
         } else {
+          if (config.fanEmotePoolSize > 1) {
+            result['scope'] = 'two_selected_rooms_independent_interactions_single_watch_selected_fan_emoticon_pools';
+          }
           final a = selected[0];
           final b = selected[1];
           frontRoomId = a.candidate.roomId;
@@ -918,12 +1180,24 @@ void main() {
             aliases[room] = i == 0 ? 'A' : 'B';
           }
           writeGuard = LiveSchedulerAcceptanceWriteGuard({
-            for (final item in selected)
-              item.candidate.roomId: LiveSchedulerAcceptanceRoomScope(
-                anchorUid: item.candidate.anchorUid,
-                emoticon: item.preferences.emoticons.single.unique,
-                likeClicks: _interactionBudget(item.before, 'like'),
-                danmakuCount: _interactionBudget(item.before, 'sendDanmu'),
+            for (var i = 0; i < selected.length; ++i)
+              selected[i].candidate.roomId: LiveSchedulerAcceptanceRoomScope(
+                anchorUid: selected[i].candidate.anchorUid,
+                emoticon: selected[i].preferences.emoticons.first.unique,
+                additionalEmoticons: selected[i].preferences.emoticons
+                    .skip(1)
+                    .map((expression) => expression.unique)
+                    .toSet(),
+                likeClicks: config.limitedInteractionBudget(
+                  i == 0 ? 'A' : 'B',
+                  'like',
+                  _interactionBudget(selected[i].before, 'like'),
+                ),
+                danmakuCount: config.limitedInteractionBudget(
+                  i == 0 ? 'A' : 'B',
+                  'sendDanmu',
+                  _interactionBudget(selected[i].before, 'sendDanmu'),
+                ),
               ),
           });
           stage = 'explicit_two_room_authorization';
@@ -1018,17 +1292,9 @@ void main() {
             }
           };
           targetListener = () {
-            final current = activeScheduler.currentRoom?.roomId;
-            if (current != previousActivatedRoom) {
-              previousActivatedRoom = current;
-              if (current != null) {
-                writeGuard!.activateRoom(
-                  current,
-                  requestClock.elapsedMilliseconds,
-                );
-              }
-            }
+            activateInteractions();
             inspectBoundedLighting?.call();
+            observeRoomReasons();
           };
           activeScheduler.addListener(targetListener);
           for (final room in selected) {
@@ -1111,7 +1377,21 @@ void main() {
             );
           await native.setVolume(0);
           subscriptions.add(
-            native.stream.error.listen((_) => nativeError = true),
+            native.stream.error.listen((error) {
+              final elapsed = requestClock.elapsedMilliseconds;
+              nativeErrorMonitor.error(elapsed);
+              // Bound report size even if a damaged stream repeats one error.
+              if (nativeErrorEvents.length < 32) {
+                nativeErrorEvents.add({
+                  ...liveSchedulerNativeErrorCategory(error),
+                  'elapsed_milliseconds': elapsed,
+                  'native_playing': native.state.playing,
+                  'native_buffering': native.state.buffering,
+                  'native_completed': native.state.completed,
+                  'position_milliseconds': native.state.position.inMilliseconds,
+                });
+              }
+            }),
           );
           await native.open(Media(media), play: false);
           if (double.tryParse(native.getProperty('volume')) != 0 ||
@@ -1140,22 +1420,28 @@ void main() {
             lastPosition = position;
             lastClock = now;
             frontValid =
-                !nativeError &&
                 native.state.playing &&
                 !native.state.buffering &&
                 !native.state.completed &&
                 advance &&
                 (native.state.audioParams.sampleRate ?? 0) > 0 &&
                 (native.state.videoParams.w ?? 0) > 0;
+            nativeErrorMonitor.sample(
+              elapsedMilliseconds: requestClock.elapsedMilliseconds,
+              effectivePlayback: frontValid,
+              userPaused: frontUserPaused,
+            );
             foregroundSession.updatePlayback(
               playing: frontValid,
               buffering: native.state.buffering || !frontValid,
               live: true,
+              position: native.state.position,
             );
           });
           writesEnabled = true;
           await native.play();
           final run = Stopwatch()..start();
+          result['run_started_utc'] = DateTime.now().toUtc().toIso8601String();
           activeScheduler.updateForeground(
             roomId: a.candidate.roomId,
             anchorUid: a.candidate.anchorUid,
@@ -1168,6 +1454,7 @@ void main() {
           var paused = false;
           var resumed = false;
           var preempted = false;
+          int? preemptedAt;
           var restoredPriority = false;
           var aPriorityObserved = false;
           var bPreemptionObserved = false;
@@ -1179,11 +1466,13 @@ void main() {
           var unfinishedAAfterRestoreObserved = false;
           var completedATransferPending = false;
           var bAtACompletion = 0;
+          final independentBInteractionKinds = <String>{};
           var aAtPause = 0;
           var foregroundCounterAtClaim =
               foregroundSession.watch.status.value.reportedSeconds;
           stage = 'bounded_production_scheduler_run';
           while (run.elapsed.inSeconds < config.seconds) {
+            if (await requestedStop()) break;
             await Future<void>.delayed(const Duration(seconds: 1));
             final elapsed = run.elapsed.inSeconds;
             final stateA = activeScheduler.stateFor(
@@ -1195,10 +1484,42 @@ void main() {
               b.candidate.anchorUid,
             );
             final target = aliases[activeScheduler.currentRoom?.roomId];
+            final interactionTarget =
+                aliases[activeScheduler.currentInteractionRoom?.roomId];
             final owner = activeScheduler.ownsWatchReporter;
-            if (target == 'A' && owner && stateA?.completed == false) {
+            final aWatchComplete =
+                stateA?.officialFresh == true &&
+                stateA?.watchProgress.periodConfirmed == true &&
+                stateA?.officialCycle.confirmedFor(const ['watchLive']) ==
+                    true &&
+                liveIntimacyTaskCompleted(stateA?.tasks ?? [], 'watchLive');
+            if (target == 'A' && owner && !aWatchComplete) {
               unfinishedARunObserved = true;
               if (restoredPriority) unfinishedAAfterRestoreObserved = true;
+            }
+            if (target == 'A' && owner && !preempted) {
+              for (final kind in const ['like', 'sendDanmu']) {
+                final evidence = _map(
+                  _featureEvidence(
+                    b.before,
+                    stateB?.tasks ?? [],
+                    writeStatistics['B'] ?? {},
+                  )[kind],
+                );
+                final acceptedKind = kind == 'like'
+                    ? 'accepted_like_clicks'
+                    : 'accepted_emote_requests';
+                if (evidence['official_progress_increased'] == true &&
+                    acceptedEvents.any(
+                      (event) =>
+                          event['room'] == 'B' &&
+                          event['kind'] == acceptedKind &&
+                          event['watch_room'] == 'A' &&
+                          event['watch_owner'] == true,
+                    )) {
+                  independentBInteractionKinds.add(kind);
+                }
+              }
             }
             if (target == 'A' &&
                 owner &&
@@ -1206,6 +1527,7 @@ void main() {
               aPriorityObserved = true;
             }
             if (!paused && elapsed >= 20 && aPriorityObserved) {
+              frontUserPaused = true;
               await native.pause();
               aAtPause = stateA!.watchProgress.effectiveDuration.inSeconds;
               paused = true;
@@ -1216,10 +1538,18 @@ void main() {
                   (stateA?.watchProgress.effectiveDuration.inSeconds ?? 0) >=
                       aAtPause + 10 &&
                   !native.state.playing;
+              frontUserPaused = false;
               await native.play();
               resumed = true;
             }
-            if (!preempted && resumed && elapsed >= 65) {
+            // Leave enough time for the global account cooldown to serve both
+            // rooms before exercising the separate watch preemption scenario.
+            if (!preempted &&
+                (resumed || config.keepBWatchPriority) &&
+                elapsed >= (config.keepBWatchPriority ? 180 : 65) &&
+                (config.keepBWatchPriority ||
+                    independentBInteractionKinds.length == 2 ||
+                    elapsed >= 180)) {
               foregroundCounterAtClaim =
                   foregroundSession.watch.status.value.reportedSeconds;
               activeScheduler.updateForeground(
@@ -1227,6 +1557,7 @@ void main() {
                 anchorUid: b.candidate.anchorUid,
               );
               preempted = true;
+              preemptedAt = elapsed;
             }
             if (preempted &&
                 target == 'B' &&
@@ -1247,7 +1578,11 @@ void main() {
                   foregroundSession.watch.status.value.reportedSeconds ==
                       foregroundCounterAtClaim;
             }
-            if (!restoredPriority && elapsed >= 125 && bPreemptionObserved) {
+            if (!restoredPriority &&
+                !config.keepBWatchPriority &&
+                preemptedAt != null &&
+                elapsed >= preemptedAt + 60 &&
+                bPreemptionObserved) {
               activeScheduler.updateForeground(
                 roomId: a.candidate.roomId,
                 anchorUid: a.candidate.anchorUid,
@@ -1258,14 +1593,14 @@ void main() {
                 !preempted && unfinishedARunObserved ||
                 restoredPriority && unfinishedAAfterRestoreObserved;
             if (automaticStage &&
-                stateA?.completed == true &&
+                aWatchComplete &&
                 !completedATransferPending) {
               completedATransferPending = true;
               bAtACompletion =
                   stateB?.watchProgress.effectiveDuration.inSeconds ?? 0;
             }
             // A cleared target during closing is not a successful transfer.
-            // Require new effective B playback after the official A completion,
+            // Require new effective B playback after official A watch completion,
             // without a B route hint causing that transfer.
             if (automaticStage &&
                 completedATransferPending &&
@@ -1275,15 +1610,21 @@ void main() {
                     bAtACompletion + 3) {
               automaticTransferObserved = true;
               result['automatic_completion_transfer'] =
-                  'official_three_tasks_complete_then_effective_b';
+                  'official_watch_complete_then_effective_b';
             }
             if (elapsed % 5 == 0) {
               timeline.add({
                 'elapsed_seconds': elapsed,
                 'background_target': target,
+                'interaction_target': interactionTarget,
                 'background_owns_watch': owner,
                 'foreground_native_playing': native.state.playing,
                 'foreground_native_valid_av': frontValid,
+                'foreground_native_error_state': nativeErrorMonitor.state,
+                'foreground_native_error_count':
+                    nativeErrorMonitor.observedErrors,
+                'foreground_native_effective_av_loss_observed':
+                    nativeErrorMonitor.effectiveAvLossObserved,
                 'foreground_watch_state':
                     foregroundSession.watch.status.value.state.name,
                 'foreground_reported_seconds':
@@ -1295,6 +1636,13 @@ void main() {
                   'official_tasks': _safeTasks(stateA?.tasks ?? []),
                   'official_three_completed': stateA?.completed,
                   'paused_reason_present': stateA?.pauseReason != null,
+                  'interaction_advancing': stateA?.canAdvanceInteraction,
+                  'interaction_paused': stateA?.interactionPauseReason != null,
+                  'watch_paused': stateA?.watchPauseReason != null,
+                  ..._roomDiagnostics(stateA),
+                  'accepted_requests': Map<String, int>.from(
+                    writeStatistics['A'] ?? {},
+                  ),
                 },
                 'B': {
                   'effective_seconds':
@@ -1303,13 +1651,20 @@ void main() {
                   'official_tasks': _safeTasks(stateB?.tasks ?? []),
                   'official_three_completed': stateB?.completed,
                   'paused_reason_present': stateB?.pauseReason != null,
+                  'interaction_advancing': stateB?.canAdvanceInteraction,
+                  'interaction_paused': stateB?.interactionPauseReason != null,
+                  'watch_paused': stateB?.watchPauseReason != null,
+                  ..._roomDiagnostics(stateB),
+                  'accepted_requests': Map<String, int>.from(
+                    writeStatistics['B'] ?? {},
+                  ),
                 },
               });
               result['status'] = 'running';
               record();
             }
-            if (nativeError || rejectedRequests != 0) {
-              throw const _Failure('native_or_request_scope_failure');
+            if (rejectedRequests != 0) {
+              throw const _Failure('request_scope_failure');
             }
             if (result['report_write_failed'] == true) {
               throw const _Failure('sanitized_report_write_failed');
@@ -1326,7 +1681,7 @@ void main() {
             final currentAWatchCount = currentAWatch.length == 1
                 ? currentAWatch.single.currentCount
                 : null;
-            if (elapsed >= 125 &&
+            if (restoredPriority &&
                 resumed &&
                 native.state.playing &&
                 frontValid &&
@@ -1343,6 +1698,9 @@ void main() {
             }
           }
           result['elapsed_seconds'] = run.elapsed.inSeconds;
+          result['foreground_native_error_state'] = nativeErrorMonitor.state;
+          result['foreground_native_error_count'] =
+              nativeErrorMonitor.observedErrors;
           result['priority_a_observed'] = aPriorityObserved;
           result['frontend_pause_background_continued'] =
               pauseContinuedObserved;
@@ -1353,6 +1711,14 @@ void main() {
               foregroundDisabledObserved;
           result['automatic_completion_transfer_observed'] =
               automaticTransferObserved;
+          result['dual_queue_interactions_during_other_room_watch'] =
+              independentBInteractionKinds.length == 2
+              ? 'both_b_interactions_officially_increased_before_any_b_watch_hint'
+              : independentBInteractionKinds.isNotEmpty
+              ? 'one_b_interaction_officially_increased_before_any_b_watch_hint'
+              : 'not_observed';
+          result['independent_b_interaction_kinds'] =
+              independentBInteractionKinds.toList()..sort();
           await boundedLightingStop;
           stage = 'final_server_read';
           final after = <String, Map<String, Object?>>{};
@@ -1459,7 +1825,8 @@ void main() {
           final restoreDeadline = DateTime.now().add(
             const Duration(seconds: 20),
           );
-          while (DateTime.now().isBefore(restoreDeadline) &&
+          while (result['operator_stop_marker_observed'] != true &&
+              DateTime.now().isBefore(restoreDeadline) &&
               foregroundSession.watch.status.value.state !=
                   LiveWatchState.reporting) {
             await Future<void>.delayed(const Duration(seconds: 1));
@@ -1479,6 +1846,8 @@ void main() {
                   watchIncremented == 2 &&
                   everyInteractiveConfirmed &&
                   eachInteractiveExercised &&
+                  independentBInteractionKinds.length == 2 &&
+                  !nativeErrorMonitor.effectiveAvLossObserved &&
                   result['bounded_lighting_phase_stop'] != true &&
                   result['foreground_watch_restored_after_stop'] == true
               ? 'pass'
@@ -1570,6 +1939,18 @@ void main() {
         result['private_storage_removed'] =
             private != null && !private.existsSync();
         result['scope_rejected_requests'] = rejectedRequests;
+        result['foreground_native_error_state'] = nativeErrorMonitor.state;
+        result['foreground_native_error_count'] =
+            nativeErrorMonitor.observedErrors;
+        result['foreground_native_effective_av_loss_observed'] =
+            nativeErrorMonitor.effectiveAvLossObserved;
+        result['ended_utc'] = DateTime.now().toUtc().toIso8601String();
+        result['ended_client_calendar_utc_plus_8'] = DateTime.now()
+            .toUtc()
+            .add(const Duration(hours: 8))
+            .toIso8601String()
+            .substring(0, 10);
+        result['accepted_requests_not_task_completion'] = writeStatistics;
         if (result['private_storage_removed'] != true ||
             result['report_write_failed'] == true ||
             const [

@@ -87,6 +87,14 @@ class _MediaPageState extends CommonPageState<MinePage>
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _buildUserInfo(theme, secondary),
+                    ListTile(
+                      leading: const Icon(Icons.manage_accounts_outlined),
+                      title: const Text('账号管理'),
+                      subtitle: const Text('添加、切换与管理已登录账号'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          LoginPageController.switchAccountDialog(context),
+                    ),
                     _buildActions(secondary),
                     Obx(
                       () => controller.loadingState.value is Loading
@@ -194,7 +202,7 @@ class _MediaPageState extends CommonPageState<MinePage>
               iconSize: iconSize,
               padding: padding,
               style: style,
-              tooltip: '切换账号',
+              tooltip: '账号管理',
               onPressed: () => LoginPageController.switchAccountDialog(context),
               icon: const Icon(Icons.switch_account_outlined),
             ),

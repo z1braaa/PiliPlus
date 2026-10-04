@@ -61,10 +61,13 @@ class _Harness {
   bool returnDeferred = false;
   LiveTaskWriteState? danmakuResultOverride;
   String period = '';
+  Map<String, int> confirmedLocalCycles = {};
   List<LiveFanTask>? tasksOverride;
   Future<LiveFanTaskSnapshot> Function()? loadOverride;
   int Function(int)? random;
   bool paceLikes = false;
+  bool externalScheduling = false;
+  bool Function()? mayResetUnknownPeriod;
   bool permitted = true;
   LiveTaskDanmakuSelector? chooseDanmaku;
   late LiveTaskAutomationService service;
@@ -87,6 +90,7 @@ class _Harness {
     accountUid: uid,
     accountIdentity: identity,
     joined: true,
+    confirmedLocalCycles: confirmedLocalCycles,
     tasks:
         tasksOverride ??
         [
@@ -147,6 +151,8 @@ class _Harness {
       randomInt: random ?? (_) => 0,
       journal: journal,
       paceLikes: paceLikes,
+      externalScheduling: externalScheduling,
+      mayResetUnknownPeriod: mayResetUnknownPeriod,
       mayRun: () => permitted,
       chooseDanmaku: chooseDanmaku,
     );
@@ -182,6 +188,163 @@ class _Harness {
 }
 
 void main() {
+  testWidgets(
+    'certified new cycle retires unresolved old write without replaying it',
+    (tester) async {
+      final h = _Harness()
+        ..likeTarget = 2
+        ..dailyRewardProgress = true
+        ..reflectProgress = false
+        ..returnUnknown = true;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      await h.service.settled;
+      expect(h.likes, 1);
+      expect(h._pendingRecords, isNotEmpty);
+      h.service.dispose();
+      final next = _Harness(h.journal)
+        ..likeTarget = 2
+        ..dailyRewardProgress = true
+        ..confirmedLocalCycles = {'like': 1};
+      next.create();
+      next.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      await next.service.settled;
+      expect(next.likes, 1);
+      expect(
+        next.journal.records.values.any((record) => record['retired'] == true),
+        isTrue,
+      );
+      expect(next.service.tasks.first.period, isEmpty);
+      next.service.dispose();
+    },
+  );
+  testWidgets(
+    'certified local cycle separates restored unfinished and completed budgets',
+    (tester) async {
+      final h = _Harness()
+        ..likeTarget = 2
+        ..dailyRewardProgress = true;
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      await h.service.settled;
+      await h.advance(tester, 10);
+      await h.service.settled;
+      expect(h.likes, 2);
+      h.service.dispose();
+      final next = _Harness(h.journal)
+        ..likeTarget = 2
+        ..dailyRewardProgress = true
+        ..confirmedLocalCycles = {'like': 1};
+      next.create();
+      next.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      await next.service.settled;
+      expect(next.likes, greaterThan(0));
+      expect(
+        next.journal.records.keys.any(
+          (key) => key.contains('confirmed-local-cycle:1'),
+        ),
+        isTrue,
+      );
+      expect(next.service.tasks.first.period, isEmpty);
+      next.service.dispose();
+    },
+  );
+  testWidgets(
+    'a completed explicit period never reopens its budget after a lower count',
+    (tester) async {
+      final h = _Harness()
+        ..period = 'day-A'
+        ..dailyRewardProgress = true
+        ..actionsPerProgress = 30
+        ..likeTarget = 10
+        ..likeProgress = 10
+        // This gate may authorize unnumbered cycles, never a named same-period reset.
+        ..mayResetUnknownPeriod = (() => true);
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      await h.service.settled;
+      expect(h.likes, 0);
+      expect(h.service.tasks.first.completed, isTrue);
+      expect(
+        h.journal.records.values.any(
+          (record) =>
+              record['type'] == 'like' && record['server_completed'] == true,
+        ),
+        isTrue,
+      );
+      h.likeProgress = 0;
+      await h.advance(tester, 30);
+      expect(h.likes, 0);
+      expect(h.service.state, LiveTaskAutomationState.paused);
+      expect(h.service.statusText, contains('同周期'));
+      h.likeProgress = 3;
+      await h.advance(tester, 30);
+      expect(h.likes, 0);
+      h.service.dispose();
+      // Re-entry must retain the completed day-A budget, not erase it on restore.
+      h.create();
+      h.update(autoLike: true);
+      await tester.pump(Duration.zero);
+      expect(h.likes, 0);
+      h.period = 'day-B';
+      h.likeProgress = 0;
+      await h.advance(tester, 30);
+      expect(h.likeBatches, [30]);
+      h.service.dispose();
+    },
+  );
+
+  test('account queued click slots accumulate one full round without per-room timers', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..paceLikes = true
+      ..dailyRewardProgress = true
+      ..actionsPerProgress = 30
+      ..likeTarget = 10;
+    h.create();
+    h.update(autoLike: true, autoDanmaku: true);
+    for (var i = 0; i < 29; i++) {
+      await h.service.tickFromQueue(like: true);
+    }
+    expect(h.likes, 0);
+    expect(h.reads, 1);
+    await h.service.tickFromQueue(like: true);
+    expect(h.likeBatches, [30]);
+    expect(h.service.issuedLikes, 30);
+    expect(h.messages, 0);
+    await h.service.tickFromQueue(danmaku: true);
+    expect(h.messages, 1);
+    expect(h.service.issuedDanmaku, 1);
+    h.service.dispose();
+  });
+
+  test('queue due message does not throw away partially accumulated likes', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..paceLikes = true
+      ..dailyRewardProgress = true
+      ..actionsPerProgress = 30
+      ..likeTarget = 10;
+    h.create();
+    h.update(autoLike: true, autoDanmaku: true);
+    for (var i = 0; i < 15; i++) {
+      await h.service.tickFromQueue(like: true);
+    }
+    await h.service.tickFromQueue(danmaku: true);
+    expect(h.messages, 1);
+    // First call reconciles that message; subsequent slots retain prior clicks.
+    for (var i = 0; i < 16; i++) {
+      await h.service.tickFromQueue(like: true);
+    }
+    expect(h.likeBatches, [30]);
+    h.service.dispose();
+  });
+
   test('lighting-only task titles define a quota without inventing a server counter', () {
     final tasks = LiveInteractionParser.fanTasks([
       {
@@ -494,11 +657,13 @@ void main() {
         ..actionsPerProgress = 30
         ..likeTarget = 10
         ..likeProgress = 10;
+      h.period = 'cycle-one';
       h.create();
       h.update(autoLike: true);
       await tester.pump(Duration.zero);
       expect(h.likes, 0);
       h.likeProgress = 0;
+      h.period = 'cycle-two';
       await h.advance(tester, 30);
       expect(h.likeBatches, [30]);
       h.service.dispose();
@@ -784,11 +949,13 @@ void main() {
     'server completed then reset task count establishes another period',
     (tester) async {
       final h = _Harness()..likeProgress = 7;
+      h.period = 'cycle-one';
       h.create();
       h.update(autoLike: true);
       await tester.pump(Duration.zero);
       expect(h.likes, 0);
       h.likeProgress = 0;
+      h.period = 'cycle-two';
       await h.advance(tester, 30);
       expect(h.likes, 1);
       h.service.dispose();

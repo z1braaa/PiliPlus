@@ -4,6 +4,7 @@ import 'package:PiliPlus/services/live_automation_coordinator.dart';
 import 'package:PiliPlus/services/live_intimacy_audio_session.dart';
 import 'package:PiliPlus/services/live_intimacy_discovery.dart';
 import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
+import 'package:PiliPlus/services/live_intimacy_record_store.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:PiliPlus/utils/live_viewer_preferences.dart';
@@ -20,7 +21,11 @@ LiveIntimacyRoomPreferences room(int uid, {bool authorized = true}) =>
         defaultMessage: 'configured',
       ),
     );
-List<LiveFanTask> taskSet({bool done = false, bool watchDone = false}) => [
+List<LiveFanTask> taskSet({
+  bool done = false,
+  bool watchDone = false,
+  String period = '',
+}) => [
   for (final type in ['like', 'sendDanmu', 'watchLive'])
     LiveFanTask(
       name: type == 'watchLive' ? '观看直播满15分钟' : type,
@@ -29,11 +34,13 @@ List<LiveFanTask> taskSet({bool done = false, bool watchDone = false}) => [
       completed: type == 'watchLive' ? watchDone : done,
       currentCount: done ? 10 : 0,
       targetCount: 10,
+      period: period,
     ),
 ];
 
 class Discovery implements LiveIntimacyDiscoverySource {
   final candidates = <int, LiveIntimacyCandidate>{};
+  final omittedFromDiscovery = <int>{};
   final failures = <int>{};
   Completer<void>? pending;
   Completer<void>? pendingRecheck;
@@ -45,7 +52,9 @@ class Discovery implements LiveIntimacyDiscoverySource {
     if (pending != null) await pending!.future;
     return [
       for (final room in rooms)
-        if (candidates[room.anchorUid] != null) candidates[room.anchorUid]!,
+        if (candidates[room.anchorUid] != null &&
+            !omittedFromDiscovery.contains(room.anchorUid))
+          candidates[room.anchorUid]!,
     ];
   }
 
@@ -113,12 +122,20 @@ class Harness {
   final coordinator = LiveAutomationCoordinator();
   final stored = <int, LiveIntimacyPreferences>{};
   final taskStates = <int, List<LiveFanTask>>{};
+  final reads = <int, int>{};
+  Future<void> Function(LiveIntimacyRoomPreferences)? beforeRead;
+  Future<void> Function(int, LiveIntimacyPreferences)? beforeWritePreferences;
   final sessions = <Session>[];
   Completer<List<LiveTaskEmoticonOption>>? pendingEmoticons;
   final sessionUids = <int>[];
   late final LiveIntimacyScheduler scheduler;
   DateTime now = DateTime(2026, 10, 3);
-  Harness(List<LiveIntimacyRoomPreferences> rooms, {bool enabled = true}) {
+  Harness(
+    List<LiveIntimacyRoomPreferences> rooms, {
+    bool enabled = true,
+    LiveIntimacyRecordStore? records,
+    LiveIntimacyInteractionFactory? interactions,
+  }) {
     stored[1] = LiveIntimacyPreferences(enabled: enabled, rooms: rooms);
     for (final configuration in rooms) {
       final uid = configuration.anchorUid;
@@ -138,12 +155,16 @@ class Harness {
       account: () => account,
       readPreferences: (uid) => stored[uid] ?? const LiveIntimacyPreferences(),
       writePreferences: (uid, value) async {
+        await beforeWritePreferences?.call(uid, value);
         stored[uid] = value;
       },
       discovery: discovery,
       coordinator: coordinator,
       automaticTimers: false,
       now: () => now,
+      randomInt: (_) => 0,
+      recordStore: records,
+      createInteraction: interactions,
       loadEmoticons: (_) async => pendingEmoticons != null
           ? await pendingEmoticons!.future
           : const [
@@ -153,14 +174,19 @@ class Harness {
                 available: true,
               ),
             ],
-      readTasks: (room) async => LiveFanTaskSnapshot(
-        roomId: room.roomId,
-        anchorUid: room.anchorUid,
-        accountUid: account.uid,
-        accountIdentity: account.identity,
-        tasks: taskStates[room.anchorUid]!,
-        joined: true,
-      ),
+      readTasks: (room) async {
+        final readingAccount = account;
+        reads.update(room.anchorUid, (value) => value + 1, ifAbsent: () => 1);
+        await beforeRead?.call(room);
+        return LiveFanTaskSnapshot(
+          roomId: room.roomId,
+          anchorUid: room.anchorUid,
+          accountUid: readingAccount.uid,
+          accountIdentity: readingAccount.identity,
+          tasks: taskStates[room.anchorUid]!,
+          joined: true,
+        );
+      },
       createSession: (configuration, candidate, progress, allowed) {
         final session = Session(
           taskStates[configuration.anchorUid]!,
@@ -223,16 +249,25 @@ void main() {
     await harness.close();
   });
 
-  test('all three official flags required, completed rooms are checked for new cycles', () async {
+  test('watch completion independently transfers and idle rooms refresh after five minutes', () async {
     final harness = Harness([room(1), room(2)]);
-    harness.taskStates[2] = taskSet(done: true, watchDone: false);
+    harness.taskStates[2] = taskSet(
+      done: true,
+      watchDone: false,
+      period: 'cycle1',
+    );
     await harness.tick();
     expect(harness.sessionUids, [2]);
-    harness.taskStates[2] = taskSet(done: true, watchDone: true);
+    harness.taskStates[2] = taskSet(
+      done: true,
+      watchDone: true,
+      period: 'cycle1',
+    );
     harness.sessions.last.changeTasks(harness.taskStates[2]!);
     await harness.tick();
     expect(harness.sessionUids, [2, 1]);
-    harness.taskStates[2] = taskSet();
+    harness.taskStates[2] = taskSet(period: 'cycle2');
+    harness.now = harness.now.add(const Duration(minutes: 5));
     await harness.tick();
     expect(harness.sessionUids, [2, 1, 2]);
     expect(harness.scheduler.stateFor(20, 2)!.completed, isFalse);

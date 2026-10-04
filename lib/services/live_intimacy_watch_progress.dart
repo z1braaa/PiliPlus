@@ -1,5 +1,7 @@
 import 'package:PiliPlus/services/live_interaction_service.dart';
 
+enum LiveIntimacySyncState { pending, synchronized, failed, paused, offline }
+
 /// Local decoded playback and official task settlement are different records.
 /// A new session cannot know the server's already accumulated round fraction.
 class LiveIntimacyWatchProgress {
@@ -10,8 +12,14 @@ class LiveIntimacyWatchProgress {
   int? thresholdSeconds;
   int? officialSeconds;
   DateTime? lastSynchronizedAt;
+  LiveIntimacySyncState syncState = LiveIntimacySyncState.pending;
+  String? syncError;
+  bool restoredFromCache = false;
+  bool periodConfirmed = false;
+  String? get period => _period;
   Duration? _roundEstimate;
   String? _period;
+  bool _cycleUncertain = false;
   Duration? _lastPosition;
   Duration? _lastClock;
   bool _previousValid = false;
@@ -47,12 +55,20 @@ class LiveIntimacyWatchProgress {
     return seconds <= 86400 ? seconds : null;
   }
 
-  void synchronize(List<LiveFanTask> tasks, DateTime at) {
+  void synchronize(
+    List<LiveFanTask> tasks,
+    DateTime at, {
+    bool confirmedUnnumberedReset = false,
+  }) {
     if (_disposed) return;
     final matches = tasks.where((task) => task.jumpType == 'watchLive');
     if (matches.length != 1) {
       thresholdSeconds = null;
       _roundEstimate = null;
+      periodConfirmed = false;
+      restoredFromCache = false;
+      syncState = LiveIntimacySyncState.pending;
+      syncError = '观时任务尚未确认';
       return;
     }
     final task = matches.single;
@@ -65,10 +81,18 @@ class LiveIntimacyWatchProgress {
         previous != null && currentRounds != null && currentRounds < previous;
     final definitionChanged =
         thresholdSeconds != null && threshold != thresholdSeconds;
-    if (periodChanged || countReset || definitionChanged) {
+    if (periodChanged || confirmedUnnumberedReset) {
+      _cycleUncertain = false;
       _roundEstimate = null;
       effectiveDuration = Duration.zero;
+      reportedSeconds = 0;
+      officialSeconds = null;
       freeze();
+    } else if (countReset || definitionChanged) {
+      // A server correction or missing period is not proof of a new cycle.
+      // Preserve the current ledger while the official identity is unresolved.
+      _roundEstimate = null;
+      if (countReset && task.period.isEmpty) _cycleUncertain = true;
     } else if (previous != null &&
         currentRounds != null &&
         currentRounds > previous) {
@@ -79,8 +103,60 @@ class LiveIntimacyWatchProgress {
     completedRounds = currentRounds;
     dailyRounds = task.dailyRewardProgress ? task.targetCount : null;
     thresholdSeconds = threshold;
-    _period = task.period;
+    if (task.period.isNotEmpty) _period = task.period;
+    if (task.period.isNotEmpty) _cycleUncertain = false;
+    periodConfirmed = !_cycleUncertain;
+    restoredFromCache = false;
+    syncState = periodConfirmed
+        ? LiveIntimacySyncState.synchronized
+        : LiveIntimacySyncState.pending;
+    syncError = periodConfirmed ? null : '官方进度发生校正，任务周期待核对';
     lastSynchronizedAt = at;
+  }
+
+  void synchronizationFailed(String reason) {
+    syncState = LiveIntimacySyncState.failed;
+    syncError = reason;
+  }
+
+  Map<String, Object?> toJson() => {
+    'schema': 1,
+    'effective_ms': effectiveDuration.inMilliseconds,
+    'reported_seconds': reportedSeconds,
+    'completed_rounds': completedRounds,
+    'daily_rounds': dailyRounds,
+    'threshold_seconds': thresholdSeconds,
+    'official_seconds': officialSeconds,
+    'period': _period,
+    'cycle_uncertain': _cycleUncertain,
+    'round_estimate_ms': _roundEstimate?.inMilliseconds,
+    'last_synchronized_at': lastSynchronizedAt?.toUtc().toIso8601String(),
+  };
+
+  void restore(Object? value) {
+    if (value is! Map || value['schema'] != 1) return;
+    int? nonnegative(String key) {
+      final number = liveInt(value[key]);
+      return number != null && number >= 0 ? number : null;
+    }
+
+    effectiveDuration = Duration(
+      milliseconds: nonnegative('effective_ms') ?? 0,
+    );
+    reportedSeconds = nonnegative('reported_seconds') ?? 0;
+    completedRounds = nonnegative('completed_rounds');
+    dailyRounds = nonnegative('daily_rounds');
+    thresholdSeconds = nonnegative('threshold_seconds');
+    officialSeconds = nonnegative('official_seconds');
+    _period = value['period'] is String ? value['period'] as String : null;
+    _cycleUncertain = value['cycle_uncertain'] == true;
+    final estimate = nonnegative('round_estimate_ms');
+    _roundEstimate = estimate == null ? null : Duration(milliseconds: estimate);
+    lastSynchronizedAt = DateTime.tryParse('${value['last_synchronized_at']}');
+    restoredFromCache = true;
+    periodConfirmed = false;
+    syncState = LiveIntimacySyncState.pending;
+    freeze();
   }
 
   /// Called at a bounded cadence with the actual native playback position.
@@ -136,6 +212,11 @@ bool liveIntimacyTasksCompleted(List<LiveFanTask> tasks) =>
       final matches = tasks.where((task) => task.jumpType == type);
       return matches.length == 1 && matches.single.completed == true;
     });
+
+bool liveIntimacyTaskCompleted(List<LiveFanTask> tasks, String type) {
+  final matches = tasks.where((task) => task.jumpType == type);
+  return matches.length == 1 && matches.single.completed == true;
+}
 
 /// A room-specific settlement gate. Passing a transport heartbeat does not
 /// prove this room will credit audio, so a full effective threshold plus a

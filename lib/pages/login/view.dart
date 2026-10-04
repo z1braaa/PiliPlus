@@ -524,7 +524,9 @@ class _LoginPageState extends State<LoginPage> {
         ),
         title: Row(
           children: [
-            const Text('登录'),
+            Text(
+              _loginPageCtr.reauthenticationUid == null ? '登录' : '重新登录',
+            ),
             if (isLandscape)
               Expanded(
                 child: Align(
@@ -570,6 +572,11 @@ class _LoginPageState extends State<LoginPage> {
       ),
       body: Column(
         children: [
+          if (_loginPageCtr.reauthenticationUid != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text('请登录 UID ${_loginPageCtr.reauthenticationUid} 对应的账号'),
+            ),
           if (!isLandscape)
             TabBar(
               tabs: const [

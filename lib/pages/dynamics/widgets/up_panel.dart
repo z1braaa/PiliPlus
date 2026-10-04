@@ -3,6 +3,7 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/dynamics/up.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
+import 'package:PiliPlus/pages/dynamics/widgets/live_intimacy_statistics_entry.dart';
 import 'package:PiliPlus/pages/live_follow/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -92,6 +93,12 @@ class _UpPanelState extends State<UpPanel> {
                 ),
               ),
             ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: LiveIntimacyStatisticsEntry(
+            expandSetting: controller.livePanelExpansionSetting,
+            isTop: isTop,
           ),
         ),
         if (controller.showLiveUp && liveList != null && liveList.isNotEmpty)

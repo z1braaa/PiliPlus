@@ -18,6 +18,15 @@ class LiveAutomationCoordinator extends ChangeNotifier {
   final Set<Future<void> Function()> _foregroundSurrenders = {};
   final Set<Future<void>> _retiringForeground = {};
   final Map<Object, Map<(int, int), _GateEntry>> _gates = HashMap.identity();
+  final Expando<Map<int, LiveDanmakuAccountGate>> _accountGates = Expando();
+
+  LiveDanmakuAccountGate _accountGate(Object identity, int uid) {
+    final gates = _accountGates[identity] ??= <int, LiveDanmakuAccountGate>{};
+    return gates.putIfAbsent(uid, LiveDanmakuAccountGate.new);
+  }
+
+  DateTime? lastDanmakuAttemptAt(Object identity, int uid) =>
+      _accountGate(identity, uid).lastAttemptAt;
 
   bool get backgroundWatchClaimed => _owner != null;
   bool get foregroundWatchSuspended => _foregroundSuspended;
@@ -103,7 +112,7 @@ class LiveAutomationCoordinator extends ChangeNotifier {
     final entries = _gates.putIfAbsent(accountIdentity, () => {});
     final key = (accountUid, roomId);
     final entry = entries.putIfAbsent(key, () {
-      final created = _GateEntry();
+      final created = _GateEntry(_accountGate(accountIdentity, accountUid));
       void cleanLater() {
         if (created.cleanupScheduled) return;
         created.cleanupScheduled = true;
@@ -145,7 +154,9 @@ class LiveDanmakuGateLease {
 }
 
 class _GateEntry {
-  final gate = LiveDanmakuSendGate();
+  _GateEntry(LiveDanmakuAccountGate account)
+    : gate = LiveDanmakuSendGate(accountGate: account);
+  final LiveDanmakuSendGate gate;
   int references = 0;
   bool cleanupScheduled = false;
   late final VoidCallback cleanLater;

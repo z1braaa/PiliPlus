@@ -18,6 +18,26 @@ class _Settings extends Fake implements Box<dynamic> {
 }
 
 void main() {
+  test('legacy absent room mode stays full but malformed explicit mode revokes consent', () {
+    final legacy = <String, Object>{
+      'anchorUid': 1,
+      'roomId': 10,
+      'authorized': true,
+    };
+    expect(LiveIntimacyRoomPreferences.fromJson(legacy)!.authorized, isTrue);
+    expect(
+      LiveIntimacyRoomPreferences.fromJson(legacy)!.mode,
+      LiveIntimacyRoomMode.full,
+    );
+    for (final invalid in ['future-mode', '', 1, null]) {
+      expect(
+        LiveIntimacyRoomPreferences.fromJson({...legacy, 'mode': invalid})!
+            .authorized,
+        isFalse,
+      );
+    }
+  });
+
   final settings = _Settings();
   setUpAll(() => GStorage.setting = settings);
   setUp(() {

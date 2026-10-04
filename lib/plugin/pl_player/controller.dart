@@ -87,6 +87,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   final Map<Object, int> _liveRecoveryOperations = {};
   int _playIntentGeneration = 0;
   bool _requestedPlaying = false;
+  bool get requestedPlaying => _requestedPlaying;
+  final Set<VoidCallback> _pauseIntentListeners = {};
+  void addPauseIntentListener(VoidCallback listener) =>
+      _pauseIntentListeners.add(listener);
+  void removePauseIntentListener(VoidCallback listener) =>
+      _pauseIntentListeners.remove(listener);
 
   LivePlaybackLease claimLiveViewing(Object owner, {bool preserve = false}) {
     final transferRecovery =
@@ -152,11 +158,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     );
   }
 
-  void _syncLiveViewing({bool? playing, bool? buffering}) {
+  void _syncLiveViewing({bool? playing, bool? buffering, Duration? position}) {
     liveViewingSession?.updatePlayback(
       playing: playing ?? (_hasStartedPlayback && playerStatus.isPlaying),
       buffering: buffering ?? isBuffering.value,
       live: isLive && livePlaybackGate.allowed,
+      position: position,
     );
   }
 
@@ -713,6 +720,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Volume? volume,
     bool autoFullScreenFlag = false,
     CdnStartupTrace? startupTrace,
+    bool Function()? stillAllowed,
   }) async {
     final sourceGeneration = ++_mediaSourceGeneration;
     _liveRecoveryTimer?.cancel();
@@ -752,7 +760,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await pause(notify: false);
       }
 
-      if (!_isCurrentMediaSource(sourceGeneration)) {
+      if (!_isCurrentMediaSource(sourceGeneration) ||
+          stillAllowed?.call() == false) {
         startupTrace?.mark(CdnStartupStage.cancelled);
         return;
       }
@@ -768,7 +777,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         return;
       }
 
-      if (!_isCurrentMediaSource(sourceGeneration)) {
+      if (!_isCurrentMediaSource(sourceGeneration) ||
+          stillAllowed?.call() == false) {
         startupTrace?.mark(CdnStartupStage.cancelled);
         return;
       }
@@ -783,11 +793,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         triggerFullScreen(status: true);
       }
 
-      await _initializePlayer(sourceGeneration, startupTrace);
-      if (_isCurrentMediaSource(sourceGeneration)) onInit?.call();
+      await _initializePlayer(
+        sourceGeneration,
+        startupTrace,
+        stillAllowed: stillAllowed,
+      );
+      if (_isCurrentMediaSource(sourceGeneration) &&
+          stillAllowed?.call() != false) {
+        onInit?.call();
+      }
     } catch (err, stackTrace) {
       startupTrace?.mark(CdnStartupStage.sourceError);
-      if (_isCurrentMediaSource(sourceGeneration)) {
+      if (_isCurrentMediaSource(sourceGeneration) &&
+          stillAllowed?.call() != false) {
         dataStatus.value = DataStatus.error;
       }
       if (kDebugMode) {
@@ -1154,9 +1172,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   // 开始播放
   Future<void> _initializePlayer(
     int sourceGeneration,
-    CdnStartupTrace? startupTrace,
-  ) async {
-    if (!_isCurrentMediaSource(sourceGeneration)) return;
+    CdnStartupTrace? startupTrace, {
+    bool Function()? stillAllowed,
+  }) async {
+    if (!_isCurrentMediaSource(sourceGeneration) ||
+        stillAllowed?.call() == false) {
+      return;
+    }
     // 设置倍速
     if (_videoPlayerController != null) {
       final speed = isLive ? 1.0 : playbackSpeed;
@@ -1164,7 +1186,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await setPlaybackSpeed(speed);
       }
     }
-    if (!_isCurrentMediaSource(sourceGeneration)) return;
+    if (!_isCurrentMediaSource(sourceGeneration) ||
+        stillAllowed?.call() == false) {
+      return;
+    }
     _initVideoFit();
 
     // 自动播放
@@ -1272,6 +1297,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
       /// position
       stream.position.listen((Duration position) {
+        _syncLiveViewing(position: position);
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
@@ -1499,6 +1525,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
     ++_playIntentGeneration;
     _requestedPlaying = false;
+    if (notify) {
+      for (final listener in _pauseIntentListeners.toList()) {
+        listener();
+      }
+    }
     _liveRecoveryTimer?.cancel();
     _syncLiveViewing(playing: false);
     await _videoPlayerController?.pause();
@@ -1952,6 +1983,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     _removeListeners();
     _positionListeners.clear();
+    _pauseIntentListeners.clear();
     _statusListeners.clear();
     _stopWakeLockTimer();
     WakelockPlus.disable();

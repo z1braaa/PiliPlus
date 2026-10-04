@@ -75,6 +75,8 @@ class LiveViewingSession extends ChangeNotifier {
   int? _accountGeneration;
   int _areaId;
   int _parentAreaId;
+  final _mediaClock = Stopwatch()..start();
+  final _mediaObservation = LiveWatchMediaObservation();
   bool _playing = false;
   bool _buffering = false;
   bool _live = true;
@@ -122,11 +124,17 @@ class LiveViewingSession extends ChangeNotifier {
     required bool playing,
     required bool buffering,
     required bool live,
+    Duration? position,
   }) {
     if (_disposed) return;
     _playing = playing;
     _buffering = buffering;
     _live = live;
+    if (!playing || buffering || !live) {
+      _mediaObservation.freeze();
+    } else if (position != null) {
+      _mediaObservation.observe(position: position, clock: _mediaClock.elapsed);
+    }
     _synchronize();
   }
 
@@ -189,6 +197,7 @@ class LiveViewingSession extends ChangeNotifier {
     final account = Accounts.main;
     final recording = Accounts.heartbeat;
     final previous = _watchUnavailable;
+    final mediaAdvancing = _mediaObservation.advancingAt(_mediaClock.elapsed);
     _watchUnavailable = Accounts.mainIdentityChangeInProgress
         ? '账号正在变化，观看与自动任务已暂停'
         : !account.isLogin
@@ -207,11 +216,13 @@ class LiveViewingSession extends ChangeNotifier {
         ? '正在结束上一直播间的观看上报'
         : LiveAutomationCoordinator.instance.backgroundWatchClaimed
         ? '后台任务正在独立上报观时，前台播放保持正常'
+        : _playing && !_buffering && !mediaAdvancing
+        ? '等待直播实际播放进度，观看上报已暂停'
         : null;
     watch.updatePlayback(
       enabled: _watchUnavailable == null,
-      playing: _playing,
-      buffering: _buffering,
+      playing: _playing && mediaAdvancing,
+      buffering: _buffering || !mediaAdvancing,
       live: _live,
     );
     // The application scheduler is the sole automatic interaction owner.

@@ -3,6 +3,7 @@
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/retry_interceptor.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
+import 'package:PiliPlus/services/live_medal_reader.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:dio/dio.dart';
@@ -39,6 +40,11 @@ abstract interface class LiveIntimacyDiscoverySource {
   void cancel();
 }
 
+/// Optional: older injected sources already provide complete snapshots.
+abstract interface class LiveIntimacyDiscoveryDiagnostics {
+  bool get complete;
+}
+
 typedef LiveIntimacyRead = Future<Map<String, dynamic>> Function(
   String path,
   Map<String, dynamic> query,
@@ -66,7 +72,8 @@ class LiveIntimacyDiscoveryIdentity {
 
 /// Raw responses retain UID and pagination information omitted by the existing
 /// live-list UI model. Only official read endpoints are used here.
-class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
+class LiveIntimacyDiscovery
+    implements LiveIntimacyDiscoverySource, LiveIntimacyDiscoveryDiagnostics {
   LiveIntimacyDiscovery.testing({
     required LiveIntimacyRead read,
     LiveIntimacyDiscoveryIdentity Function()? identity,
@@ -99,10 +106,20 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
   _DiscoveryPending? _pending;
   _DiscoveryFailure? _failure;
   int _readEpoch = 0;
+  bool _complete = false;
+  @override
+  bool get complete {
+    final identity = _synchronizeIdentity();
+    final cache = _cache;
+    return _complete &&
+        cache != null &&
+        cache.identity.sameAs(identity) &&
+        _recent(cache.started, _now());
+  }
 
   // This is a client request budget, not a claimed platform rate limit. Only a
-  // complete successful account-wide scan can be reused; room qualification
-  // before execution always bypasses it.
+  // trusted terminal account-wide scan can be reused, including an explicitly
+  // partial positive snapshot; room qualification always bypasses this cache.
   static const _scanInterval = Duration(seconds: 60);
   static const followingPath = '/xlive/web-ucenter/user/following';
   static const medalsPath = '/xlive/app-ucenter/v1/fansMedal/panel';
@@ -119,6 +136,7 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
     if (_boundary != null && !_boundary!.sameAs(identity)) {
       _readEpoch++;
       _cache = null;
+      _complete = false;
       _failure = null;
       _pending = null;
       _cancel?.call();
@@ -180,6 +198,7 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
         medals: medals,
       );
       _cache = snapshot;
+      _complete = medals.complete;
       _failure = null;
       return snapshot;
     } catch (error) {
@@ -187,6 +206,7 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
       // the cache nor suppress a new identity's first legitimate scan.
       if (error is! _DiscoveryStopped && _current(identity, epoch)) {
         _cache = null;
+        _complete = false;
         _failure = _DiscoveryFailure(identity: identity, started: _now());
       }
       rethrow;
@@ -251,83 +271,19 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
     throw const LiveInteractionException('关注列表分页超出核对范围');
   }
 
-  Future<Map<int, Map<String, dynamic>>> _medals(
+  Future<LiveMedalInventory> _medals(
     LiveIntimacyRoomPreferences reference,
     LiveIntimacyRead read,
   ) async {
-    final result = <int, Map<String, dynamic>>{};
-    final cursors = <String>{};
-    final medalIds = <int>{};
-    int? expectedMedals;
-    var page = 1;
-    var lightStatus = 0;
-    for (var request = 0; request < 500; request++) {
-      if (!cursors.add('$page:$lightStatus')) {
-        throw const LiveInteractionException('勋章列表返回重复分页');
-      }
-      final data = _data(
-        await read(medalsPath, {
-          'page': page,
-          'page_size': 10,
-          'room_id': reference.roomId,
-          'target_id': reference.anchorUid,
-        }),
+    try {
+      return await readLiveMedalInventory(
+        read: read,
+        roomId: reference.roomId,
+        anchorUid: reference.anchorUid,
       );
-      final total = liveInt(data['total_number']);
-      if (total == null ||
-          total < 0 ||
-          expectedMedals != null && total != expectedMedals) {
-        throw const LiveInteractionException('勋章列表总数缺失或正在变化');
-      }
-      expectedMedals = total;
-      if (data['list'] is! List || data['special_list'] is! List) {
-        throw const LiveInteractionException('勋章列表数据尚未确认');
-      }
-      for (final entry in [
-        ...liveMaps(data['list']),
-        ...liveMaps(data['special_list']),
-      ]) {
-        final medal = liveMap(entry['medal']);
-        final uid = liveInt(medal['target_id']);
-        final level = liveInt(medal['level']);
-        final medalId = liveInt(medal['medal_id']);
-        if (uid == null ||
-            uid <= 0 ||
-            level == null ||
-            level <= 0 ||
-            medalId == null ||
-            medalId <= 0) {
-          throw const LiveInteractionException('勋章列表缺少可靠主播身份');
-        }
-        medalIds.add(medalId);
-        result[uid] = entry;
-      }
-      final info = liveMap(data['page_info']);
-      final more = liveBool(info['has_more']);
-      if (more == null) {
-        throw const LiveInteractionException('勋章列表分页规则尚未确认');
-      }
-      if (!more) {
-        if (medalIds.length != expectedMedals) {
-          throw const LiveInteractionException('勋章列表分页不完整，稍后重新核对');
-        }
-        return result;
-      }
-      final next = liveInt(info['next_page']);
-      final nextLight = liveInt(info['next_light_status']);
-      if (next == null || next <= 0 || nextLight == null || nextLight < 0) {
-        throw const LiveInteractionException('勋章列表分页游标尚未确认');
-      }
-      if (nextLight != 0) {
-        // The current official room JS only requests page/page_size. A new
-        // lighting cursor is not permission to guess an unverified parameter.
-        throw const LiveInteractionException('勋章列表光照分段分页规则待确认');
-      }
-      // The next cursor, not a short result length, identifies the next page.
-      page = next;
-      lightStatus = nextLight;
+    } on LiveMedalReadException catch (error) {
+      throw LiveInteractionException(error.message);
     }
-    throw const LiveInteractionException('勋章列表分页超出核对范围');
   }
 
   @override
@@ -373,14 +329,22 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
     }
     _guard(identity, epoch);
     final following = snapshot.following;
-    final medals = snapshot.medals;
+    final inventory = snapshot.medals;
+    _complete = inventory.complete;
+    final medals = inventory.entriesByAnchor;
+    final owned = {
+      for (final medal in inventory.medals) medal.targetUid: medal,
+    };
     final result = <LiveIntimacyCandidate>[];
     final seen = <int>{};
     for (final room in authorized) {
       if (!seen.add(room.anchorUid)) continue;
       final follow = following[room.anchorUid];
       final medal = medals[room.anchorUid];
-      final info = liveMap(medal?['medal']);
+      // A terminal inventory with a count gap proves only the medals actually
+      // observed. Omit missing anchors so the scheduler keeps them unknown.
+      if (medal == null && !inventory.complete) continue;
+      final confirmedMedal = owned[room.anchorUid];
       result.add(
         LiveIntimacyCandidate(
           roomId:
@@ -389,9 +353,9 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
               room.roomId,
           anchorUid: room.anchorUid,
           anchorName: follow?['uname']?.toString() ?? room.anchorName,
-          medalLevel: liveInt(info['level']) ?? 0,
+          medalLevel: confirmedMedal?.level ?? 0,
           followed: follow != null,
-          medalOwned: medal != null,
+          medalOwned: confirmedMedal != null,
           live: liveInt(follow?['live_status']) == 1,
           areaId: liveInt(follow?['area_id']) ?? 0,
           parentAreaId: liveInt(follow?['parent_area_id']) ?? 0,
@@ -422,26 +386,24 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
     if (attribute == null) {
       throw const LiveInteractionException('关注身份尚未确认');
     }
-    final medal = _data(
-      await read(
-        '/xlive/app-ucenter/v1/fansMedal/GetActivatedMedalInfo',
-        {
-          'target_id': room.anchorUid,
-          'room_id': canonical,
-          'platform': 'pc',
-          'scene': 'club',
-        },
-      ),
-    );
-    final level = liveInt(medal['level']);
-    if (level == null) throw const LiveInteractionException('粉丝勋章尚未确认');
+    LiveMedal? medal;
+    try {
+      medal = await readLiveMedalForAnchor(
+        read: read,
+        roomId: canonical,
+        anchorUid: room.anchorUid,
+      );
+    } on LiveMedalReadException catch (error) {
+      throw LiveInteractionException(error.message);
+    }
+    final level = medal?.level ?? 0;
     return LiveIntimacyCandidate(
       roomId: canonical,
       anchorUid: room.anchorUid,
       anchorName: room.anchorName,
       medalLevel: level,
       followed: const [2, 6].contains(attribute),
-      medalOwned: level > 0,
+      medalOwned: medal != null,
       live: liveInt(info['live_status']) == 1,
       areaId: liveInt(info['area_id']) ?? 0,
       parentAreaId: liveInt(info['parent_area_id']) ?? 0,
@@ -451,7 +413,7 @@ class LiveIntimacyDiscovery implements LiveIntimacyDiscoverySource {
   @override
   void cancel() {
     // Configuration edits/preemption cancel work in flight. They do not erase a
-    // complete same-account scan and trigger another account-wide request burst.
+    // trusted same-account positive scan and cause another request burst.
     _synchronizeIdentity();
     _readEpoch++;
     _pending = null;
@@ -467,7 +429,7 @@ class _DiscoverySnapshot {
   final LiveIntimacyDiscoveryIdentity identity;
   final DateTime started;
   final Map<int, Map<String, dynamic>> following;
-  final Map<int, Map<String, dynamic>> medals;
+  final LiveMedalInventory medals;
   const _DiscoverySnapshot({
     required this.identity,
     required this.started,

@@ -23,6 +23,22 @@ class _Transport implements LiveTaskInteractionTransport {
   bool failPost = false;
   bool cancelBeforeDispatch = false;
   Future<void>? emoticonReadDelay;
+  Map<String, dynamic> medalData = {
+    'total_number': 1,
+    'list': [
+      {
+        'medal': {
+          'target_id': 20,
+          'medal_id': 8,
+          'level': 2,
+          'is_lighted': 0,
+          'wearing_status': 0,
+        },
+      },
+    ],
+    'special_list': [],
+    'page_info': {'has_more': false},
+  };
   Map<String, dynamic> emoticonData = {
     'data': [
       {
@@ -54,6 +70,10 @@ class _Transport implements LiveTaskInteractionTransport {
     if (path.endsWith('/GetEmoticons')) {
       await emoticonReadDelay;
       return {'code': 0, 'data': emoticonData};
+    }
+    if (path.endsWith('/fansMedal/panel')) {
+      expect(query['target_id'], 20);
+      return {'code': 0, 'data': medalData};
     }
     expect(path, endsWith('/GetActivatedMedalInfo'));
     expect(query['target_id'], 20);
@@ -153,6 +173,65 @@ void main() {
       expect(snapshot.accountUid, 10);
       expect(snapshot.joined, isTrue);
       expect(snapshot.tasks.single.remainingCount, 3);
+    },
+  );
+  test(
+    'unlit non-wearing owned medal can run a reliable lighting task',
+    () async {
+      transport.readData = {
+        'level': 0,
+        'task_info': [
+          {
+            'title': '点赞30次',
+            'sub_title': '仅点亮',
+            'is_done': 0,
+            'jump_type': 'like',
+          },
+        ],
+      };
+      final snapshot = await service.loadFanTasks();
+      expect(snapshot.joined, isTrue);
+      expect(snapshot.medalLighted, isFalse);
+      expect(snapshot.tasks.single.completionOnly, isTrue);
+      expect(snapshot.tasks.single.actionsPerProgress, 30);
+      expect(transport.posts, 0);
+    },
+  );
+  test(
+    'observed target medal remains positive when other inventory is incomplete',
+    () async {
+      transport.readData = {'level': 0, 'task_info': []};
+      transport.medalData['total_number'] = 2;
+      expect((await service.loadFanTasks()).joined, isTrue);
+      expect(transport.posts, 0);
+    },
+  );
+  test(
+    'zero activated level cannot prove absent target in incomplete inventory',
+    () async {
+      transport.readData = {'level': 0, 'task_info': []};
+      transport.medalData['total_number'] = 2;
+      final items = transport.medalData['list'] as List;
+      (items.single['medal'] as Map)['target_id'] = 30;
+      await expectLater(
+        service.loadFanTasks(),
+        throwsA(isA<LiveInteractionException>()),
+      );
+      expect(transport.posts, 0);
+    },
+  );
+  test(
+    'complete empty personal inventory confirms no owned medal',
+    () async {
+      transport.readData = {'level': 0, 'task_info': []};
+      transport.medalData = {
+        'total_number': 0,
+        'list': [],
+        'special_list': [],
+        'page_info': {'has_more': false},
+      };
+      expect((await service.loadFanTasks()).joined, isFalse);
+      expect(transport.posts, 0);
     },
   );
   test(

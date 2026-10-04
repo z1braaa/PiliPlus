@@ -3,6 +3,7 @@ import 'package:PiliPlus/services/live_intimacy_discovery.dart';
 import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/live_intimacy_statistics_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
@@ -34,9 +35,17 @@ void main() {
   late LiveIntimacyPreferences stored;
   late LiveIntimacyScheduler scheduler;
   late _Discovery discovery;
+  late LiveIntimacyStatisticsPreferences display;
   var loggedIn = true;
   var sessionStarts = 0;
   setUp(() {
+    final shown = <int, bool>{};
+    display = LiveIntimacyStatisticsPreferences(
+      read: (uid) => shown[uid] ?? false,
+      write: (uid, enabled) async {
+        shown[uid] = enabled;
+      },
+    );
     stored = const LiveIntimacyPreferences(
       rooms: [
         LiveIntimacyRoomPreferences(
@@ -68,7 +77,10 @@ void main() {
       automaticTimers: false,
     )..start();
   });
-  tearDown(() => scheduler.dispose());
+  tearDown(() {
+    scheduler.dispose();
+    display.dispose();
+  });
 
   testWidgets(
     'settings master and sorting preserve explicit room authorization in a small window',
@@ -78,7 +90,12 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
-        MaterialApp(home: LiveIntimacySettingsPage(scheduler: scheduler)),
+        MaterialApp(
+          home: LiveIntimacySettingsPage(
+            scheduler: scheduler,
+            display: display,
+          ),
+        ),
       );
       final master = find.byKey(const ValueKey('live-intimacy-master-switch'));
       expect(tester.widget<SwitchListTile>(master).value, isFalse);
@@ -109,7 +126,9 @@ void main() {
     loggedIn = false;
     await scheduler.refresh();
     await tester.pumpWidget(
-      MaterialApp(home: LiveIntimacySettingsPage(scheduler: scheduler)),
+      MaterialApp(
+        home: LiveIntimacySettingsPage(scheduler: scheduler, display: display),
+      ),
     );
     expect(
       tester

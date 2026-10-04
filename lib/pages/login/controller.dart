@@ -10,8 +10,10 @@ import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/login/model.dart';
 import 'package:PiliPlus/pages/login/geetest/geetest_webview_dialog.dart';
+import 'package:PiliPlus/pages/login/account_manager_page.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/accounts/saved_account_profile.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:dio/dio.dart';
@@ -47,6 +49,9 @@ class LoginPageController extends GetxController
   Timer? smsSendCooldownTimer;
 
   bool _isReq = false;
+
+  int? get reauthenticationUid =>
+      int.tryParse(Get.parameters['reauthUid'] ?? '');
 
   @override
   void onInit() {
@@ -92,11 +97,11 @@ class LoginPageController extends GetxController
           if (value['status']) {
             t.cancel();
             statusQRCode.value = '扫码成功';
-            await setAccount(
+            final saved = await setAccount(
               value['data'],
               value['data']['cookie_info']['cookies'],
             );
-            Get.back();
+            if (saved) Get.back();
           } else if (value['code'] == 86038) {
             t.cancel();
             qrCodeLeftTime.value = 0;
@@ -169,21 +174,21 @@ class LoginPageController extends GetxController
       );
       if (result.data['code'] == 0) {
         try {
-          await LoginAccount(
-            BiliCookieJar.fromJson(
-              Map.fromEntries(
-                cookieTextController.text.split(';').map((item) {
-                  final list = item.split('=');
-                  return MapEntry(list.first, list.skip(1).join());
-                }),
+          final saved = await _saveAccount(
+            LoginAccount(
+              BiliCookieJar.fromJson(
+                Map.fromEntries(
+                  cookieTextController.text.split(';').map((item) {
+                    final list = item.trim().split('=');
+                    return MapEntry(list.first.trim(), list.skip(1).join('='));
+                  }),
+                ),
               ),
+              null,
+              null,
             ),
-            null,
-            null,
-          ).onChange();
-          if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
-          SmartDialog.showToast('登录成功');
-          Get.back();
+          );
+          if (saved) Get.back();
         } catch (e) {
           SmartDialog.showToast("登录失败: $e");
         }
@@ -402,13 +407,15 @@ class LoginPageController extends GetxController
                     return;
                   }
                   SmartDialog.showToast('正在保存身份信息');
-                  await setAccount(
+                  final saved = await setAccount(
                     data['token_info'],
                     data['cookie_info']['cookies'],
                   );
-                  Get
-                    ..back()
-                    ..back();
+                  if (saved) {
+                    Get
+                      ..back()
+                      ..back();
+                  }
                 },
                 child: const Text("确认"),
               ),
@@ -425,8 +432,12 @@ class LoginPageController extends GetxController
         return;
       }
       SmartDialog.showToast('正在保存身份信息');
-      await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      Get.back();
+      if (await setAccount(
+        data['token_info'],
+        data['cookie_info']['cookies'],
+      )) {
+        Get.back();
+      }
     } else {
       // handle login result
       switch (res['code']) {
@@ -486,8 +497,12 @@ class LoginPageController extends GetxController
     if (res['status']) {
       SmartDialog.showToast('登录成功');
       final data = res['data'];
-      await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      Get.back();
+      if (await setAccount(
+        data['token_info'],
+        data['cookie_info']['cookies'],
+      )) {
+        Get.back();
+      }
     } else {
       SmartDialog.showToast(res['msg']);
     }
@@ -618,33 +633,70 @@ class LoginPageController extends GetxController
         captchaData.token?.isNotEmpty == true;
   }
 
-  Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
+  Future<bool> setAccount(Map tokenInfo, List cookieInfo) {
     final account = LoginAccount(
       BiliCookieJar.fromList(cookieInfo),
       tokenInfo['access_token'],
       tokenInfo['refresh_token'],
     );
-    await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
-    for (int i = 0; i < AccountType.values.length; i++) {
-      if (Accounts.accountMode[i].mid == account.mid) {
-        Accounts.accountMode[i] = account;
+    return _saveAccount(account);
+  }
+
+  Future<bool> _saveAccount(LoginAccount account) async {
+    int? uid;
+    try {
+      uid = account.mid;
+      account.profile = account.profile.copyWith(
+        loginState: SavedAccountLoginState.verified,
+        checkedAt: DateTime.now(),
+        checkFailed: false,
+      );
+      await Accounts.saveLoginAccount(
+        account,
+        expectedUid: reauthenticationUid,
+      );
+      if (!identical(Accounts.account.get('${account.mid}'), account)) {
+        SmartDialog.showToast('账号选择已变化，本次登录未保存，请重试');
+        return false;
       }
-    }
-    if (Accounts.main.isLogin) {
-      SmartDialog.showToast('登录成功');
-    } else {
-      SmartDialog.showToast('登录成功, 请先设置账号模式');
-      await switchAccountDialog(Get.context!);
+      if (!Accounts.main.isLogin) {
+        // First login remains an explicit choice; advanced anonymous roles are
+        // never silently replaced when adding another account.
+        SmartDialog.showToast('登录已保存，请在账号管理中选择当前账号');
+      } else {
+        SmartDialog.showToast('登录成功，账号已保存');
+      }
+      return true;
+    } catch (_) {
+      if (uid != null && identical(Accounts.account.get('$uid'), account)) {
+        SmartDialog.showToast('登录已保存，当前账号初始化未完成，请在账号管理中重试');
+        return true;
+      }
+      SmartDialog.showToast(
+        reauthenticationUid != null
+            ? '重新登录失败或UID不一致，原账号未更改'
+            : '登录保存失败，请重试；其他账号未更改',
+      );
+      return false;
     }
   }
 
-  static Future<void>? switchAccountDialog(BuildContext context) {
+  static Future<void>? switchAccountDialog(BuildContext context) =>
+      Get.to<void>(() => const SavedAccountManagerPage());
+
+  static Future<void>? accountUsageDialog(BuildContext context) {
     if (Accounts.account.isEmpty) {
       SmartDialog.showToast('请先登录');
       return Get.toNamed('/loginPage');
     }
     final colorScheme = ColorScheme.of(context);
+    final selectionSnapshot = Accounts.captureRoleSelection();
     final selectAccount = List.of(Accounts.accountMode);
+    final followingRoles = {
+      for (final role in AccountType.values)
+        if (Accounts.followsMain(role)) role,
+    };
+    final followChoice = Object();
     final options = {
       AnonymousAccount(): '0',
       ...Accounts.account.toMap().map(
@@ -698,6 +750,13 @@ class LoginPageController extends GetxController
                       groupValue: selectAccount[0],
                       onChanged: (v) {
                         selectAccount.fillRange(0, selectAccount.length, v);
+                        followingRoles
+                          ..clear()
+                          ..addAll(
+                            AccountType.values.where(
+                              (role) => role != AccountType.main,
+                            ),
+                          );
                         (context as Element).markNeedsBuild();
                       },
                       child: Column(
@@ -722,15 +781,26 @@ class LoginPageController extends GetxController
                     children: AccountType.values
                         .map(
                           (e) => Builder(
-                            builder: (context) => RadioGroup<Account>(
-                              groupValue: selectAccount[e.index],
+                            builder: (context) => RadioGroup<Object>(
+                              groupValue: followingRoles.contains(e)
+                                  ? followChoice
+                                  : selectAccount[e.index],
                               onChanged: (v) {
-                                selectAccount[e.index] = v!;
+                                if (identical(v, followChoice)) {
+                                  followingRoles.add(e);
+                                } else {
+                                  followingRoles.remove(e);
+                                  selectAccount[e.index] = v! as Account;
+                                }
                                 (context as Element).markNeedsBuild();
                               },
-                              child: WrapRadioOptionsGroup<Account>(
+                              child: WrapRadioOptionsGroup<Object>(
                                 groupTitle: e.title,
-                                options: options,
+                                options: {
+                                  if (e != AccountType.main)
+                                    followChoice: '跟随主账号',
+                                  ...options,
+                                },
                               ),
                             ),
                           ),
@@ -748,21 +818,24 @@ class LoginPageController extends GetxController
             onPressed: () async {
               Get.back();
               try {
-                for (final type in AccountType.values) {
-                  final index = type.index;
-                  final account = quickSelect
-                      ? selectAccount.first
-                      : selectAccount[index];
-                  if (!identical(account, Accounts.accountMode[index])) {
-                    await Accounts.set(type, account);
-                  }
-                  if (type == AccountType.main &&
-                      !identical(Accounts.main, account)) {
-                    return;
-                  }
-                }
+                await Accounts.applyAccountRoleSelection(
+                  {
+                    for (final type in AccountType.values)
+                      type: quickSelect
+                          ? selectAccount.first
+                          : followingRoles.contains(type)
+                          ? selectAccount.first
+                          : selectAccount[type.index],
+                  },
+                  snapshot: selectionSnapshot,
+                  followingRoles: quickSelect
+                      ? AccountType.values
+                            .where((role) => role != AccountType.main)
+                            .toSet()
+                      : followingRoles,
+                );
               } catch (_) {
-                SmartDialog.showToast('账号切换失败；请检查网页登录态后重试');
+                SmartDialog.showToast('账号状态已变化或切换未完成，请重新打开账号用途设置后重试');
               }
             },
             child: const Text('确定'),

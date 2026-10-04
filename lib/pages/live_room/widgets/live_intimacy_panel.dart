@@ -1,5 +1,5 @@
 import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_controls.dart';
-import 'package:PiliPlus/pages/setting/pages/live_intimacy.dart';
+import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_progress_widgets.dart';
 import 'package:PiliPlus/services/live_intimacy_scheduler.dart';
 import 'package:PiliPlus/services/live_interaction_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -89,14 +89,9 @@ class _LiveIntimacyRoomPanelState extends State<LiveIntimacyRoomPanel> {
             return scheduler.authorizeRoom(value, enabled);
           },
           loadEmoticons: _interaction.loadTaskEmoticons,
-          statusText:
-              state?.pauseReason ??
-              (state?.completed == true
-                  ? '三项任务均已由官方确认完成'
-                  : state?.running == true
-                  ? '此房间正在执行后台任务'
-                  : preferences.configurationIssue() ??
-                        '已保存此房间配置；总开关和房间授权均开启后才执行。'),
+          statusText: state == null
+              ? preferences.configurationIssue() ?? '已保存此房间配置；总开关和房间授权均开启后才执行。'
+              : liveIntimacyRoomStatusSummary(state),
           progress: state == null
               ? null
               : Column(

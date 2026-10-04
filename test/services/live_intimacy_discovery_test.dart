@@ -61,6 +61,128 @@ class _Identity {
 }
 
 void main() {
+  test(
+    'partial snapshots retain bounded TTL but never infer missing ownership',
+    () async {
+      var now = DateTime(2026, 10, 4);
+      var reads = 0;
+      var complete = false;
+      final discovery = LiveIntimacyDiscovery.testing(
+        now: () => now,
+        read: (path, query) async {
+          reads++;
+          if (path == LiveIntimacyDiscovery.followingPath) {
+            return response({
+              'totalPage': 1,
+              'list': [followed(10, 100), followed(20, 200)],
+            });
+          }
+          return response(
+            {
+              'total_number': 2,
+              'list': [medal(10, 100, 5)],
+              'special_list': [],
+              'page_info': {'has_more': false},
+            }..['total_number'] = complete ? 1 : 2,
+          );
+        },
+      );
+      expect((await discovery.discover([room])).single.medalOwned, isTrue);
+      expect(discovery.complete, isFalse);
+      expect(await discovery.discover([secondRoom]), isEmpty);
+      expect(reads, 2);
+      complete = true;
+      now = now.add(const Duration(seconds: 60));
+      final absent = (await discovery.discover([secondRoom])).single;
+      expect(absent.medalOwned, isFalse);
+      expect(discovery.complete, isTrue);
+      expect(reads, 4);
+    },
+  );
+
+  test(
+    'partial cache cannot cross login identity even when UID stays equal',
+    () async {
+      final identity = _Identity();
+      var accountMedal = 10;
+      var reads = 0;
+      final discovery = LiveIntimacyDiscovery.testing(
+        identity: () => identity.current,
+        read: (path, query) async {
+          reads++;
+          return path == LiveIntimacyDiscovery.followingPath
+              ? response({
+                  'totalPage': 1,
+                  'list': [followed(10, 100), followed(20, 200)],
+                })
+              : response({
+                  'total_number': 2,
+                  'list': [medal(accountMedal, accountMedal * 10, 5)],
+                  'special_list': [],
+                  'page_info': {'has_more': false},
+                });
+        },
+      );
+      expect((await discovery.discover([room])).single.medalOwned, isTrue);
+      accountMedal = 20;
+      identity.account = Object();
+      identity.generation++;
+      expect(await discovery.discover([room]), isEmpty);
+      expect(
+        (await discovery.discover([secondRoom])).single.medalOwned,
+        isTrue,
+      );
+      expect(discovery.complete, isFalse);
+      expect(reads, 4);
+    },
+  );
+
+  test(
+    'partial positive tolerance does not hide API, cursor or identity errors',
+    () async {
+      for (final bad in [
+        {'code': -101},
+        response({
+          'total_number': 2,
+          'list': [medal(10, 100, 5)],
+          'special_list': [],
+          'page_info': {
+            'has_more': true,
+            'next_page': 2,
+            'next_light_status': 1,
+          },
+        }),
+        response({
+          'total_number': 2,
+          'list': [medal(10, 100, 0)],
+          'special_list': [],
+          'page_info': {'has_more': false},
+        }),
+        response({
+          'total_number': 2,
+          'list': [medal(10, 100, 5)],
+          'special_list': [],
+          'page_info': {},
+        }),
+      ]) {
+        final discovery = LiveIntimacyDiscovery.testing(
+          read: (path, query) async =>
+              path == LiveIntimacyDiscovery.followingPath
+              ? response({
+                  'totalPage': 1,
+                  'list': [followed(10, 100)],
+                })
+              : bad,
+        );
+        await expectLater(
+          discovery.discover([room]),
+          throwsA(isA<LiveInteractionException>()),
+        );
+        expect(discovery.complete, isFalse);
+      }
+    },
+  );
+
   test('uses complete following pages and explicit medal cursors despite short pages', () async {
     final requested = <String>[];
     final discovery = LiveIntimacyDiscovery.testing(
@@ -175,7 +297,7 @@ void main() {
   );
 
   test(
-    'declared medal total cannot hide an incomplete terminal page',
+    'partial terminal inventory keeps observed ownership and missing anchors unknown',
     () async {
       final discovery = LiveIntimacyDiscovery.testing(
         read: (path, query) async => path == LiveIntimacyDiscovery.followingPath
@@ -190,10 +312,10 @@ void main() {
                 'page_info': {'has_more': false},
               }),
       );
-      await expectLater(
-        discovery.discover([room]),
-        throwsA(isA<LiveInteractionException>()),
-      );
+      final candidates = await discovery.discover([room, secondRoom]);
+      expect(candidates.single.anchorUid, room.anchorUid);
+      expect(candidates.single.medalOwned, isTrue);
+      expect(discovery.complete, isFalse);
     },
   );
 
@@ -214,7 +336,12 @@ void main() {
             });
           }
           if (path == '/x/relation') return response({'attribute': 6});
-          return response({'level': 8});
+          return response({
+            'total_number': 1,
+            'list': [medal(10, 100, 8)],
+            'special_list': [],
+            'page_info': {'has_more': false},
+          });
         },
       );
       final candidate = await discovery.recheck(room.copyWith(roomId: 1));
@@ -503,8 +630,13 @@ void main() {
         if (path == '/x/relation') {
           return response({'attribute': qualified ? 2 : 0});
         }
-        if (path.endsWith('GetActivatedMedalInfo')) {
-          return response({'level': qualified ? 5 : 0});
+        if (path == LiveIntimacyDiscovery.medalsPath && !qualified) {
+          return response({
+            'total_number': 0,
+            'list': [],
+            'special_list': [],
+            'page_info': {'has_more': false},
+          });
         }
         return completePage(path);
       },

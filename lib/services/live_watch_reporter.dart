@@ -37,6 +37,43 @@ class LiveWatchStatus {
   ]);
 }
 
+/// Native position observations distinguish playing flags from actual media.
+/// Missing samples, a stalled clock and seeks cannot confirm continuous watch.
+class LiveWatchMediaObservation {
+  Duration? _position;
+  Duration? _clock;
+  bool _advancing = false;
+
+  void observe({required Duration position, required Duration clock}) {
+    final previousPosition = _position;
+    final previousClock = _clock;
+    _position = position;
+    _clock = clock;
+    final elapsed = previousClock == null ? null : clock - previousClock;
+    final media = previousPosition == null ? null : position - previousPosition;
+    _advancing =
+        elapsed != null &&
+        media != null &&
+        elapsed > Duration.zero &&
+        elapsed <= const Duration(seconds: 3) &&
+        media > Duration.zero &&
+        media <= elapsed + const Duration(seconds: 1);
+  }
+
+  bool advancingAt(Duration clock) {
+    final previousClock = _clock;
+    if (!_advancing || previousClock == null) return false;
+    final elapsed = clock - previousClock;
+    return !elapsed.isNegative && elapsed <= const Duration(seconds: 3);
+  }
+
+  void freeze() {
+    _position = null;
+    _clock = null;
+    _advancing = false;
+  }
+}
+
 class LiveWatchAccount {
   final int uid;
   final Object identity;
@@ -345,6 +382,9 @@ class LiveWatchReporter {
   String _sessionUuid = '';
   _WatchParameters? _parameters;
   Duration? _segmentStart;
+  Duration? _lastPlaybackObservation;
+  DateTime? _lastPlaybackWallObservation;
+  static const _observationGapLimit = Duration(seconds: 3);
   Future<void>? _operation;
 
   LiveWatchReporter({
@@ -408,6 +448,15 @@ class LiveWatchReporter {
     required bool live,
   }) {
     if (_disposed) return;
+    final current = _monotonicNow();
+    final wall = _now();
+    // Every owner observes playback at least once a second. A long gap may be
+    // sleep or a suspended event loop even when no platform sleep hook exists.
+    // Start a fresh segment before accepting another heartbeat in either order
+    // of resumed callbacks; do not retain a stale pre-sleep playing flag.
+    if (_running && !_observationFresh(current, wall)) _invalidate();
+    _lastPlaybackObservation = current;
+    _lastPlaybackWallObservation = wall;
     _enabled = enabled;
     _playing = playing;
     _buffering = buffering;
@@ -452,6 +501,18 @@ class LiveWatchReporter {
     _failed = false;
     _reconcile();
     await settled;
+  }
+
+  bool _observationFresh(Duration current, DateTime wall) {
+    final last = _lastPlaybackObservation;
+    final lastWall = _lastPlaybackWallObservation;
+    if (last == null || lastWall == null) return false;
+    final elapsed = current - last;
+    final wallElapsed = wall.difference(lastWall);
+    return !elapsed.isNegative &&
+        !wallElapsed.isNegative &&
+        elapsed <= _observationGapLimit &&
+        wallElapsed <= _observationGapLimit;
   }
 
   bool get _playbackAllowed => _enabled && _playing && !_buffering && _live;
@@ -625,6 +686,11 @@ class LiveWatchReporter {
   Future<void> _heartbeat(LiveWatchAccount account, int generation) async {
     try {
       _guard(account, generation);
+      if (!_observationFresh(_monotonicNow(), _now())) {
+        _invalidate();
+        _emit(LiveWatchState.paused, '播放状态中断，等待恢复后重新开始观时');
+        return;
+      }
       final start = _segmentStart!;
       final current = _monotonicNow();
       final seconds = (current - start).inSeconds;

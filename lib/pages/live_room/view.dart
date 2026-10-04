@@ -33,6 +33,7 @@ import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/enhancement_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/live_intimacy_panel.dart';
+import 'package:PiliPlus/pages/live_room/widgets/live_startup_placeholder.dart';
 import 'package:PiliPlus/pages/live_room/widgets/interaction_focus_boundary.dart';
 import 'package:PiliPlus/pages/live_room/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
@@ -397,7 +398,15 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                   ),
           );
         }
-        return const SizedBox.shrink();
+        return LiveStartupPlaceholder(
+          phase: _liveRoomController.startupPhase.value,
+          onRetry: () {
+            if (!_liveRoomController.ownsLiveViewing) {
+              _liveRoomController.claimLiveViewing();
+            }
+            _liveRoomController.queryLiveUrl();
+          },
+        );
       },
     );
     final mountedPlayer = player;
@@ -1070,6 +1079,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   Future<void> _showIntimacySettings() async {
     final room = _liveRoomController.roomInfoH5.value;
     final anchorUid = room?.roomInfo?.uid ?? _liveRoomController.ruid;
+    var openBackgroundSettings = false;
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -1087,7 +1097,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                 style: Theme.of(sheetContext).textTheme.titleLarge,
               ),
               TextButton(
-                onPressed: () => Get.toNamed('/liveIntimacySettings'),
+                onPressed: () {
+                  openBackgroundSettings = true;
+                  Navigator.of(sheetContext).pop();
+                },
                 child: const Text('总开关与后台队列'),
               ),
               if (anchorUid == null || anchorUid <= 0)
@@ -1104,6 +1117,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ),
       ),
     );
+    if (mounted && openBackgroundSettings) {
+      await Get.toNamed('/liveIntimacySettings');
+    }
   }
 
   Future<void> _openOfficialGuard(int anchorUid) async {

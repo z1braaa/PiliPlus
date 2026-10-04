@@ -6,6 +6,7 @@ import 'package:PiliPlus/main.dart' show webViewEnvironment;
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/accounts/saved_account_profile.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -188,6 +189,33 @@ abstract final class LoginUtils {
     final res = await UserHttp.userInfo();
     if (!identical(Accounts.main, account)) return;
     if (res case Success(:final response)) {
+      if (response.isLogin != true || response.mid != account.mid) {
+        if (account is LoginAccount) {
+          await Accounts.updateSavedProfile(
+            account,
+            account.profile.copyWith(
+              loginState: SavedAccountLoginState.expired,
+              checkedAt: DateTime.now(),
+              checkFailed: false,
+            ),
+          );
+        }
+        await onLogoutMain(account);
+        SmartDialog.showToast('当前账号登录已失效，请在账号管理中重新登录');
+        return;
+      }
+      if (account is LoginAccount) {
+        await Accounts.updateSavedProfile(
+          account,
+          account.profile.copyWith(
+            name: response.uname,
+            avatar: response.face,
+            loginState: SavedAccountLoginState.verified,
+            checkedAt: DateTime.now(),
+            checkFailed: false,
+          ),
+        );
+      }
       try {
         await _webCookies.replaceIfCurrent(account);
       } catch (_) {
@@ -214,7 +242,17 @@ abstract final class LoginUtils {
       // 获取用户信息失败
       final errMsg = res.toString();
       if (errMsg == '账号未登录') {
-        await Accounts.deleteAll({account});
+        if (account is LoginAccount) {
+          await Accounts.updateSavedProfile(
+            account,
+            account.profile.copyWith(
+              loginState: SavedAccountLoginState.expired,
+              checkedAt: DateTime.now(),
+              checkFailed: false,
+            ),
+          );
+        }
+        await onLogoutMain(account);
         SmartDialog.showNotify(
           msg: '登录失败，请检查cookie是否正确，$errMsg',
           notifyType: .warning,

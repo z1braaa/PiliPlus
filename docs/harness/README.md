@@ -4,6 +4,9 @@
 
 | 文件 | 用途 |
 | --- | --- |
+| [5444 GitHub交付](github-release-5444.md) | 本版源码快照、Android三APK及macOS通用DMG、公开摘要、GitHub附件回读；包内基线与后存源码快照分别标识 |
+| [5444 Android与macOS本机构建](android-macos-build-5444.md) | QA11对应未提交源码的三ABI APK和macOS通用DMG、源码清单、签名及摘要核对、临时打包清理 |
+| [5442后亲密度记录统计与账号需求](../requirements/17-live-intimacy-records-statistics-accounts.md) | 已授权实施；逐房间周期记录、双队列、实时统计及动态入口、未点亮仅点赞、直播加载／指定房间修复、多账号管理；见[新版实施验收](live-intimacy-revision-20261003.md) |
 | [5442三平台交付](cross-platform-release-5442.md) | Android／Windows／macOS同源构建、安装包校验、GitHub Release及清理；真实平台功能验收另列 |
 | [后台亲密度队列最终需求](../requirements/15-live-intimacy-background-scheduler.md) | 2026-10-03需求对齐结果、拟定默认值和LIVE-SCHED-01～12验收计划，含实时观时与1～5表情随机；批准范围已实现；离线、构建、部分GUI与真实互动分别记录；5440冷房失败与5441观时增长分别记录 |
 | [音频与发现先行验证](live-intimacy-discovery-audio-gate-20261003.md) | 静音仅音频有效播放／官方结算及真实勋章完整分页，明确不替代5440新队列验收 |
