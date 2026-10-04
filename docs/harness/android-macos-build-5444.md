@@ -2,7 +2,7 @@
 
 2026-10-04，用户要求将已实现的本版代码编译为Android与macOS安装包。对应BUILD-REL-01、03及本机清理部分BUILD-REL-05，范围见[交付需求补充](../requirements/16-cross-platform-release.md)。状态：两个平台Release构建、封装、验包、独立复核和临时包清理已完成。
 
-产品输入与QA11清单一致，1475项共同文件清单规范化SHA256为beecda9fb716e5749a98171074a59b678aabcaf2815d53eb1e1f7caf7c9a3c17。计算方式为对路径→文件SHA256字典使用Python `json.dumps(sort_keys=True, separators=(',', ':'))`，UTF-8编码后取SHA256；带缩进的交付文件`verification/source-manifest.json`本身SHA256为051f268fa03c93a42637d08137e0eccdb8a9b5426c7df3fd64eca18a9417d27f，两者分别记录，不混用。工作区codex/live-task-watch基线为58cd844131171ce1997738ca6770b1d422d22b90，本版功能仍为未提交代码。传统包内提交标识是基线，不代表本轮新增功能的已提交身份。
+产品输入与QA11清单一致，1475项共同文件清单规范化SHA256为beecda9fb716e5749a98171074a59b678aabcaf2815d53eb1e1f7caf7c9a3c17。计算方式为对路径→文件SHA256字典使用Python `json.dumps(sort_keys=True, separators=(',', ':'))`，UTF-8编码后取SHA256；带缩进的交付文件`verification/source-manifest.json`本身SHA256为051f268fa03c93a42637d08137e0eccdb8a9b5426c7df3fd64eca18a9417d27f，两者分别记录，不混用。工作区codex/live-task-watch构建时基线为58cd844131171ce1997738ca6770b1d422d22b90，当时本版功能为未提交代码。传统包内提交标识是基线，不代表本轮新增功能的已提交身份。
 
 版本号2.1.5／构建5444，显示版本2.1.5-LIVE-INTIMACY-REVISION。产物、源码清单及验证记录交付到[/Users/Admin/Downloads/PiliPlus-Release-5444](/Users/Admin/Downloads/PiliPlus-Release-5444)。Android覆盖arm64-v8a、armeabi-v7a和x86_64；macOS覆盖Apple Silicon与Intel，最低13.0。
 
@@ -37,4 +37,4 @@ Android独立验包器第一次断言失败来自SDK37签名输出由`Signer #1`
 
 实际已删除文件逻辑大小305986523字节，约292MiB；APFS可能共享数据块，未测量物理磁盘释放量。清理前目录清单摘要、文件数、删除原因和保留范围见`verification/cleanup.json`。交付目录保留[汇总清单](/Users/Admin/Downloads/PiliPlus-Release-5444/release-manifest.json)、[文件校验](/Users/Admin/Downloads/PiliPlus-Release-5444/SHA256SUMS.txt)和[安装说明](/Users/Admin/Downloads/PiliPlus-Release-5444/README.md)。
 
-本轮文档链接及`git diff --check`检查通过，android／macos未留下临时原生源码变动。当前仍为本机交付，未新建源码提交或上传5444安装包。
+本轮文档链接及`git diff --check`检查通过，android／macos未留下临时原生源码变动。本机构建结束时尚未新建源码提交或上传5444安装包；用户随后授权上传，现已保存相同源码快照并发布GitHub，见[5444交付记录](github-release-5444.md)。构建时的基线、未提交状态和原验包记录保持历史事实。

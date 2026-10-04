@@ -1,0 +1,88 @@
+{
+  "repo": "z1braaa/PiliPlus",
+  "tag": "v2.1.5-live-intimacy-5444",
+  "source_snapshot_commit": "71eb652697a2d8d32f7df8b41f230bc2f4bda0a8",
+  "release_id": 402927715,
+  "published": true,
+  "prerelease": true,
+  "release_url": "https://github.com/z1braaa/PiliPlus/releases/tag/v2.1.5-live-intimacy-5444",
+  "published_at": "2026-10-04T08:51:43Z",
+  "published_verified_utc": "2026-10-04T08:53:33.296958+00:00",
+  "server_digests_and_sizes": "all eight passed",
+  "eight_assets_readback": "passed",
+  "seven_file_checksum_list": "passed",
+  "tag_commit_verified": true,
+  "tag_object_sha": "df7f4388ab25e567eca32cc668d435ddbf5df985",
+  "published_assets_size_sha256": "all eight passed",
+  "published_notes_match": true,
+  "temporary_readback_directory_removed": true,
+  "temporary_readback_logical_bytes_removed": 135401552,
+  "artifacts": [
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-REVISION+5444-android-arm64-v8a.apk",
+      "bytes": 24558523,
+      "sha256": "65db19711411db8195de24f5d0b2dee147c664052cce00358bae106f365fc665",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-REVISION+5444-android-armeabi-v7a.apk",
+      "bytes": 24528273,
+      "sha256": "60a39629c01d94dafb7350b0b77a5bddfe3a8ab146d418616cf1783d0ccedf01",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-REVISION+5444-android-x86_64.apk",
+      "bytes": 25471454,
+      "sha256": "67d5df510c38eab154b3450d325e91d947cf7ec36acf63f470d51d7f8c73d271",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "PiliPlus-2.1.5-LIVE-INTIMACY-REVISION+5444-macos-universal.dmg",
+      "bytes": 60669584,
+      "sha256": "3392643638412973b89feba836d8edfa1b9afd82073aba726a2415ffca80f0c2",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 788,
+      "sha256": "6bb5faa1394a53ab96525e20a989ed79a7d7efcb0e449083d2324aaf46f3e08a",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "release-manifest.json",
+      "bytes": 2768,
+      "sha256": "22a9b916a2203b16b25816d754d81093ace4d0cd9a58ec4db419e02df8f5025b",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "source-manifest.json",
+      "bytes": 167724,
+      "sha256": "051f268fa03c93a42637d08137e0eccdb8a9b5426c7df3fd64eca18a9417d27f",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    },
+    {
+      "name": "verification-summary.json",
+      "bytes": 2438,
+      "sha256": "025927331cfe83139209364c3efff956bd1bea1dcf1af6dd03744c82c510574d",
+      "server_digest_matches": true,
+      "download_readback_matches": true
+    }
+  ],
+  "requirement_id": "BUILD-REL-04",
+  "build": 5444,
+  "embedded_build_base_commit": "58cd844131171ce1997738ca6770b1d422d22b90",
+  "uncommitted_source_at_build": true,
+  "source_snapshot_created_after_build": true,
+  "source_snapshot_matches_build_input": true,
+  "common_source_file_count": 1475,
+  "common_source_manifest_canonical_sha256": "beecda9fb716e5749a98171074a59b678aabcaf2815d53eb1e1f7caf7c9a3c17",
+  "installer_bytes_changed_during_upload": false,
+  "device_or_account_function_tests_during_upload": "not run"
+}

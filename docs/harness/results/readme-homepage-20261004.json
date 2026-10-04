@@ -1,0 +1,24 @@
+{
+  "requirement_id": "BUILD-REL-06",
+  "timestamp_utc": "2026-10-04T09:05:27.853616+00:00",
+  "readme_sha256": "0effd671084cdc5fd446ad677091ed4921f9474a675e56ab5d7f9ee25e748454",
+  "readme_git_blob_sha": "01314a962a40502a017f50e0487fade3ef1d0b83",
+  "default_branch": "main",
+  "main_commit": "d0d6066824bd4102b15ee4e29b5d7d6a5ce985f1",
+  "main_changed_files": [
+    "README.md"
+  ],
+  "markdown_api_render": "passed",
+  "upstream_link_first_content_block": true,
+  "upstream_link_before_first_feature_heading": true,
+  "absolute_links_count": 22,
+  "main_readback_matches_local": true,
+  "relative_doc_or_asset_links": false,
+  "source_branch_sync": "passed",
+  "repo_home_url": "https://github.com/z1braaa/PiliPlus",
+  "original_application_url": "https://github.com/bggRGjQaUbCoE/PiliPlus",
+  "release_installer_and_tag_changed": false,
+  "source_branch_readme_commit": "396d92d009e57383052cf815d3dfc4b6ebad0148",
+  "source_branch_readback_matches_main_and_local": true,
+  "verified_both_branches_utc": "2026-10-04T09:07:39.312873+00:00"
+}

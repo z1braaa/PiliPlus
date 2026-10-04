@@ -1,6 +1,6 @@
 # 2026-10-03 亲密度记录、双队列、统计和账号管理实施验收
 
-更新：2026-10-04。状态：已确认的产品规则均已实现，源码已完成当前离线回归和macOS／Android QA构建，真实验收部分完成。需求依据为[本版需求](../requirements/17-live-intimacy-records-statistics-accounts.md)，追踪ID见[需求追踪表](traceability.md)。本轮不继承5442历史单队列或旧安装包的验收结论，也尚未发布新版安装包。
+更新：2026-10-04。状态：已确认的产品规则均已实现，源码已完成当前离线回归和macOS／Android QA构建，真实验收部分完成。需求依据为[本版需求](../requirements/17-live-intimacy-records-statistics-accounts.md)，追踪ID见[需求追踪表](traceability.md)。本轮不继承5442历史单队列或旧安装包的验收结论。QA结束后已单独完成[5444本机构建](android-macos-build-5444.md)和[GitHub预发行版交付](github-release-5444.md)，不改变以下分层实测结论。
 
 ## 已确认规则
 
@@ -20,7 +20,7 @@
 
 ## 源码、构建与证据位置
 
-工作分支为codex/live-task-watch，基线提交为58cd844131171ce1997738ca6770b1d422d22b90。本轮为未提交源码，按源码清单标识QA构建，不将基线提交当作本轮实现提交。
+工作分支为codex/live-task-watch，QA基线提交为58cd844131171ce1997738ca6770b1d422d22b90。上述QA构建时为未提交源码，按源码清单标识，不将基线提交当作本轮实现提交。后续5444源码快照71eb652697a2d8d32f7df8b41f230bc2f4bda0a8已提交推送，1475项共同产品输入与QA11／5444构建清单完全相同；源码身份及交付验证见[GitHub交付](github-release-5444.md)。
 
 外部脱敏证据目录为[/Users/Admin/.cache/piliplus-tools/live-intimacy-revision-20261003](/Users/Admin/.cache/piliplus-tools/live-intimacy-revision-20261003)。原始私有账号副本和可重放会话不进入仓库。
 
@@ -239,4 +239,4 @@ QA10在原生确认框执行“移除本机登录”后，登录列表为空，�
 
 [最终清理记录](/Users/Admin/.cache/piliplus-tools/live-intimacy-revision-20261003/final-private-data-cleanup.json)确认原应用已重新打开、仓库临时框架链接不存在、最新QA应用和Android包保留；过期QA安装包已清除，构建和脱敏验证证据保留。
 
-本轮不自动消费、佩戴勋章或改写原应用账号用途／隐私偏好。个人实际视频／直播观看统计仅保留扩展需求，不采集长期历史。本轮尚未提交、推送或发布新版安装包；已确认规则均已实现，但剩余真实场景验收有明确边界，不能以局部实测宣布所有场景可靠性通过。
+本轮不自动消费、佩戴勋章或改写原应用账号用途／隐私偏好。个人实际视频／直播观看统计仅保留扩展需求，不采集长期历史。QA结束时尚未提交、推送或发布新版安装包；随后已完成[5444源码与安装包交付](github-release-5444.md)。已确认规则均已实现，但剩余真实场景验收有明确边界，不能以局部实测宣布所有场景可靠性通过。
