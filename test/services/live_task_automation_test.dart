@@ -162,6 +162,10 @@ class _Harness {
       journal.records.values.where(
         (record) => (record['pending_count'] as int? ?? 0) > 0,
       );
+  Map<String, dynamic> budget(String type) =>
+      journal.records.values.singleWhere(
+        (record) => record['type'] == type,
+      );
   void update({
     bool playing = true,
     bool enhanced = true,
@@ -188,6 +192,442 @@ class _Harness {
 }
 
 void main() {
+  for (final pendingType in ['like', 'sendDanmu']) {
+    test('unresolved $pendingType blocks only its own queued task', () async {
+      final h = _Harness()
+        ..externalScheduling = true
+        ..reflectProgress = false
+        ..returnUnknown = true;
+      h.create();
+      h.update(autoLike: true, autoDanmaku: true);
+      await h.service.tickFromQueue(
+        like: pendingType == 'like',
+        danmaku: pendingType == 'sendDanmu',
+      );
+      expect(h.budget(pendingType)['pending_count'], 1);
+      h.reflectProgress = true;
+      await h.service.tickFromQueue(
+        like: pendingType != 'like',
+        danmaku: pendingType != 'sendDanmu',
+      );
+      expect(h.likes, 1);
+      expect(h.messages, 1);
+      expect(h.budget(pendingType)['pending_count'], 1);
+      expect(h.budget(pendingType)['sent'], 1);
+      await h.service.tickFromQueue(
+        like: pendingType == 'like',
+        danmaku: pendingType == 'sendDanmu',
+      );
+      expect(pendingType == 'like' ? h.likes : h.messages, 1);
+      h.service.dispose();
+    });
+  }
+
+  test('two unresolved task types survive restart and are independently reconciled', () async {
+    final old = _Harness()
+      ..externalScheduling = true
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    old.create();
+    old.update(autoLike: true, autoDanmaku: true);
+    await old.service.tickFromQueue(danmaku: true);
+    await old.service.tickFromQueue(like: true);
+    expect(old._pendingRecords.length, 2);
+    old.service.dispose();
+
+    final next = _Harness(old.journal)..externalScheduling = true;
+    next.create();
+    next.update(autoLike: true, autoDanmaku: true);
+    await next.service.tickFromQueue(like: true);
+    await next.service.tickFromQueue(danmaku: true);
+    expect(next.likes + next.messages, 0);
+    expect(next._pendingRecords.length, 2);
+    next.likeProgress = 1;
+    await next.service.tickFromQueue(danmaku: true);
+    expect(next.budget('like')['pending_count'], 0);
+    expect(next.budget('sendDanmu')['pending_count'], 1);
+    expect(next.service.state, LiveTaskAutomationState.waiting);
+    next.dmProgress = 1;
+    next.update(autoLike: true, autoDanmaku: false);
+    await next.service.refreshTasks();
+    expect(next._pendingRecords, isEmpty);
+    expect(next.likes + next.messages, 0);
+    next.service.dispose();
+  });
+
+  test('paced like slots still reconcile a disabled message task', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..paceLikes = true
+      ..actionsPerProgress = 30
+      ..dailyRewardProgress = true
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    h.create();
+    h.update(autoLike: true, autoDanmaku: true);
+    await h.service.tickFromQueue(danmaku: true);
+    h.update(autoLike: true, autoDanmaku: false);
+    for (var i = 0; i < 3; i++) {
+      await h.service.tickFromQueue(like: true);
+    }
+    expect(h.budget('sendDanmu')['verification_checks'], 3);
+    expect(h.service.statusText, contains('弹幕待核对，点赞可继续'));
+    h.dmProgress = 1;
+    await h.service.tickFromQueue(like: true);
+    expect(h.budget('sendDanmu')['pending_count'], 0);
+    expect(h.messages, 1);
+    expect(h.likes, 0);
+    h.service.dispose();
+  });
+
+  test('message continuation requires both elapsed two minutes and three new reads', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..dmTarget = 10
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    h.create();
+    h.update(autoDanmaku: true);
+    await h.service.tickFromQueue(danmaku: true);
+    h.now = h.now.add(const Duration(minutes: 2));
+    for (var i = 0; i < 2; i++) {
+      await h.service.tickFromQueue(danmaku: true);
+      expect(h.messages, 1);
+    }
+    await h.service.tickFromQueue(danmaku: true);
+    expect(h.messages, 2);
+    expect(h.budget('sendDanmu')['unconfirmed_count'], 1);
+    expect(h.budget('sendDanmu')['consecutive_no_progress'], 1);
+    expect(h.budget('sendDanmu')['sent'], 2);
+    h.service.dispose();
+  });
+
+  for (final haltedMessage in [false, true]) {
+    test(
+      '${haltedMessage ? 'halted' : 'pending'} message slots and reads preserve a full paced like round',
+      () async {
+        final h = _Harness()
+          ..externalScheduling = true
+          ..paceLikes = true
+          ..actionsPerProgress = 30
+          ..dailyRewardProgress = true
+          ..dmTarget = 10
+          ..likeTarget = 10
+          ..reflectProgress = false
+          ..returnUnknown = true;
+        h.create();
+        h.update(autoLike: true, autoDanmaku: true);
+        await h.service.tickFromQueue(danmaku: true);
+        if (haltedMessage) {
+          for (var round = 0; round < 3; round++) {
+            h.now = h.now.add(const Duration(minutes: 2));
+            for (var read = 0; read < 3; read++) {
+              await h.service.tickFromQueue(danmaku: true);
+            }
+          }
+          expect(h.budget('sendDanmu')['consecutive_no_progress'], 3);
+        }
+        h.reflectProgress = true;
+        for (var click = 0; click < 15; click++) {
+          await h.service.tickFromQueue(like: true);
+        }
+        expect(h.likes, 0);
+        await h.service.tickFromQueue(danmaku: true);
+        await h.service.refreshTasks();
+        for (var click = 0; click < 14; click++) {
+          await h.service.tickFromQueue(like: true);
+        }
+        expect(h.likes, 0);
+        await h.service.tickFromQueue(like: true);
+        expect(h.likeBatches, [30]);
+        expect(h.messages, haltedMessage ? 3 : 1);
+        expect(h.budget('sendDanmu')['pending_count'], 1);
+        h.service.dispose();
+      },
+    );
+  }
+
+  test('three reads before two minutes cannot continue; restart retains the original window', () async {
+    final old = _Harness()
+      ..externalScheduling = true
+      ..dmTarget = 10
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    old.create();
+    old.update(autoDanmaku: true);
+    await old.service.tickFromQueue(danmaku: true);
+    final started = old.budget('sendDanmu')['pending_since_millis'];
+    old.now = old.now.add(const Duration(seconds: 119));
+    for (var i = 0; i < 3; i++) {
+      await old.service.tickFromQueue(danmaku: true);
+    }
+    expect(old.messages, 1);
+    old.service.dispose();
+    final next = _Harness(old.journal)
+      ..externalScheduling = true
+      ..dmTarget = 10
+      ..now = old.now
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    next.create();
+    next.update(autoDanmaku: true);
+    await next.service.tickFromQueue(danmaku: true);
+    expect(next.messages, 0);
+    expect(next.budget('sendDanmu')['pending_since_millis'], started);
+    next.now = next.now.add(const Duration(seconds: 1));
+    await next.service.tickFromQueue(danmaku: true);
+    expect(next.messages, 1);
+    expect(next.budget('sendDanmu')['consecutive_no_progress'], 1);
+    next.service.dispose();
+  });
+
+  test(
+    'legacy journal polling cannot immediately grant message continuation',
+    () async {
+      final old = _Harness()
+        ..externalScheduling = true
+        ..dmTarget = 10
+        ..reflectProgress = false
+        ..returnUnknown = true;
+      old.create();
+      old.update(autoDanmaku: true);
+      await old.service.tickFromQueue(danmaku: true);
+      final legacy = old.budget('sendDanmu');
+      legacy
+        ..['schema'] = 2
+        ..['verification_checks'] = 946
+        ..remove('pending_since_millis')
+        ..remove('consecutive_no_progress')
+        ..remove('unconfirmed_count');
+      old.service.dispose();
+      final next = _Harness(old.journal)
+        ..externalScheduling = true
+        ..dmTarget = 10
+        ..now = old.now.add(const Duration(days: 1))
+        ..reflectProgress = false
+        ..returnUnknown = true;
+      next.create();
+      next.update(autoDanmaku: true);
+      await next.service.tickFromQueue(danmaku: true);
+      expect(next.messages, 0);
+      expect(next.budget('sendDanmu')['schema'], 3);
+      expect(next.budget('sendDanmu')['verification_checks'], 2);
+      expect(
+        next.budget('sendDanmu')['pending_since_millis'],
+        next.now.millisecondsSinceEpoch,
+      );
+      next.now = next.now.add(const Duration(seconds: 119));
+      await next.service.tickFromQueue(danmaku: true);
+      expect(next.messages, 0);
+      next.now = next.now.add(const Duration(seconds: 1));
+      await next.service.tickFromQueue(danmaku: true);
+      expect(next.messages, 1);
+      next.service.dispose();
+    },
+  );
+
+  test('three consecutive stagnant messages halt across restart until real progress', () async {
+    final old = _Harness()
+      ..externalScheduling = true
+      ..dmTarget = 10
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    old.create();
+    old.update(autoDanmaku: true);
+    await old.service.tickFromQueue(danmaku: true);
+    for (var round = 0; round < 3; round++) {
+      old.now = old.now.add(const Duration(minutes: 2));
+      for (var read = 0; read < 3; read++) {
+        await old.service.tickFromQueue(danmaku: true);
+      }
+    }
+    expect(old.messages, 3);
+    expect(old.budget('sendDanmu')['sent'], 3);
+    expect(old.budget('sendDanmu')['pending_count'], 1);
+    expect(old.budget('sendDanmu')['unconfirmed_count'], 2);
+    expect(old.budget('sendDanmu')['consecutive_no_progress'], 3);
+    expect(old.service.statusText, contains('连续3次'));
+    old.service.dispose();
+    final next = _Harness(old.journal)
+      ..externalScheduling = true
+      ..dmTarget = 10
+      ..now = old.now.add(const Duration(days: 1))
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    next.create();
+    next.update(autoDanmaku: true);
+    for (var i = 0; i < 5; i++) {
+      await next.service.tickFromQueue(danmaku: true);
+    }
+    expect(next.messages, 0);
+    expect(next.budget('sendDanmu')['consecutive_no_progress'], 3);
+    next.dmProgress = 1;
+    await next.service.tickFromQueue(danmaku: true);
+    expect(next.messages, 1);
+    expect(next.budget('sendDanmu')['consecutive_no_progress'], 0);
+    expect(next.budget('sendDanmu')['unconfirmed_count'], 2);
+    expect(next.budget('sendDanmu')['sent'], 4);
+    next.service.dispose();
+  });
+
+  test(
+    'finite message continuation never replenishes the original send budget',
+    () async {
+      final h = _Harness()
+        ..externalScheduling = true
+        ..reflectProgress = false
+        ..returnUnknown = true;
+      h.create();
+      h.update(autoDanmaku: true);
+      await h.service.tickFromQueue(danmaku: true);
+      for (var round = 0; round < 4; round++) {
+        h.now = h.now.add(const Duration(minutes: 2));
+        for (var read = 0; read < 3; read++) {
+          await h.service.tickFromQueue(danmaku: true);
+        }
+      }
+      expect(h.messages, 2);
+      expect(h.budget('sendDanmu')['sent'], 2);
+      expect(h.budget('sendDanmu')['unconfirmed_count'], 2);
+      expect(h.service.statusText, contains('预算'));
+      h.service.dispose();
+    },
+  );
+
+  for (final certifiedNextCycle in [false, true]) {
+    test(
+      'protected local-cycle quota ${certifiedNextCycle ? 'retires only after a certified next cycle' : 'survives cleared cycle metadata'}',
+      () async {
+        final old = _Harness()
+          ..externalScheduling = true
+          ..confirmedLocalCycles = {'sendDanmu': 1}
+          ..dmTarget = 10
+          ..reflectProgress = false
+          ..returnUnknown = true;
+        old.create();
+        old.update(autoDanmaku: true);
+        await old.service.tickFromQueue(danmaku: true);
+        old.now = old.now.add(const Duration(minutes: 2));
+        for (var read = 0; read < 3; read++) {
+          await old.service.tickFromQueue(danmaku: true);
+        }
+        old.now = old.now.add(const Duration(minutes: 2));
+        for (var read = 0; read < 3; read++) {
+          await old.service.refreshTasks();
+        }
+        expect(old.budget('sendDanmu')['pending_count'], 0);
+        expect(old.budget('sendDanmu')['unconfirmed_count'], 2);
+        old.service.dispose();
+
+        final next = _Harness(old.journal)
+          ..externalScheduling = true
+          ..dmTarget = 10
+          ..now = old.now
+          ..confirmedLocalCycles = certifiedNextCycle ? {'sendDanmu': 2} : {};
+        next.create();
+        next.update(autoDanmaku: true);
+        await next.service.tickFromQueue(danmaku: true);
+        if (certifiedNextCycle) {
+          expect(next.messages, 1);
+          expect(
+            next.journal.records.values.any(
+              (record) =>
+                  record['unconfirmed_count'] == 2 && record['retired'] == true,
+            ),
+            isTrue,
+          );
+        } else {
+          expect(next.messages, 0);
+          expect(next.service.statusText, contains('周期尚未确认'));
+          expect(next.budget('sendDanmu')['sent'], 2);
+          expect(
+            next.journal.records.keys.any(
+              (key) => key.contains('unknown-period:sendDanmu'),
+            ),
+            isFalse,
+          );
+          next.dmProgress = 10;
+          await next.service.refreshTasks();
+          expect(next.service.state, LiveTaskAutomationState.completed);
+          expect(next.messages, 0);
+          expect(next.budget('sendDanmu')['unconfirmed_count'], 2);
+        }
+        next.service.dispose();
+      },
+    );
+  }
+
+  test('official completion resets archived-message stagnation without refunding unknown sends', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..dmTarget = 1
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    h.create();
+    h.update(autoDanmaku: true);
+    await h.service.tickFromQueue(danmaku: true);
+    h.now = h.now.add(const Duration(minutes: 2));
+    for (var read = 0; read < 3; read++) {
+      await h.service.refreshTasks();
+    }
+    expect(h.budget('sendDanmu')['unconfirmed_count'], 1);
+    expect(h.budget('sendDanmu')['pending_count'], 0);
+    expect(h.budget('sendDanmu')['consecutive_no_progress'], 1);
+    h.dmProgress = 1;
+    await h.service.refreshTasks();
+    expect(h.budget('sendDanmu')['consecutive_no_progress'], 0);
+    expect(h.budget('sendDanmu')['unconfirmed_count'], 1);
+    expect(h.budget('sendDanmu')['sent'], 1);
+    expect(h.service.state, LiveTaskAutomationState.completed);
+    expect(h.messages, 1);
+    h.service.dispose();
+  });
+
+  test('external read-only refresh never labels an unknown task definition completed', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..countKnown = false;
+    h.create();
+    h.update(autoLike: true, autoDanmaku: true);
+    await h.service.refreshTasks();
+    expect(h.service.state, LiveTaskAutomationState.paused);
+    expect(h.service.statusText, contains('尚未确认'));
+    expect(h.likes + h.messages, 0);
+    h.service.dispose();
+  });
+
+  test('external read-only refresh can confirm all selected official tasks completed', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..likeProgress = 7
+      ..dmProgress = 2;
+    h.create();
+    h.update(autoLike: true, autoDanmaku: true);
+    await h.service.refreshTasks();
+    expect(h.service.state, LiveTaskAutomationState.completed);
+    expect(h.likes + h.messages, 0);
+    h.service.dispose();
+  });
+
+  test('unknown likes never inherit finite message continuation', () async {
+    final h = _Harness()
+      ..externalScheduling = true
+      ..reflectProgress = false
+      ..returnUnknown = true;
+    h.create();
+    h.update(autoLike: true);
+    await h.service.tickFromQueue(like: true);
+    for (var i = 0; i < 20; i++) {
+      h.now = h.now.add(const Duration(minutes: 2));
+      await h.service.tickFromQueue(like: true);
+    }
+    expect(h.likes, 1);
+    expect(h.budget('like')['pending_count'], 1);
+    expect(h.budget('like')['consecutive_no_progress'], 0);
+    expect(h.budget('like')['unconfirmed_count'], 0);
+    h.service.dispose();
+  });
+
   testWidgets(
     'certified new cycle retires unresolved old write without replaying it',
     (tester) async {
@@ -1286,7 +1726,7 @@ void main() {
       await tester.pump();
       await h.advance(tester, 30);
       expect(choices, 1);
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 3; i++) {
         await h.advance(tester, 30);
       }
       expect(choices, 1);

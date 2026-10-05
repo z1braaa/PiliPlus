@@ -4,6 +4,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
+| [21013446互动停滞排查](live-room-21013446-debug-20261005.md) | LIVE-ROOM-01真实持久未决复现、点赞与弹幕隔离、用户批准有限弹幕恢复及独立验收范围 |
 | [5444 GitHub交付](github-release-5444.md) | 本版源码快照、Android三APK及macOS通用DMG、公开摘要、GitHub附件回读；包内基线与后存源码快照分别标识 |
 | [5444 Android与macOS本机构建](android-macos-build-5444.md) | QA11对应未提交源码的三ABI APK和macOS通用DMG、源码清单、签名及摘要核对、临时打包清理 |
 | [5442后亲密度记录统计与账号需求](../requirements/17-live-intimacy-records-statistics-accounts.md) | 已授权实施；逐房间周期记录、双队列、实时统计及动态入口、未点亮仅点赞、直播加载／指定房间修复、多账号管理；见[新版实施验收](live-intimacy-revision-20261003.md) |

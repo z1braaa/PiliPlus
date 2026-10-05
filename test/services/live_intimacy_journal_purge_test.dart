@@ -13,10 +13,17 @@ void main() {
     final box = await Hive.openBox<dynamic>('liveTaskAutomationJournal');
     const pending = '1:10:1:cycle:like:like';
     const settled = '1:10:1:cycle:sendDanmu:sendDanmu';
+    const unconfirmed = '1:20:2:cycle:sendDanmu:sendDanmu';
     const another = '2:10:1:cycle:like:like';
     await box.putAll({
       pending: {'schema': 2, 'pending_count': 1, 'unknown': true},
       settled: {'schema': 2, 'pending_count': 0},
+      unconfirmed: {
+        'schema': 3,
+        'pending_count': 0,
+        'unconfirmed_count': 1,
+        'sent': 2,
+      },
       another: {'schema': 2, 'pending_count': 0},
       '1:10:1:index': {
         'keys': [pending, settled],
@@ -24,11 +31,17 @@ void main() {
       '2:10:1:index': {
         'keys': [another],
       },
+      '1:20:2:index': {
+        'keys': [unconfirmed],
+      },
     });
     await LiveTaskAutomationService.clearAccountJournal(1);
     expect(box.containsKey(pending), isTrue);
     expect(box.containsKey(settled), isFalse);
     expect(box.get('1:10:1:index')['keys'], [pending]);
+    expect(box.containsKey(unconfirmed), isTrue);
+    expect(box.get(unconfirmed)['sent'], 2);
+    expect(box.get('1:20:2:index')['keys'], [unconfirmed]);
     expect(box.containsKey(another), isTrue);
     expect(box.get('2:10:1:index')['keys'], [another]);
     await Hive.close();

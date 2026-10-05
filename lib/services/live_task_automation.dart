@@ -174,7 +174,6 @@ class LiveTaskAutomationService extends ChangeNotifier {
   int? _boundUid;
   int? _boundAccountGeneration;
   DateTime? _nextDanmakuAt;
-  _TaskBudget? _verification;
   LiveTaskAutomationState _state = LiveTaskAutomationState.idle;
   String _statusText = '自动任务已关闭';
   String? _error;
@@ -252,7 +251,6 @@ class LiveTaskAutomationService extends ChangeNotifier {
     _boundAccountGeneration = _accountGeneration();
     if (identityChanged) {
       _tasks = const [];
-      _verification = null;
       _nextDanmakuAt = null;
     }
     if (resetMessageDelay) _nextDanmakuAt = null;
@@ -387,9 +385,22 @@ class LiveTaskAutomationService extends ChangeNotifier {
   /// opportunity. Room timers cannot race to create a burst across rooms.
   Future<void> tickFromQueue({bool like = false, bool danmaku = false}) async {
     if (!externalScheduling || !_eligible || _busy) return;
-    if (_tasks.isEmpty) await refreshTasks();
+    final initiallyEmpty = _tasks.isEmpty;
+    if (initiallyEmpty) await refreshTasks();
     if (!_eligible || _busy) return;
-    if (like && !danmaku && _verification == null) {
+    if (like &&
+        !danmaku &&
+        !initiallyEmpty &&
+        _pendingBudgets.isNotEmpty &&
+        !_pendingBudgets.any((budget) => budget.type == 'like')) {
+      // Click accumulation may return before a dispatch. Still reconcile the
+      // other task's unresolved writes, even when its queue slot is disabled.
+      await refreshTasks();
+      if (!_eligible || _busy) return;
+    }
+    if (like &&
+        !danmaku &&
+        !_pendingBudgets.any((budget) => budget.type == 'like')) {
       final matches = _tasks.where((task) => task.jumpType == 'like').toList();
       if (matches.length == 1 &&
           matches.single.completed == false &&
@@ -402,7 +413,12 @@ class LiveTaskAutomationService extends ChangeNotifier {
         if (preparation != null) {
           ++preparation.accumulated;
           if (preparation.accumulated < preparation.clicks) {
-            _show(LiveTaskAutomationState.waiting, '按账号1～3秒节奏累计任务点赞');
+            _show(
+              LiveTaskAutomationState.waiting,
+              _pendingBudgets.any((budget) => budget.type == 'sendDanmu')
+                  ? '按账号1～3秒节奏累计任务点赞；弹幕待核对，点赞可继续'
+                  : '按账号1～3秒节奏累计任务点赞',
+            );
             return;
           }
         }
@@ -429,7 +445,12 @@ class LiveTaskAutomationService extends ChangeNotifier {
       if ('$key'.endsWith(':index')) continue;
       final value = box.get(key);
       final pending = value is Map ? liveInt(value['pending_count']) : null;
-      if (pending == null || pending > 0) protected.add('$key');
+      final unconfirmed = value is Map
+          ? liveInt(value['unconfirmed_count']) ?? 0
+          : 0;
+      if (pending == null || pending > 0 || unconfirmed > 0) {
+        protected.add('$key');
+      }
     }
     for (final key in accountKeys) {
       if ('$key'.endsWith(':index')) {
@@ -463,6 +484,26 @@ class LiveTaskAutomationService extends ChangeNotifier {
   }
 
   String get _scope => '$_boundUid:$roomId:$anchorUid:';
+
+  Iterable<_TaskBudget> get _pendingBudgets => _budgets.values.where(
+    (budget) =>
+        budget.key.startsWith(_scope) &&
+        budget.pendingCount > 0 &&
+        !budget.retired,
+  );
+
+  Iterable<_TaskBudget> get _protectedBudgets => _budgets.values.where(
+    (budget) =>
+        budget.key.startsWith(_scope) &&
+        (budget.pendingCount > 0 || budget.unconfirmedCount > 0) &&
+        !budget.retired,
+  );
+
+  bool _certifiedTransition(LiveFanTask task, _TaskBudget budget) =>
+      (budget.completionOnly && task.dailyRewardProgress) ||
+      ((task.period.isNotEmpty ||
+              (_confirmedLocalCycles[task.jumpType] ?? 0) > 0) &&
+          _period(task) != budget.period);
 
   String _period(LiveFanTask task) => task.period.isNotEmpty
       ? task.period
@@ -514,6 +555,16 @@ class LiveTaskAutomationService extends ChangeNotifier {
     for (final task in _tasks) {
       if (!{'like', 'sendDanmu'}.contains(task.jumpType)) continue;
       final key = _key(task);
+      if (_protectedBudgets.any(
+        (budget) =>
+            budget.type == task.jumpType &&
+            budget.key != key &&
+            !_certifiedTransition(task, budget),
+      )) {
+        // Clearing room records cannot create a fresh quota by forgetting a
+        // confirmed local namespace while its consumed unknown writes remain.
+        continue;
+      }
       if (!_budgets.containsKey(key) &&
           task.completed != true &&
           (task.remainingCount == null ||
@@ -550,6 +601,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
       } else if (task.completed == true && !budget.serverCompleted) {
         budget
           ..serverCompleted = true
+          ..consecutiveNoProgress = 0
           ..highestObserved = math.max(
             budget.highestObserved,
             task.currentCount ?? task.targetCount ?? budget.highestObserved,
@@ -573,17 +625,6 @@ class LiveTaskAutomationService extends ChangeNotifier {
       }
       _retryConfigurationOnNextRead = false;
     }
-    if (_verification case final previous?) {
-      _verification = _budgets[previous.key] ?? previous;
-    }
-    _verification ??= _budgets.values
-        .where(
-          (budget) =>
-              budget.key.startsWith(scope) &&
-              budget.pendingCount > 0 &&
-              !budget.retired,
-        )
-        .firstOrNull;
   }
 
   Future<void> _persist(_TaskBudget budget) async {
@@ -596,6 +637,7 @@ class LiveTaskAutomationService extends ChangeNotifier {
                 entry.key.startsWith('$scope:') &&
                 (entry.value.period == 'unknown-period' ||
                     currentKeys.contains(entry.key) ||
+                    entry.value.unconfirmedCount > 0 ||
                     (entry.value.pendingCount > 0 && !entry.value.retired)),
           )
           .map((entry) => entry.key)
@@ -649,16 +691,19 @@ class LiveTaskAutomationService extends ChangeNotifier {
       }
       await _restoreBudgets(epoch);
       if (_disposed || epoch != _epoch || !_sameAccount) return;
-      if (await _verifyPending(epoch)) return;
+      final verification = await _verifyPending(epoch);
+      if (_disposed || epoch != _epoch || !_sameAccount) return;
       if (!_validRun(epoch)) {
         if (epoch == _epoch) _showInactive();
         return;
       }
       final candidates = <LiveFanTask>[];
-      final notices = <String>[];
+      final notices = <String>[...verification.notices];
       for (final type in ['like', 'sendDanmu']) {
         if (type == 'like' ? !_autoLike : !_autoDanmaku) continue;
+        if (verification.blockedTypes.contains(type)) continue;
         if (externalScheduling &&
+            !readOnly &&
             (type == 'like' ? !_queueLike : !_queueDanmaku)) {
           continue;
         }
@@ -719,14 +764,47 @@ class LiveTaskAutomationService extends ChangeNotifier {
         candidates.add(task);
       }
       if (candidates.isEmpty) {
-        _cancelLikePreparation();
+        if (!readOnly && (!externalScheduling || _queueLike)) {
+          _cancelLikePreparation();
+        }
+        final otherTaskPending = _tasks.any((task) {
+          final budget = _budgets[_key(task)];
+          return (task.jumpType == 'like' && _autoLike ||
+                  task.jumpType == 'sendDanmu' && _autoDanmaku) &&
+              !verification.blockedTypes.contains(task.jumpType) &&
+              task.completed == false &&
+              (task.remainingCount ?? 0) > 0 &&
+              (task.actionsPerProgress ?? 0) > 0 &&
+              budget != null &&
+              budget.halted == null &&
+              budget.allowance > 0;
+        });
         _show(
-          notices.isEmpty
-              ? LiveTaskAutomationState.completed
+          verification.blockedTypes.isNotEmpty
+              ? otherTaskPending
+                    ? LiveTaskAutomationState.waiting
+                    : verification.halted
+                    ? LiveTaskAutomationState.paused
+                    : LiveTaskAutomationState.verifying
+              : notices.isEmpty
+              ? externalScheduling && readOnly && otherTaskPending
+                    ? LiveTaskAutomationState.waiting
+                    : LiveTaskAutomationState.completed
               : LiveTaskAutomationState.paused,
-          notices.isEmpty ? '已确认所选亲密度任务完成' : notices.join('；'),
+          notices.isEmpty
+              ? externalScheduling && readOnly && otherTaskPending
+                    ? '已核对官方任务，等待账号调度'
+                    : '已确认所选亲密度任务完成'
+              : notices.join('；'),
         );
-        _schedule(const Duration(seconds: 30));
+        _schedule(
+          Duration(
+            seconds:
+                verification.blockedTypes.isNotEmpty && !verification.halted
+                ? 5
+                : 30,
+          ),
+        );
         return;
       }
       final like = candidates
@@ -787,16 +865,16 @@ class LiveTaskAutomationService extends ChangeNotifier {
         ..sent += count
         ..pendingCount = count
         ..beforeWriteCount = chosen.currentCount ?? 0
-        ..verificationChecks = 0;
-      _verification = budget;
+        ..verificationChecks = 0
+        ..pendingSinceMillis = _now().millisecondsSinceEpoch;
       // Durable before the write: reopening/restarting can only reconcile an
       // interrupted request, never submit another copy from the same budget.
       await _persist(budget);
       if (!allowed()) {
         budget
           ..sent -= count
-          ..pendingCount = 0;
-        if (identical(_verification, budget)) _verification = null;
+          ..pendingCount = 0
+          ..pendingSinceMillis = null;
         await _persist(budget);
         return;
       }
@@ -840,8 +918,9 @@ class LiveTaskAutomationService extends ChangeNotifier {
             // No numerical server progress exists in the lighting phase.
             // Accepted writes consume the title quota; every next write still
             // begins with a fresh is_done read. Unknown writes remain frozen.
-            budget.pendingCount = 0;
-            if (identical(_verification, budget)) _verification = null;
+            budget
+              ..pendingCount = 0
+              ..pendingSinceMillis = null;
           }
           await _persist(budget);
           if (_validRun(epoch)) {
@@ -856,8 +935,8 @@ class LiveTaskAutomationService extends ChangeNotifier {
         case LiveTaskWriteState.rejected:
           budget
             ..sent -= count
-            ..pendingCount = 0;
-          if (identical(_verification, budget)) _verification = null;
+            ..pendingCount = 0
+            ..pendingSinceMillis = null;
           if (result.state == LiveTaskWriteState.rejected ||
               (result.state == LiveTaskWriteState.notSubmitted &&
                   _validRun(epoch))) {
@@ -908,69 +987,116 @@ class LiveTaskAutomationService extends ChangeNotifier {
     }
   }
 
-  /// No subsequent write until the submitted count is reflected by the server.
-  Future<bool> _verifyPending(int epoch) async {
-    final budget = _verification;
-    if (budget == null) return false;
-    final matches = _tasks.where((task) => _key(task) == budget.key).toList();
-    if (matches.isEmpty) {
-      // An official transition from a lighting quota to daily rewards confirms
-      // that the former phase ended. Its quota must not poison the daily one.
-      final completedLightingPhase =
-          budget.completionOnly &&
-          _tasks.any(
-            (task) => task.jumpType == budget.type && task.dailyRewardProgress,
-          );
-      // A named server period or independently certified local cycle retires
-      // the old phase without claiming its unresolved write succeeded.
-      final newPeriod = _tasks.any(
-        (task) =>
-            task.jumpType == budget.type &&
-            (task.period.isNotEmpty ||
-                (_confirmedLocalCycles[task.jumpType] ?? 0) > 0) &&
-            _period(task) != budget.period,
-      );
-      if (completedLightingPhase || newPeriod) {
-        budget.retired = true;
-        await _persist(budget);
-        _verification = null;
-        return false;
-      }
-    }
-    final task = matches.length == 1 ? matches.single : null;
-    final observed = task?.currentCount;
-    if (task?.completed == true ||
-        (observed != null &&
-            observed >= budget.beforeWriteCount + budget.pendingCount)) {
-      if (observed != null) {
-        budget.highestObserved = math.max(budget.highestObserved, observed);
-        if (observed == budget.beforeWriteCount + budget.pendingCount) {
-          budget.countMappingConfirmed = true;
+  /// Each task owns its unresolved writes. A pending message cannot block
+  /// likes, and vice versa; every read still reconciles all persisted types.
+  Future<({Set<String> blockedTypes, List<String> notices, bool halted})>
+  _verifyPending(int epoch) async {
+    final blockedTypes = <String>{};
+    final notices = <String>[];
+    var halted = false;
+    for (final budget in _protectedBudgets.toList()) {
+      if (_disposed || epoch != _epoch || !_sameAccount) break;
+      final matches = _tasks.where((task) => _key(task) == budget.key).toList();
+      if (matches.isEmpty) {
+        // An official transition from a lighting quota to daily rewards confirms
+        // that the former phase ended. Its quota must not poison the daily one.
+        final sameType = _tasks
+            .where((task) => task.jumpType == budget.type)
+            .toList();
+        // A new certified period or completed official task retires the old
+        // protection, preserving its historical unknown sends in the journal.
+        if (sameType.length == 1 &&
+            (sameType.single.completed == true ||
+                _certifiedTransition(sameType.single, budget))) {
+          budget.retired = true;
+          await _persist(budget);
+          continue;
         }
+        blockedTypes.add(budget.type);
+        halted = true;
+        final label = budget.type == 'like' ? '点赞' : '弹幕';
+        notices.add('$label：历史未决发送的任务周期尚未确认，已暂停此任务；其他任务可继续');
+        continue;
       }
-      budget
-        ..pendingCount = 0
-        ..halted = null;
-      _verification = null;
+      final task = matches.length == 1 ? matches.single : null;
+      final observed = task?.currentCount;
+      if (observed != null && observed > budget.highestObserved) {
+        budget
+          ..highestObserved = observed
+          ..consecutiveNoProgress = 0;
+        if (budget.pendingCount == 0) await _persist(budget);
+      }
+      if (budget.pendingCount == 0) continue;
+      if (task?.completed == true ||
+          (observed != null &&
+              observed >= budget.beforeWriteCount + budget.pendingCount)) {
+        if (observed != null) {
+          budget.highestObserved = math.max(budget.highestObserved, observed);
+          if (observed == budget.beforeWriteCount + budget.pendingCount) {
+            budget.countMappingConfirmed = true;
+          }
+        }
+        budget
+          ..pendingCount = 0
+          ..pendingSinceMillis = null
+          ..consecutiveNoProgress = 0
+          ..halted = null;
+        await _persist(budget);
+        continue;
+      }
+      // Legacy journals have no trustworthy start time. Old polling counts do
+      // not satisfy the new waiting window; begin with this fresh official read.
+      if (budget.pendingSinceMillis == null) {
+        budget
+          ..pendingSinceMillis = _now().millisecondsSinceEpoch
+          ..verificationChecks = 0;
+      }
+      budget.verificationChecks = math.min(budget.verificationChecks + 1, 9999);
+      final canAdvanceMessage =
+          budget.type == 'sendDanmu' &&
+          !budget.completionOnly &&
+          task != null &&
+          task.completed == false &&
+          observed != null &&
+          observed == budget.beforeWriteCount &&
+          budget.verificationChecks >= 3 &&
+          _now().millisecondsSinceEpoch - budget.pendingSinceMillis! >= 120000;
+      if (canAdvanceMessage && budget.consecutiveNoProgress < 3) {
+        ++budget.consecutiveNoProgress;
+        if (budget.consecutiveNoProgress < 3) {
+          // Keep every consumed send in the ledger. Time cannot refund a write
+          // or identify which request a later server increment belongs to.
+          budget
+            ..unconfirmedCount += budget.pendingCount
+            ..pendingCount = 0
+            ..pendingSinceMillis = null;
+          await _persist(budget);
+          continue;
+        }
+        budget.halted = '弹幕连续3次未获得官方任务进度，已暂停；仅继续只读核对';
+      }
+      final taskHalted = budget.verificationChecks >= 3;
       await _persist(budget);
-      return false;
-    }
-    budget.verificationChecks = math.min(budget.verificationChecks + 1, 9999);
-    final halted = budget.verificationChecks >= 3;
-    await _persist(budget);
-    if (_disposed || epoch != _epoch || !_sameAccount) return true;
-    _show(
-      halted
-          ? LiveTaskAutomationState.paused
-          : LiveTaskAutomationState.verifying,
-      halted
-          ? '官方任务进度尚未增长，已停止自动发送；仅继续只读核对'
+      blockedTypes.add(budget.type);
+      halted = halted || taskHalted;
+      final label = budget.type == 'like' ? '点赞' : '弹幕';
+      final limitedMessage =
+          budget.type == 'sendDanmu' &&
+          !budget.completionOnly &&
+          observed != null;
+      final reason = budget.consecutiveNoProgress >= 3
+          ? budget.halted ?? '弹幕连续3次未获得官方任务进度，已暂停；仅继续只读核对'
+          : limitedMessage
+          ? '进度待核对；等待至少2分钟及3次核对后有限继续'
+                '（连续未增长${budget.consecutiveNoProgress}/3）；点赞可继续'
+          : taskHalted
+          ? '官方任务进度尚未增长，已停止此任务发送；仅继续只读核对'
           : budget.unknown
           ? '互动结果未知，仅核对任务；不会自动重发'
-          : '等待官方任务进度更新',
-    );
-    _schedule(Duration(seconds: halted ? 30 : 5));
-    return true;
+          : '等待官方任务进度更新';
+      notices.add('$label：$reason');
+    }
+    return (blockedTypes: blockedTypes, notices: notices, halted: halted);
   }
 
   @override
@@ -1011,6 +1137,9 @@ class _TaskBudget {
   int pendingCount = 0;
   int beforeWriteCount = 0;
   int verificationChecks = 0;
+  int? pendingSinceMillis;
+  int consecutiveNoProgress = 0;
+  int unconfirmedCount = 0;
   bool countMappingConfirmed = false;
   bool unknown = false;
   String? halted;
@@ -1031,7 +1160,7 @@ class _TaskBudget {
   int get allowance => initialRemaining - sent;
 
   Map<String, dynamic> get record => {
-    'schema': 2,
+    'schema': 3,
     'actions_per_progress': actionsPerProgress,
     'daily_reward_progress': dailyRewardProgress,
     'completion_only': completionOnly,
@@ -1044,6 +1173,9 @@ class _TaskBudget {
     'pending_count': pendingCount,
     'before_write_count': beforeWriteCount,
     'verification_checks': verificationChecks,
+    'pending_since_millis': pendingSinceMillis,
+    'consecutive_no_progress': consecutiveNoProgress,
+    'unconfirmed_count': unconfirmedCount,
     'count_mapping_confirmed': countMappingConfirmed,
     'server_completed': serverCompleted,
     'retired': retired,
@@ -1064,7 +1196,7 @@ class _TaskBudget {
 
     final type = record['type'];
     final period = record['period'];
-    if (!{1, 2}.contains(record['schema']) ||
+    if (!{1, 2, 3}.contains(record['schema']) ||
         !{'like', 'sendDanmu'}.contains(type) ||
         period is! String) {
       throw const LiveInteractionException('本地任务记录无法核对，自动操作暂停');
@@ -1079,9 +1211,24 @@ class _TaskBudget {
         : value('actions_per_progress');
     final dailyRewardProgress = record['daily_reward_progress'] == true;
     final completionOnly = record['completion_only'] == true;
+    final consecutiveNoProgress = record['schema'] == 3
+        ? value('consecutive_no_progress')
+        : 0;
+    final unconfirmedCount = record['schema'] == 3
+        ? value('unconfirmed_count')
+        : 0;
+    final pendingSinceMillis = record['schema'] == 3
+        ? liveInt(record['pending_since_millis'])
+        : null;
     if (initial > target ||
         sent > initial ||
-        pending > sent ||
+        pending + unconfirmedCount > sent ||
+        consecutiveNoProgress > 3 ||
+        (pendingSinceMillis != null &&
+            (pendingSinceMillis < 0 || pendingSinceMillis > 10000000000000)) ||
+        (record['schema'] == 3 &&
+            record['pending_since_millis'] != null &&
+            pendingSinceMillis == null) ||
         before + pending > target ||
         actionsPerProgress <= 0 ||
         actionsPerProgress > 1000 ||
@@ -1106,6 +1253,9 @@ class _TaskBudget {
       ..pendingCount = pending
       ..beforeWriteCount = before
       ..verificationChecks = value('verification_checks')
+      ..pendingSinceMillis = pendingSinceMillis
+      ..consecutiveNoProgress = consecutiveNoProgress
+      ..unconfirmedCount = unconfirmedCount
       ..countMappingConfirmed = record['count_mapping_confirmed'] == true
       ..serverCompleted = record['server_completed'] == true
       ..retired = record['retired'] == true

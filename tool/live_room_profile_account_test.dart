@@ -16,6 +16,7 @@ import 'package:PiliPlus/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliPlus/utils/live_intimacy_preferences.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
@@ -75,6 +76,9 @@ void main() {
           'account.hive',
           'setting.hive',
           'localcache.hive',
+          if (File('${config.hivePath}/livetaskautomationjournal.hive')
+              .existsSync())
+            'livetaskautomationjournal.hive',
         ]) {
           final copy = await File('${config.hivePath}/$name')
               .copy('${private.path}/$name');
@@ -244,6 +248,11 @@ void main() {
           throw StateError('selected_login_unconfirmed');
         }
         result['account_confirmed'] = true;
+        final preferences = Pref.liveIntimacyPreferencesFor(account.mid);
+        final journal = await Hive.openBox<dynamic>(
+          'liveTaskAutomationJournal',
+        );
+        result['task_master_enabled'] = preferences.enabled;
         result['account_safety'] = {
           'stored_non_anonymous_account_count': Accounts.account.values
               .where((value) => value.mid > 0)
@@ -278,6 +287,53 @@ void main() {
             );
             profile['canonical_room'] = roomId;
             profile['public_anchor_uid'] = anchor;
+            final configured = preferences.roomFor(roomId, anchor);
+            profile['local_configuration'] = {
+              'configured': configured != null,
+              'authorized': configured?.authorized,
+              'mode': configured?.mode.name,
+              'auto_like': configured?.automation.autoLike,
+              'auto_danmaku': configured?.automation.autoDanmaku,
+              'danmaku_mode': configured?.automation.danmakuMode.name,
+              'selected_emoticons': configured?.emoticons
+                  .map((e) => e.unique)
+                  .toList(),
+              'configuration_issue': configured?.configurationIssue(),
+            };
+            final scope = '${account.mid}:$roomId:$anchor:';
+            final keys = liveMap(journal.get('${scope}index'))['keys'];
+            profile['local_budgets'] = [
+              if (keys is List)
+                for (final key in keys.whereType<String>())
+                  if (key.startsWith(scope))
+                    {
+                      for (final field in [
+                        'schema',
+                        'type',
+                        'actions_per_progress',
+                        'daily_reward_progress',
+                        'completion_only',
+                        'initial_remaining',
+                        'target',
+                        'highest_observed',
+                        'sent',
+                        'pending_count',
+                        'before_write_count',
+                        'verification_checks',
+                        'count_mapping_confirmed',
+                        'server_completed',
+                        'retired',
+                        'unknown',
+                        'halted',
+                        'retry_on_message_change',
+                        'pending_since_millis',
+                        'consecutive_no_progress',
+                        'unconfirmed_count',
+                      ])
+                        if (liveMap(journal.get(key)).containsKey(field))
+                          field: liveMap(journal.get(key))[field],
+                    },
+            ];
             stage = 'qualified_medal_inventory';
             final discovery = LiveIntimacyDiscovery.testing(read: read);
             final candidate = await discovery.recheck(
@@ -309,6 +365,15 @@ void main() {
             final options = await service.loadTaskEmoticons();
             final club = options.where((option) => option.isFanClub).toList();
             profile['emoticons'] = {
+              'selected_available_intersection': [
+                for (final option in club)
+                  if (option.available &&
+                      configured?.emoticons.any(
+                            (e) => e.unique == option.unique,
+                          ) ==
+                          true)
+                    option.unique,
+              ],
               'club_count': club.length,
               'club_available_count': club
                   .where((option) => option.available)
