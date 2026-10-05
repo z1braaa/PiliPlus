@@ -1,0 +1,67 @@
+{
+  "requirement": "LIVE-ROOM-01",
+  "client_date": "2026-10-05",
+  "room": 21013446,
+  "production_source_commit": "ec87440344dd31b3be8a508110ea013f57a00d33",
+  "initial_reproduction": "live-room-21013446-before-20261005.json",
+  "pending_recovery_trial": {
+    "result": "preflight_aborted_no_pending_write_remained",
+    "read_requests": 0,
+    "write_requests": 0,
+    "private_storage_removed": true,
+    "user_confirmed_manual_interaction": true,
+    "did_not_fabricate_or_clear_pending_budget": true
+  },
+  "production_read_only_reconciliation": {
+    "status": "completed",
+    "scope": "production_read_only_completed_task_reconciliation_no_media",
+    "reconciled_automation_state": "completed",
+    "reconciled_status_text": "已确认所选亲密度任务完成",
+    "attempted_like_clicks": 0,
+    "attempted_danmaku": 0,
+    "accepted_reads": 8,
+    "blocked_requests": 0,
+    "private_copy_removed": true,
+    "original_storage_opened_for_writing": false
+  },
+  "official_like_and_danmaku": [
+    {
+      "type": "sendDanmu",
+      "current": 10,
+      "target": 10,
+      "completed": true
+    },
+    {
+      "type": "like",
+      "current": 10,
+      "target": 10,
+      "completed": true
+    }
+  ],
+  "automated_regressions": {
+    "passed": 250,
+    "test_files": 16,
+    "analysis_issues": 0
+  },
+  "build": {
+    "build": 5445,
+    "source_commit": "ec87440344dd31b3be8a508110ea013f57a00d33",
+    "canonical_source_sha256": "71090cf1a9b4dd896c1bfc8ed01dd9b2f3ab38408e4c82d68e6e59da36b8f0d7",
+    "build_exit": 0,
+    "native_config_restored": true,
+    "common_source_unchanged": true,
+    "mach_o_count": 45,
+    "all_universal": true,
+    "minimum_macos": "13.0",
+    "dmg_sha256": "4dd496ab832d18a04d190075c4ff8236db3bb8f56b7bd9d2f748ff7e6d96f3ea",
+    "dmg_bytes": 60698661,
+    "signature": "ad-hoc deep strict verified",
+    "independent_actual_dmg_inspection_passed": true,
+    "independent_review_report": "verification/independent-macos-review.json"
+  },
+  "limits": [
+    "New pending-danmaku timed recovery was not run against this room because manual interaction completed its official danmaku task before acceptance started.",
+    "Official 10/10 progress is the original application plus user manual interaction, not an increment caused by the repaired build.",
+    "Installation/GUI acceptance of build 5445 has not run; no Android or Windows build in this macOS debug scope."
+  ]
+}

@@ -89,14 +89,18 @@ void main() {
   test(
     'explicitly authorized single-room production recovery acceptance',
     () async {
+      final reconcileOnly =
+          Platform.environment['LIVE_ROOM_RECOVERY_RECONCILE_ONLY'] == 'true';
       final result = <String, Object?>{
         'schema_version': 1,
         'requirement': 'LIVE-ROOM-01',
         'status': 'starting',
-        'scope': 'saved_authorization_single_room_free_interactions_no_media',
+        'scope': reconcileOnly
+            ? 'production_read_only_completed_task_reconciliation_no_media'
+            : 'saved_authorization_single_room_free_interactions_no_media',
         'started_utc': DateTime.now().toUtc().toIso8601String(),
-        'maximum_like_click_attempts': 30,
-        'maximum_danmaku_attempts': 2,
+        'maximum_like_click_attempts': reconcileOnly ? 0 : 30,
+        'maximum_danmaku_attempts': reconcileOnly ? 0 : 2,
         'other_client_activity': 'unobserved',
         'gui_verified': false,
       };
@@ -170,7 +174,7 @@ void main() {
       }
 
       bool mayRun() =>
-          writesEnabled &&
+          (writesEnabled || reconcileOnly) &&
           !stoppedByMarker() &&
           identityConfirmed() &&
           savedAuthorizationConfirmed();
@@ -379,12 +383,13 @@ void main() {
         journalScope = '${account.mid}:${config.roomId}:${config.anchorUid}:';
         final beforeBudgets = _safeBudgets(journal, journalScope);
         result['initial_budgets'] = beforeBudgets;
-        if (!beforeBudgets.any(
-          (budget) =>
-              budget['type'] == 'sendDanmu' &&
-              (budget['pending_count'] is int &&
-                  (budget['pending_count'] as int) > 0),
-        )) {
+        if (!reconcileOnly &&
+            !beforeBudgets.any(
+              (budget) =>
+                  budget['type'] == 'sendDanmu' &&
+                  (budget['pending_count'] is int &&
+                      (budget['pending_count'] as int) > 0),
+            )) {
           throw const _Failure('original_pending_danmaku_budget_required');
         }
         gate = LiveRoomRecoveryRequestGate(
@@ -566,7 +571,7 @@ void main() {
           },
         );
         final active = automation..addListener(recordState);
-        writesEnabled = true;
+        writesEnabled = !reconcileOnly;
         gate.activateInteractions(clock.elapsedMilliseconds);
         active.update(
           playing: true,
@@ -581,12 +586,19 @@ void main() {
           ),
         );
         stage = 'bounded_production_recovery';
+        if (reconcileOnly) {
+          await active.refreshTasks();
+          recordState();
+          result['reconciled_automation_state'] = active.state.name;
+          result['reconciled_status_text'] = active.statusText;
+        }
         final window = Stopwatch()..start();
         var nextRead = 0;
         var nextQualification = 60000;
         var nextLike = 1000 + random.nextInt(2001);
         var nextDanmaku = 30000 + random.nextInt(30001);
-        while (window.elapsedMilliseconds < config.seconds * 1000) {
+        while (!reconcileOnly &&
+            window.elapsedMilliseconds < config.seconds * 1000) {
           if (stoppedByMarker()) break;
           if (!identityConfirmed() ||
               !savedAuthorizationConfirmed() ||
@@ -620,7 +632,9 @@ void main() {
           recordState();
           await Future<void>.delayed(const Duration(milliseconds: 200));
         }
-        result['observation_end'] = stopped
+        result['observation_end'] = reconcileOnly
+            ? 'single_production_read_only_reconciliation'
+            : stopped
             ? 'operator_graceful_stop'
             : 'bounded_window_elapsed';
         writesEnabled = false;
